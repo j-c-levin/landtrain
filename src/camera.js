@@ -162,7 +162,9 @@ export class CameraRig {
   }
 
   orbitDrag(dxPixels, dyPixels) {
-    this.orbit.theta += dxPixels * 0.005;
+    // grab-the-world feel: drag right and the scene follows your finger right
+    // (matches the map view's panMap convention)
+    this.orbit.theta -= dxPixels * 0.005;
     this.orbit.phi = clamp(this.orbit.phi + dyPixels * 0.005, 0.04, 1.25);
     this.autoOrbit = false; // a chosen view sticks
     this.recentering = false;

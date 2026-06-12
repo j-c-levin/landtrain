@@ -12,6 +12,13 @@ export class UI {
     this.gaugeTread = document.querySelector('#gauge-tread .gauge-fill');
     this.muteHint = document.getElementById('mute-hint');
     this.readingLine = document.getElementById('reading-line');
+    this.btnOrbit = document.getElementById('btn-orbit');
+    this.btnExit = document.getElementById('btn-exit');
+    this.btnUndo = document.getElementById('btn-undo');
+    this.btnClear = document.getElementById('btn-clear');
+
+    // coarse pointer = phone/tablet — swaps hint text to touch wording
+    this.isTouch = window.matchMedia('(pointer: coarse)').matches;
 
     this.toastTimer = null;
     this.lastToast = '';
@@ -64,6 +71,17 @@ export class UI {
     this.readingLine.textContent = text;
   }
 
+  bindViewButtons({ onOrbit, onUndo, onClear, onExit }) {
+    this.btnOrbit.addEventListener('click', onOrbit);
+    this.btnUndo.addEventListener('click', onUndo);
+    this.btnClear.addEventListener('click', onClear);
+    this.btnExit.addEventListener('click', onExit);
+  }
+
+  setOrbitActive(on) {
+    this.btnOrbit.classList.toggle('active', on);
+  }
+
   firstCabVisit() {
     this.visitedCab = true;
   }
@@ -78,6 +96,13 @@ export class UI {
   }
 
   intro(onDismiss) {
+    const controls = this.isTouch
+      ? `<span><b>hold left / right</b> walk</span>
+        <span><b>hold top / bottom</b> climb ladders</span>
+        <span><b>tap or hold centre</b> tend &amp; interact</span>`
+      : `<span><kbd>A</kbd><kbd>D</kbd> walk</span>
+        <span><kbd>W</kbd><kbd>S</kbd> climb ladders</span>
+        <span><kbd>E</kbd> tend &amp; interact</span>`;
     this.showCard(`
       <h1>Land Train</h1>
       <div class="rule"></div>
@@ -85,12 +110,8 @@ export class UI {
       and look after it along the way.</p>
       <p class="soft">Plot a route from the driver's cab, up top at the front.
       The train drives itself — you just live aboard.</p>
-      <div class="controls">
-        <span><kbd>A</kbd><kbd>D</kbd> walk</span>
-        <span><kbd>W</kbd><kbd>S</kbd> climb ladders</span>
-        <span><kbd>E</kbd> tend &amp; interact</span>
-      </div>
-      <p class="press-any">press any key to begin</p>
+      <div class="controls">${controls}</div>
+      <p class="press-any">${this.isTouch ? 'tap to begin' : 'press any key to begin'}</p>
     `);
     const dismiss = () => {
       this.hideCard();

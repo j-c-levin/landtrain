@@ -34,6 +34,8 @@ body {
   height: 100%;
   display: block;
   cursor: default;
+  /* the canvas owns every gesture — no browser panning/zooming over it */
+  touch-action: none;
 }
 
 body.map-mode #scene {
@@ -182,6 +184,14 @@ body.map-mode #map-help {
   transform: translateX(-50%) translateY(0);
 }
 
+/* phones get buttons instead — the keyboard help would wrap into the
+   view buttons on a narrow screen */
+@media (pointer: coarse) {
+  #map-help {
+    display: none;
+  }
+}
+
 /* ---------- prompt ---------- */
 #prompt {
   position: absolute;
@@ -283,6 +293,59 @@ body.map-mode #map-help {
 
 body.book-mode #reading-line {
   opacity: 1;
+}
+
+/* ---------- view buttons (book & map exits) ---------- */
+#view-buttons {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  display: flex;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+body.book-mode #view-buttons,
+body.map-mode #view-buttons {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* each view shows only its own verbs */
+#btn-undo,
+#btn-clear {
+  display: none;
+}
+
+body.map-mode #btn-orbit {
+  display: none; /* the map has no orbit */
+}
+
+body.map-mode #btn-undo,
+body.map-mode #btn-clear {
+  display: block;
+}
+
+#view-buttons button {
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  color: var(--cream);
+  background: rgba(36, 26, 40, 0.62);
+  border: 1px solid rgba(247, 234, 210, 0.25);
+  border-radius: 999px;
+  padding: 11px 22px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  touch-action: manipulation;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+#view-buttons button.active {
+  background: rgba(216, 160, 76, 0.35);
+  border-color: rgba(236, 217, 160, 0.6);
 }
 
 /* ---------- mute hint ---------- */

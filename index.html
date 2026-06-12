@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>Land Train — First Journey</title>
     <link rel="icon" href="data:," />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -50,6 +53,14 @@
       </div>
 
       <div id="reading-line">&hellip; the plains roll by, page after page &hellip;</div>
+
+      <!-- clear touch targets for getting in/out of the resting & map views -->
+      <div id="view-buttons">
+        <button id="btn-undo" type="button">undo</button>
+        <button id="btn-clear" type="button">clear</button>
+        <button id="btn-orbit" type="button">orbit</button>
+        <button id="btn-exit" type="button">exit</button>
+      </div>
 
       <div id="mute-hint"><b>M</b> sound</div>
     </div>

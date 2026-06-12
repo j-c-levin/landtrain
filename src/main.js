@@ -76,43 +76,138 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const ndc = new THREE.Vector2();
 const hit = new THREE.Vector3();
 
-let dragging = false;
+// One finger (or the mouse) pans the map / orbits the book view; two
+// fingers pinch-zoom. Pointers are tracked per-id so a second finger
+// can't double-feed the drag.
+const scenePointers = new Map(); // pointerId -> last position
 let dragMoved = 0;
-let lastPointer = { x: 0, y: 0 };
+let pinchGap = 0;
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
+function pinchGapNow() {
+  const [a, b] = [...scenePointers.values()];
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
 canvas.addEventListener('pointerdown', (e) => {
   if ((rig.mode !== 'map' && rig.mode !== 'book') || rig.busy) return;
-  dragging = true;
-  dragMoved = 0;
-  lastPointer = { x: e.clientX, y: e.clientY };
+  if (scenePointers.size === 0) dragMoved = 0;
+  scenePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (scenePointers.size === 2) {
+    pinchGap = pinchGapNow();
+    dragMoved += 999; // a pinch is never a waypoint tap
+  }
 });
 
 canvas.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
-  const dx = e.clientX - lastPointer.x;
-  const dy = e.clientY - lastPointer.y;
+  const prev = scenePointers.get(e.pointerId);
+  if (!prev) return;
+  const dx = e.clientX - prev.x;
+  const dy = e.clientY - prev.y;
+  prev.x = e.clientX;
+  prev.y = e.clientY;
   dragMoved += Math.abs(dx) + Math.abs(dy);
-  if (rig.mode === 'map' && dragMoved > 6) {
+
+  if (scenePointers.size >= 2) {
+    // pinch — fingers apart pulls the view closer
+    const gap = pinchGapNow();
+    if (pinchGap > 0 && gap > 0) {
+      const factor = pinchGap / gap;
+      if (rig.mode === 'map') rig.zoomMap(factor);
+      else rig.orbitZoom(factor);
+    }
+    pinchGap = gap;
+  } else if (rig.mode === 'map' && dragMoved > 6) {
     rig.panMap(dx, dy, window.innerHeight);
   } else if (rig.mode === 'book') {
     rig.orbitDrag(dx, dy);
   }
-  lastPointer = { x: e.clientX, y: e.clientY };
 });
 
 window.addEventListener('pointerup', (e) => {
-  if (!dragging) return;
-  dragging = false;
+  const wasTracked = scenePointers.delete(e.pointerId);
+  if (scenePointers.size < 2) pinchGap = 0;
+  if (!wasTracked) return;
+  if (scenePointers.size > 0) return; // other fingers still down
   if (rig.mode !== 'map' || rig.busy) return;
-  if (dragMoved > 6 || e.button === 2) return; // it was a pan, not a click
+  if (dragMoved > 6 || e.button === 2) return; // it was a pan/pinch, not a click
 
   ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
   if (raycaster.ray.intersectPlane(groundPlane, hit)) {
     if (train.addWaypoint(hit.x, hit.z)) audio.chime('waypoint');
   }
+});
+window.addEventListener('pointercancel', (e) => {
+  scenePointers.delete(e.pointerId);
+  if (scenePointers.size < 2) pinchGap = 0;
+});
+
+// ----------------------------------------------------------- touch zones
+// Phone/tablet controls, synthesized into the same virtual key set the
+// keyboard feeds — player & interaction logic stay unchanged. Left/right
+// thirds walk; the middle column climbs (top) or descends (bottom) at
+// ladders; the centre is E — tap to interact, keep a finger down to tend.
+// Inhabit mode only: map taps lay waypoints and book drags orbit, so
+// zone-keys would fight them there.
+const touchHolds = new Map(); // pointerId -> synthesized key code
+
+function zoneCode(x, y) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if (x < w / 3) return 'ArrowLeft';
+  if (x > (2 * w) / 3) return 'ArrowRight';
+  if (y < h / 3) return 'ArrowUp';
+  if (y > (2 * h) / 3) return 'ArrowDown';
+  return 'KeyE';
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') return;
+  if (rig.mode !== 'inhabit' || rig.busy) return;
+  const code = zoneCode(e.clientX, e.clientY);
+  touchHolds.set(e.pointerId, code);
+  if (!keys.has(code)) pressedThisFrame.add(code);
+  keys.add(code);
+});
+
+function releaseTouch(e) {
+  const code = touchHolds.get(e.pointerId);
+  if (code === undefined) return;
+  touchHolds.delete(e.pointerId);
+  // lift the key only when no other finger is holding the same zone
+  if (![...touchHolds.values()].includes(code)) keys.delete(code);
+}
+window.addEventListener('pointerup', releaseTouch);
+window.addEventListener('pointercancel', releaseTouch);
+
+// ----------------------------------------------------------- view buttons
+// Clear hit targets for the views a phone can't E/Escape out of.
+function toggleOrbitView() {
+  if (rig.mode !== 'book' || rig.busy) return;
+  const on = rig.toggleAutoOrbit();
+  ui.toast(on ? 'gentle orbit' : 'view held', 1600);
+}
+
+ui.bindViewButtons({
+  onOrbit: toggleOrbitView,
+  onUndo: () => {
+    if (rig.mode === 'map' && !rig.busy) train.undoWaypoint();
+  },
+  onClear: () => {
+    if (rig.mode === 'map' && !rig.busy) train.clearRoute();
+  },
+  onExit: () => {
+    if (rig.busy) return;
+    if (rig.mode === 'book') {
+      player.stand();
+      rig.exitBook();
+    } else if (rig.mode === 'map') {
+      rig.exitMap();
+      audio.chime('soft');
+    }
+  },
 });
 
 canvas.addEventListener(
@@ -174,10 +269,7 @@ function tick() {
       if (pressedThisFrame.has('KeyZ') || pressedThisFrame.has('Backspace')) train.undoWaypoint();
       if (pressedThisFrame.has('KeyC')) train.clearRoute();
     }
-    if (rig.mode === 'book' && !rig.busy && pressedThisFrame.has('KeyO')) {
-      const on = rig.toggleAutoOrbit();
-      ui.toast(on ? 'gentle orbit' : 'view held', 1600);
-    }
+    if (pressedThisFrame.has('KeyO')) toggleOrbitView();
 
     interactions.update(dt, input);
 
@@ -223,6 +315,7 @@ function tick() {
   train.updateRouteDisplay(rig.mapBlend, elapsed);
   ui.setGauges(train.eff, train.wear);
   ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
+  ui.setOrbitActive(rig.autoOrbit);
   world.update(dt, elapsed, train.pos, camera.position);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
   audio.update(dt, train.speed / TUNING.baseSpeed);

@@ -105,7 +105,12 @@ export class Interactions {
           this.restExit = spot.exit;
           ui.setReadingLine(spot.line);
           this.audio.chime('soft');
-          ui.toast('drag to look · scroll to drift closer · O for gentle orbit', 5200);
+          ui.toast(
+            ui.isTouch
+              ? 'drag to look around · orbit & exit wait top-right'
+              : 'drag to look · scroll to drift closer · O for gentle orbit',
+            5200
+          );
         }
         break;
       }
