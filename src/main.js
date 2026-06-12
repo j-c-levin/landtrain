@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createWorld } from './world.js';
+import { SkyCycle } from './sky.js';
 import { Train } from './train.js';
 import { Player } from './player.js';
 import { CameraRig } from './camera.js';
@@ -37,6 +38,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 9000);
 
 const world = createWorld(scene);
+const sky = new SkyCycle(scene, renderer, world.sunLight);
 const fog = new FogOfWar(scene);
 const train = new Train(scene);
 const player = new Player(train, scene);
@@ -222,6 +224,7 @@ function tick() {
   ui.setGauges(train.eff, train.wear);
   ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
   world.update(dt, elapsed, train.pos, camera.position);
+  sky.update(dt, elapsed, camera, train.pos, scene.fog);
   audio.update(dt, train.speed / TUNING.baseSpeed);
 
   pressedThisFrame.clear();
@@ -231,4 +234,4 @@ function tick() {
 tick();
 
 // debug / verification handle
-window.__game = { train, player, rig, fog, state, world, camera, WORLD };
+window.__game = { train, player, rig, fog, state, world, sky, camera, WORLD };

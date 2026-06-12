@@ -12,24 +12,6 @@ function mulberry(seed) {
   };
 }
 
-function skyTexture() {
-  const c = document.createElement('canvas');
-  c.width = 4;
-  c.height = 256;
-  const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0.0, '#7fb2c4'); // soft teal zenith
-  g.addColorStop(0.45, '#cfd3b2');
-  g.addColorStop(0.68, '#f4cd95'); // honey band
-  g.addColorStop(0.82, '#f0b083'); // peach horizon
-  g.addColorStop(1.0, '#e8a87c');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 4, 256);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 function softDiscTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)') {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -151,31 +133,14 @@ export function createWorld(scene) {
   const rand = mulberry(20260612);
   const obstacles = [];
 
-  // --- sky dome + fog -------------------------------------------------
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(4200, 24, 16),
-    new THREE.MeshBasicMaterial({ map: skyTexture(), side: THREE.BackSide, fog: false, depthWrite: false })
-  );
-  scene.add(sky);
-  scene.fog = new THREE.Fog(0xf2c694, 130, 560);
+  // --- fog (colour is driven per-frame by the SkyCycle) -----------------
+  scene.fog = new THREE.Fog(0xdfe9df, 130, 560);
 
-  const sun = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: softDiscTexture('rgba(255,238,200,0.95)', 'rgba(255,210,140,0)'),
-      transparent: true,
-      depthWrite: false,
-      fog: false,
-    })
-  );
-  sun.scale.setScalar(900);
-  sun.position.set(1400, 480, -3400);
-  scene.add(sun);
-
-  // --- lights ----------------------------------------------------------
-  const hemi = new THREE.HemisphereLight(0xffe1bb, 0x70805d, 1.05);
-  scene.add(hemi);
-
-  const dir = new THREE.DirectionalLight(0xffd9a8, 2.1);
+  // --- lights ------------------------------------------------------------
+  // The hemisphere light lives in sky.js with the rest of the atmosphere;
+  // this directional is the sun/moon key light — SkyCycle recolours it,
+  // while the shadow box keeps following the train from here.
+  const dir = new THREE.DirectionalLight(0xfff1d6, 2.25);
   dir.position.set(-110, 170, 90);
   dir.castShadow = true;
   dir.shadow.mapSize.set(2048, 2048);
@@ -355,23 +320,6 @@ export function createWorld(scene) {
   }
   scene.add(hills);
 
-  // --- clouds -------------------------------------------------------------
-  const cloudTex = softDiscTexture('rgba(255,250,240,0.85)', 'rgba(255,250,240,0)');
-  const clouds = [];
-  for (let i = 0; i < 10; i++) {
-    const cl = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.5 + rand() * 0.25, depthWrite: false, fog: false })
-    );
-    cl.scale.set(220 + rand() * 260, 60 + rand() * 60, 1);
-    cl.position.set(
-      WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
-      170 + rand() * 120,
-      WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ)
-    );
-    scene.add(cl);
-    clouds.push({ sprite: cl, speed: 1.2 + rand() * 1.6 });
-  }
-
   // --- obstacle layout: scattered rocks, then the two ridge walls ---------
   bigRockCluster(rand, 350, 70, 40, scene, obstacles);
   bigRockCluster(rand, 565, -150, 46, scene, obstacles);
@@ -392,17 +340,11 @@ export function createWorld(scene) {
     obstacles,
     landmark,
     sunLight: dir,
-    update(dt, time, trainPos, cameraPos) {
+    update(_dt, _time, trainPos, cameraPos) {
       // shadow box follows the train
       dir.position.set(trainPos.x - 110, 170, trainPos.z + 90);
       dir.target.position.copy(trainPos);
       dir.target.updateMatrixWorld();
-
-      // clouds drift
-      for (const c of clouds) {
-        c.sprite.position.x += c.speed * dt;
-        if (c.sprite.position.x > WORLD.maxX + 500) c.sprite.position.x = WORLD.minX - 500;
-      }
 
       // trees fade out when they'd block the side-on camera
       for (const t of trees) {
@@ -410,9 +352,6 @@ export function createWorld(scene) {
         const o = clamp((d - 12) / 16, 0.08, 1);
         for (const m of t.mats) m.opacity = o;
       }
-
-      // sky follows so the dome never ends
-      sky.position.set(cameraPos.x, 0, cameraPos.z);
     },
   };
 }

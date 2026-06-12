@@ -354,9 +354,12 @@ export class Train {
     for (const [mx, mw] of [[-3.1, 1.8], [0.7, 1.8], [5.3, 3.4]]) {
       box(mw, 1.05, 0.24, cabMat, mx, 6.48, 2.25, g, false);
     }
-    // front wall with the big forward window
+    // front wall with the big forward window — an open aperture like every
+    // other window on the train; corner posts frame it and the cab light
+    // glows through it at night
     box(0.24, 0.85, 4.9, M.hull, 7.0, 5.47, 0, g);
-    box(0.12, 1.2, 3.6, M.glow, 7.0, 6.5, 0, g, false);
+    box(0.24, 1.2, 0.4, M.hull, 7.0, 6.5, -2.25, g, false);
+    box(0.24, 1.2, 0.4, M.hull, 7.0, 6.5, 2.25, g, false);
     box(0.24, 0.45, 4.9, M.hull, 7.0, 7.32, 0, g);
     // rear lintel over the open doorway from the rooftop walk
     box(0.24, 0.35, 4.9, M.hull, lintel, 7.32, 0, g);
