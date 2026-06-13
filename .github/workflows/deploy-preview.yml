@@ -1,0 +1,82 @@
+name: Deploy branch preview
+
+# Every branch builds to its own subfolder on the gh-pages branch and is
+# served at https://j-c-levin.github.io/landtrain/<branch-slug>/. A landing
+# page at the site root lists whatever previews are currently live.
+on:
+  push:
+    branches-ignore:
+      - gh-pages
+
+permissions:
+  contents: write
+
+# Serialise deploys so two branch builds never race on the gh-pages branch.
+# Never cancel an in-flight publish — a half-written gh-pages is worse than
+# a queued run.
+concurrency:
+  group: gh-pages-publish
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Branch names can hold slashes (claude/foo) — flatten to a single safe
+      # path segment so each preview is one folder and one clean URL.
+      - name: Compute branch slug
+        id: slug
+        run: echo "slug=$(printf '%s' "$GITHUB_REF_NAME" | sed 's#[^A-Za-z0-9._-]#-#g')" >> "$GITHUB_OUTPUT"
+
+      # --base must match the publish path or asset URLs 404 on Pages.
+      - name: Build
+        run: npm run build -- --base="/landtrain/${{ steps.slug.outputs.slug }}/"
+
+      - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLUG: ${{ steps.slug.outputs.slug }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone "$remote" gh
+          cd gh
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+          rm -rf "$SLUG"
+          mkdir -p "$SLUG"
+          cp -r ../dist/. "$SLUG"/
+          touch .nojekyll
+          {
+            echo '<!doctype html><html lang="en"><meta charset="utf-8">'
+            echo '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            echo '<title>landtrain — branch previews</title>'
+            echo '<h1>landtrain — branch previews</h1><ul>'
+            for d in */; do
+              name="${d%/}"
+              echo "<li><a href=\"./${name}/\">${name}</a></li>"
+            done
+            echo '</ul></html>'
+          } > index.html
+          git add -A
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "deploy preview: ${SLUG}" || { echo "no changes to publish"; exit 0; }
+          git push origin gh-pages

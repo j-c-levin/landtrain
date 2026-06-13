@@ -1,0 +1,55 @@
+name: Remove branch preview
+
+# When a branch is deleted, drop its preview folder from gh-pages and refresh
+# the landing page. Note: delete-triggered workflows always run from the
+# DEFAULT branch's copy of this file, so this only takes effect once it has
+# landed on the default branch.
+on:
+  delete
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-publish
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove preview from gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DELETED_REF: ${{ github.event.ref }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          slug=$(printf '%s' "$DELETED_REF" | sed 's#[^A-Za-z0-9._-]#-#g')
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if ! git ls-remote --exit-code --heads "$remote" gh-pages >/dev/null 2>&1; then
+            echo "no gh-pages branch yet — nothing to clean"; exit 0
+          fi
+          git clone --branch gh-pages "$remote" gh
+          cd gh
+          if [ ! -d "$slug" ]; then
+            echo "no preview for ${slug}"; exit 0
+          fi
+          rm -rf "$slug"
+          {
+            echo '<!doctype html><html lang="en"><meta charset="utf-8">'
+            echo '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            echo '<title>landtrain — branch previews</title>'
+            echo '<h1>landtrain — branch previews</h1><ul>'
+            for d in */; do
+              name="${d%/}"
+              echo "<li><a href=\"./${name}/\">${name}</a></li>"
+            done
+            echo '</ul></html>'
+          } > index.html
+          git add -A
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "remove preview: ${slug}" || { echo "nothing to remove"; exit 0; }
+          git push origin gh-pages
