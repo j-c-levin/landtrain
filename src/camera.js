@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { LEVELS, TRAIN_HALF, clamp, lerp, smootherstep, damp } from './constants.js';
+import { LEVELS, clamp, lerp, smootherstep, damp } from './constants.js';
 
 const _pos = new THREE.Vector3();
 const _look = new THREE.Vector3();
+const _fwd = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -121,13 +122,15 @@ export class CameraRig {
   }
 
   // Perched at the back of the cab, gaze running forward out the front
-  // window. The trail only exists where the train has been, so the look
-  // point is projected past the nose along its heading rather than sampled.
+  // window. The eye rides the recorded trail well back along the train (so
+  // it sweeps through turns), but the gaze aims from the nose's LIVE,
+  // continuous position + heading — the trail only gains a point every
+  // ~0.3u travelled, so aiming off it makes the view judder as the train
+  // rolls. Continuous state keeps it glass-smooth.
   #computeCabin(outPos, outQuat) {
     const eye = this.train.frameAt(CABIN_CAM_X);
-    const nose = this.train.frameAt(TRAIN_HALF);
-    const cos = Math.cos(nose.theta);
-    const sin = Math.sin(nose.theta);
+    const head = this.train.headPos;
+    const fwd = this.train.forwardDir(_fwd);
     // shove the eye toward the open near side so the gaze runs diagonally
     // down the length of the cabin rather than straight along its spine
     _pos.set(
@@ -136,9 +139,9 @@ export class CameraRig {
       eye.z + CABIN_CAM_SIDE * Math.cos(eye.theta)
     );
     _look.set(
-      nose.x + cos * CABIN_LOOK_AHEAD,
+      head.x + fwd.x * CABIN_LOOK_AHEAD,
       LEVELS.roof + CABIN_LOOK_UP,
-      nose.z - sin * CABIN_LOOK_AHEAD
+      head.z + fwd.z * CABIN_LOOK_AHEAD
     );
     this.#frameFromLook(outPos, outQuat, _pos, _look);
   }
