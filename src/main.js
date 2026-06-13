@@ -17,6 +17,9 @@ const input = {
   down: (code) => keys.has(code),
   pressed: (code) => pressedThisFrame.has(code),
 };
+// fed to the player while it shouldn't be driving (mid-transition, map, book)
+// so its rig still re-syncs onto the train each frame without taking input
+const NEUTRAL_INPUT = { down: () => false, pressed: () => false };
 
 window.addEventListener('keydown', (e) => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
@@ -273,11 +276,12 @@ function tick() {
 
     interactions.update(dt, input);
 
-    if ((rig.mode === 'inhabit' || rig.mode === 'cabin') && !rig.busy) {
-      player.update(dt, input, elapsed);
-    } else if (player.sitting) {
-      player.update(dt, input, elapsed);
-    }
+    // Always update so the player rig re-syncs onto the (still-moving) train
+    // every frame — otherwise it goes stale in world space during camera
+    // transitions, e.g. standing from a rest leaves it behind the train for
+    // the length of the tween. Only feed real input when it's drivable.
+    const controllable = (rig.mode === 'inhabit' || rig.mode === 'cabin') && !rig.busy;
+    player.update(dt, controllable ? input : NEUTRAL_INPUT, elapsed);
 
     train.paused = rig.mapEngaged;
     train.update(dt, elapsed, world.obstacles);
