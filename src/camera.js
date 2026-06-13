@@ -13,10 +13,12 @@ const UP = new THREE.Vector3(0, 1, 0);
 // player keeps walking the cab; toward the window reads as "deeper in",
 // and stepping back out the rear doorway drops to the cutaway.
 const CABIN_CAM_X = 3.5; // train-local arc position of the eye (well back behind the cab)
-const CABIN_CAM_SIDE = 4.0; // offset toward the open near side (screen-right)
+const CABIN_CAM_SIDE = 12.0; // offset out off the open side of the train (screen-right)
 const CABIN_EYE_UP = 1.5; // above the roof storey floor → window-centre height
-const CABIN_LOOK_AHEAD = 52; // how far past the nose the gaze reaches
-const CABIN_LOOK_UP = -0.45; // gaze dips a touch to bring the ground ahead in
+// From well off the side the gaze aims at the front of the train (cabin +
+// window), not a far-forward point — otherwise the cabin swings out of frame.
+const CABIN_LOOK_AHEAD = 8; // how far past the nose the gaze reaches
+const CABIN_LOOK_UP = 0.5; // look height, around the front-window sill
 
 // One camera, three framings of the same world. Transitions are a single
 // continuous tween of position + orientation — never a cut. The target
@@ -152,7 +154,7 @@ export class CameraRig {
   // glide, not a blocking transition, so control is never taken away.
   enterCabin() {
     if (this.busy || this.mode !== 'inhabit') return false;
-    this.#startSoft('cabin', 0.8);
+    this.#startSoft('cabin', 2.4);
     return true;
   }
 
@@ -174,7 +176,7 @@ export class CameraRig {
 
   exitCabin() {
     if (this.busy || this.mode !== 'cabin') return false;
-    this.#startSoft('inhabit', 0.8);
+    this.#startSoft('inhabit', 1.6);
     return true;
   }
 
