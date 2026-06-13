@@ -7,11 +7,13 @@ const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
 
-// Driver's-cab forward view: perched at the back of the raised cab, looking
-// out the big front window so a freshly plotted route can be watched from up
-// front. The player keeps walking the cab — toward the window reads as
-// "deeper in", and stepping back out the rear doorway drops to the cutaway.
-const CABIN_CAM_X = 10.0; // train-local arc position of the eye (behind the cab doorway)
+// Driver's-cab forward view: sat back behind the cab and off to the open
+// (near) side, looking lengthwise down the cabin and out the big front
+// window — so you see the interior and the country ahead at once. The
+// player keeps walking the cab; toward the window reads as "deeper in",
+// and stepping back out the rear doorway drops to the cutaway.
+const CABIN_CAM_X = 8.0; // train-local arc position of the eye (back behind the cab)
+const CABIN_CAM_SIDE = 1.5; // offset toward the open near side (screen-right)
 const CABIN_EYE_UP = 1.5; // above the roof storey floor → window-centre height
 const CABIN_LOOK_AHEAD = 52; // how far past the nose the gaze reaches
 const CABIN_LOOK_UP = -0.45; // gaze dips a touch to bring the ground ahead in
@@ -26,8 +28,12 @@ export class CameraRig {
     this.train = train;
     this.player = player;
 
-    this.mode = 'inhabit'; // 'inhabit' | 'map' | 'book'
+    this.mode = 'inhabit'; // 'inhabit' | 'map' | 'book' | 'cabin'
     this.transition = null;
+    // a "soft" ease eases the camera between the cutaway and the cab view
+    // WITHOUT marking the rig busy — the player keeps walking, the train
+    // keeps rolling, the camera just slides into place.
+    this.soft = null;
     this.mapBlend = 0;
 
     // map framing state
@@ -120,7 +126,13 @@ export class CameraRig {
     const nose = this.train.frameAt(TRAIN_HALF);
     const cos = Math.cos(nose.theta);
     const sin = Math.sin(nose.theta);
-    _pos.set(eye.x, LEVELS.roof + CABIN_EYE_UP, eye.z);
+    // shove the eye toward the open near side so the gaze runs diagonally
+    // down the length of the cabin rather than straight along its spine
+    _pos.set(
+      eye.x + CABIN_CAM_SIDE * Math.sin(eye.theta),
+      LEVELS.roof + CABIN_EYE_UP,
+      eye.z + CABIN_CAM_SIDE * Math.cos(eye.theta)
+    );
     _look.set(
       nose.x + cos * CABIN_LOOK_AHEAD,
       LEVELS.roof + CABIN_LOOK_UP,
@@ -136,10 +148,11 @@ export class CameraRig {
     else this.#computeInhabit(outPos, outQuat);
   }
 
-  // Walking up into the cab settles into the forward driving view.
+  // Walking up into the cab settles into the forward driving view — a soft
+  // glide, not a blocking transition, so control is never taken away.
   enterCabin() {
     if (this.busy || this.mode !== 'inhabit') return false;
-    this.#startTransition('cabin', 1.3);
+    this.#startSoft('cabin', 0.8);
     return true;
   }
 
@@ -161,7 +174,7 @@ export class CameraRig {
 
   exitCabin() {
     if (this.busy || this.mode !== 'cabin') return false;
-    this.#startTransition('inhabit', 1.5);
+    this.#startSoft('inhabit', 0.8);
     return true;
   }
 
@@ -194,6 +207,7 @@ export class CameraRig {
   }
 
   #startTransition(target, dur) {
+    this.soft = null; // a real transition supersedes any in-flight soft glide
     this.transition = {
       t: 0,
       dur,
@@ -201,6 +215,18 @@ export class CameraRig {
       fromPos: this.camera.position.clone(),
       fromQuat: this.camera.quaternion.clone(),
     };
+  }
+
+  // Flip the mode immediately (so gameplay reacts at once) and ease the
+  // camera there from wherever it is now over `dur` seconds.
+  #startSoft(target, dur) {
+    this.soft = {
+      t: 0,
+      dur,
+      fromPos: this.camera.position.clone(),
+      fromQuat: this.camera.quaternion.clone(),
+    };
+    this.mode = target;
   }
 
   orbitDrag(dxPixels, dyPixels) {
@@ -278,7 +304,16 @@ export class CameraRig {
       }
     } else {
       this.#computeFrame(this.mode, targetPos, targetQuat);
-      if (this.mode === 'map' || this.mode === 'book') {
+      if (this.soft) {
+        // ease cutaway ↔ cab without taking control away: lerp from where
+        // the camera was toward the (live, still-moving) target framing
+        this.soft.t += dt / this.soft.dur;
+        const e = smootherstep(this.soft.t);
+        this.camera.position.lerpVectors(this.soft.fromPos, targetPos, e);
+        this.camera.quaternion.slerpQuaternions(this.soft.fromQuat, targetQuat, e);
+        if (this.soft.t >= 1) this.soft = null;
+        this.mapBlend = 0;
+      } else if (this.mode === 'map' || this.mode === 'book') {
         // soft glide for pan/zoom/orbit input
         this.camera.position.lerp(targetPos, 1 - Math.exp(-9 * dt));
         this.camera.quaternion.slerp(targetQuat, 1 - Math.exp(-9 * dt));
