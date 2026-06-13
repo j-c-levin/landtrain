@@ -12,8 +12,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 // window — so you see the interior and the country ahead at once. The
 // player keeps walking the cab; toward the window reads as "deeper in",
 // and stepping back out the rear doorway drops to the cutaway.
-const CABIN_CAM_X = 8.0; // train-local arc position of the eye (back behind the cab)
-const CABIN_CAM_SIDE = 1.5; // offset toward the open near side (screen-right)
+const CABIN_CAM_X = 3.5; // train-local arc position of the eye (well back behind the cab)
+const CABIN_CAM_SIDE = 4.0; // offset toward the open near side (screen-right)
 const CABIN_EYE_UP = 1.5; // above the roof storey floor → window-centre height
 const CABIN_LOOK_AHEAD = 52; // how far past the nose the gaze reaches
 const CABIN_LOOK_UP = -0.45; // gaze dips a touch to bring the ground ahead in
