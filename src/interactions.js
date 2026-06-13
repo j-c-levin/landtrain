@@ -1,4 +1,9 @@
-import { TUNING, clamp } from './constants.js';
+import { TUNING, CAB_FROM_X, clamp } from './constants.js';
+
+// In the cab's forward view, walking back past here steps out of the cab and
+// drops to the travelling cutaway — a little ahead of the eye so the player
+// never walks back through the camera.
+const CABIN_EXIT_X = CAB_FROM_X + 2.4;
 
 // Stations live at train-local X positions on a given storey. One verb: E.
 // Cab and book are taps; engine / treads / plants are gentle hold-to-tend.
@@ -36,6 +41,7 @@ export class Interactions {
     this.activeStation = null;
     this.holdChimed = false;
     this.restExit = 'set the book down';
+    this.toldCabinView = false;
   }
 
   #findStation() {
@@ -69,6 +75,27 @@ export class Interactions {
         player.stand();
         rig.exitBook();
       }
+      return;
+    }
+
+    if (rig.mode === 'cabin') {
+      // walking back out the rear doorway returns to the travelling cutaway
+      if (player.level !== 'roof' || player.x < CABIN_EXIT_X || input.pressed('Escape')) {
+        rig.exitCabin();
+        ui.hidePrompt();
+        return;
+      }
+      if (!this.toldCabinView) {
+        this.toldCabinView = true;
+        ui.toast(
+          ui.isTouch
+            ? 'ride up front — hold left to step back out of the cab'
+            : 'ride up front — walk left to step out of the cab',
+          4800
+        );
+      }
+      ui.showPrompt('re-plot the route', null);
+      if (input.pressed('KeyE') && rig.enterMap()) this.audio.chime('rise');
       return;
     }
 

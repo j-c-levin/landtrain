@@ -149,8 +149,8 @@ window.addEventListener('pointercancel', (e) => {
 // keyboard feeds — player & interaction logic stay unchanged. Left/right
 // thirds walk; the middle column climbs (top) or descends (bottom) at
 // ladders; the centre is E — tap to interact, keep a finger down to tend.
-// Inhabit mode only: map taps lay waypoints and book drags orbit, so
-// zone-keys would fight them there.
+// Walk modes only (inhabit + cabin): map taps lay waypoints and book drags
+// orbit, so zone-keys would fight them there.
 const touchHolds = new Map(); // pointerId -> synthesized key code
 
 function zoneCode(x, y) {
@@ -165,7 +165,7 @@ function zoneCode(x, y) {
 
 canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType !== 'touch') return;
-  if (rig.mode !== 'inhabit' || rig.busy) return;
+  if ((rig.mode !== 'inhabit' && rig.mode !== 'cabin') || rig.busy) return;
   const code = zoneCode(e.clientX, e.clientY);
   touchHolds.set(e.pointerId, code);
   if (!keys.has(code)) pressedThisFrame.add(code);
@@ -273,7 +273,7 @@ function tick() {
 
     interactions.update(dt, input);
 
-    if (rig.mode === 'inhabit' && !rig.busy) {
+    if ((rig.mode === 'inhabit' || rig.mode === 'cabin') && !rig.busy) {
       player.update(dt, input, elapsed);
     } else if (player.sitting) {
       player.update(dt, input, elapsed);

@@ -1,11 +1,20 @@
 import * as THREE from 'three';
-import { LEVELS, clamp, lerp, smootherstep, damp } from './constants.js';
+import { LEVELS, TRAIN_HALF, clamp, lerp, smootherstep, damp } from './constants.js';
 
 const _pos = new THREE.Vector3();
 const _look = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
+
+// Driver's-cab forward view: perched at the back of the raised cab, looking
+// out the big front window so a freshly plotted route can be watched from up
+// front. The player keeps walking the cab — toward the window reads as
+// "deeper in", and stepping back out the rear doorway drops to the cutaway.
+const CABIN_CAM_X = 13.0; // train-local arc position of the eye (rear of cab)
+const CABIN_EYE_UP = 1.5; // above the roof storey floor → window-centre height
+const CABIN_LOOK_AHEAD = 52; // how far past the nose the gaze reaches
+const CABIN_LOOK_UP = -0.45; // gaze dips a touch to bring the ground ahead in
 
 // One camera, three framings of the same world. Transitions are a single
 // continuous tween of position + orientation — never a cut. The target
@@ -103,23 +112,49 @@ export class CameraRig {
     this.#frameFromLook(outPos, outQuat, _pos, _look);
   }
 
+  // Perched at the back of the cab, gaze running forward out the front
+  // window. The trail only exists where the train has been, so the look
+  // point is projected past the nose along its heading rather than sampled.
+  #computeCabin(outPos, outQuat) {
+    const eye = this.train.frameAt(CABIN_CAM_X);
+    const nose = this.train.frameAt(TRAIN_HALF);
+    const cos = Math.cos(nose.theta);
+    const sin = Math.sin(nose.theta);
+    _pos.set(eye.x, LEVELS.roof + CABIN_EYE_UP, eye.z);
+    _look.set(
+      nose.x + cos * CABIN_LOOK_AHEAD,
+      LEVELS.roof + CABIN_LOOK_UP,
+      nose.z - sin * CABIN_LOOK_AHEAD
+    );
+    this.#frameFromLook(outPos, outQuat, _pos, _look);
+  }
+
   #computeFrame(mode, outPos, outQuat) {
     if (mode === 'map') this.#computeMap(outPos, outQuat);
     else if (mode === 'book') this.#computeBook(outPos, outQuat);
+    else if (mode === 'cabin') this.#computeCabin(outPos, outQuat);
     else this.#computeInhabit(outPos, outQuat);
   }
 
   enterMap() {
-    if (this.busy || this.mode !== 'inhabit') return false;
+    if (this.busy || (this.mode !== 'inhabit' && this.mode !== 'cabin')) return false;
     this.mapCenter.set(this.train.pos.x, this.train.pos.z);
     this.pan.set(0, 0);
     this.#startTransition('map', 1.8);
     return true;
   }
 
+  // Leaving the planner settles into the cab's forward view — route set,
+  // now watch it unfold. Walking back out drops to the cutaway (exitCabin).
   exitMap() {
     if (this.busy || this.mode !== 'map') return false;
-    this.#startTransition('inhabit', 1.6);
+    this.#startTransition('cabin', 1.9);
+    return true;
+  }
+
+  exitCabin() {
+    if (this.busy || this.mode !== 'cabin') return false;
+    this.#startTransition('inhabit', 1.5);
     return true;
   }
 
