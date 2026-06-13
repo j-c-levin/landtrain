@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Land Train — First Journey</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" crossorigin src="/landtrain/claude-cabin-camera-positioning-894jpe/assets/index-DfR3aUFR.js"></script>
+    <link rel="stylesheet" crossorigin href="/landtrain/claude-cabin-camera-positioning-894jpe/assets/index-Dxt0jKjJ.css">
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <!-- atmosphere overlays -->
+    <div id="vignette"></div>
+    <div id="grain"></div>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div id="gauges">
+        <div class="gauge" id="gauge-engine" title="Engine efficiency">
+          <span class="gauge-icon">&#9832;</span>
+          <span class="gauge-track"><span class="gauge-fill"></span></span>
+        </div>
+        <div class="gauge" id="gauge-tread" title="Tread condition">
+          <span class="gauge-icon">&#9881;</span>
+          <span class="gauge-track"><span class="gauge-fill"></span></span>
+        </div>
+      </div>
+
+      <div id="map-help">
+        <span><b>Click</b> lay waypoint</span>
+        <span><b>Z</b> undo</span>
+        <span><b>C</b> clear</span>
+        <span><b>Drag / scroll</b> pan &amp; zoom</span>
+        <span><b>E</b> leave the cab</span>
+      </div>
+
+      <div id="toast"></div>
+
+      <div id="prompt">
+        <span id="prompt-key">E</span>
+        <span id="prompt-text"></span>
+        <span id="prompt-bar"><span id="prompt-bar-fill"></span></span>
+      </div>
+
+      <div id="reading-line">&hellip; the plains roll by, page after page &hellip;</div>
+
+      <!-- clear touch targets for getting in/out of the resting & map views -->
+      <div id="view-buttons">
+        <button id="btn-undo" type="button">undo</button>
+        <button id="btn-clear" type="button">clear</button>
+        <button id="btn-orbit" type="button">orbit</button>
+        <button id="btn-exit" type="button">exit</button>
+      </div>
+
+      <div id="mute-hint"><b>M</b> sound</div>
+    </div>
+
+    <!-- cards -->
+    <div id="card" class="hidden">
+      <div id="card-inner"></div>
+    </div>
+
+  </body>
+</html>
