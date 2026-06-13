@@ -11,7 +11,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 // out the big front window so a freshly plotted route can be watched from up
 // front. The player keeps walking the cab — toward the window reads as
 // "deeper in", and stepping back out the rear doorway drops to the cutaway.
-const CABIN_CAM_X = 13.0; // train-local arc position of the eye (rear of cab)
+const CABIN_CAM_X = 10.0; // train-local arc position of the eye (behind the cab doorway)
 const CABIN_EYE_UP = 1.5; // above the roof storey floor → window-centre height
 const CABIN_LOOK_AHEAD = 52; // how far past the nose the gaze reaches
 const CABIN_LOOK_UP = -0.45; // gaze dips a touch to bring the ground ahead in
@@ -134,6 +134,13 @@ export class CameraRig {
     else if (mode === 'book') this.#computeBook(outPos, outQuat);
     else if (mode === 'cabin') this.#computeCabin(outPos, outQuat);
     else this.#computeInhabit(outPos, outQuat);
+  }
+
+  // Walking up into the cab settles into the forward driving view.
+  enterCabin() {
+    if (this.busy || this.mode !== 'inhabit') return false;
+    this.#startTransition('cabin', 1.3);
+    return true;
   }
 
   enterMap() {

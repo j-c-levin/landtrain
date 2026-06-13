@@ -1,9 +1,12 @@
 import { TUNING, CAB_FROM_X, clamp } from './constants.js';
 
-// In the cab's forward view, walking back past here steps out of the cab and
-// drops to the travelling cutaway — a little ahead of the eye so the player
-// never walks back through the camera.
-const CABIN_EXIT_X = CAB_FROM_X + 2.4;
+// Stepping up into the cab swings the camera to the forward driving view on
+// its own — no button. Hysteresis keeps it from flapping at the threshold:
+// you cross ENTER walking in, and must fall back past the lower EXIT (just
+// outside the rear doorway, well ahead of the camera eye) to drop back to
+// the travelling cutaway.
+const CABIN_ENTER_X = CAB_FROM_X + 0.9; // ~13.5: just inside the cab doorway
+const CABIN_EXIT_X = CAB_FROM_X - 0.6; // ~12.0: back out onto the rooftop walk
 
 // Stations live at train-local X positions on a given storey. One verb: E.
 // Cab and book are taps; engine / treads / plants are gentle hold-to-tend.
@@ -94,12 +97,18 @@ export class Interactions {
           4800
         );
       }
-      ui.showPrompt('re-plot the route', null);
+      ui.showPrompt(train.route.length ? 're-plot the route' : 'plot the route', null);
       if (input.pressed('KeyE') && rig.enterMap()) this.audio.chime('rise');
       return;
     }
 
     // --- inhabit mode ---
+    // walking up into the cab swings the camera into the forward driving view
+    if (player.level === 'roof' && !player.climbing && player.x >= CABIN_ENTER_X && rig.enterCabin()) {
+      this.audio.chime('rise');
+      return;
+    }
+
     const s = this.#findStation();
     if (!s) {
       this.activeStation = null;
