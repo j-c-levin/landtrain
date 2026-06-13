@@ -1,9 +1,8 @@
 import * as THREE from 'three';
-import { LEVELS, clamp, lerp, smootherstep, damp } from './constants.js';
+import { LEVELS, TRAIN_HALF, clamp, lerp, smootherstep, damp } from './constants.js';
 
 const _pos = new THREE.Vector3();
 const _look = new THREE.Vector3();
-const _fwd = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -122,26 +121,27 @@ export class CameraRig {
   }
 
   // Perched at the back of the cab, gaze running forward out the front
-  // window. The eye rides the recorded trail well back along the train (so
-  // it sweeps through turns), but the gaze aims from the nose's LIVE,
-  // continuous position + heading — the trail only gains a point every
-  // ~0.3u travelled, so aiming off it makes the view judder as the train
-  // rolls. Continuous state keeps it glass-smooth.
+  // window. Everything is derived from the nose's LIVE, continuous position
+  // + heading — NOT the recorded trail. The trail only gains a point every
+  // ~0.3u travelled and its sampled tangent carries the tiny wiggles of the
+  // steering; with the eye thrown 12u out to the side, those wiggles get
+  // multiplied into a visible sway. Continuous state keeps it glass-smooth.
   #computeCabin(outPos, outQuat) {
-    const eye = this.train.frameAt(CABIN_CAM_X);
     const head = this.train.headPos;
-    const fwd = this.train.forwardDir(_fwd);
-    // shove the eye toward the open near side so the gaze runs diagonally
-    // down the length of the cabin rather than straight along its spine
+    const h = this.train.heading;
+    const cos = Math.cos(h);
+    const sin = Math.sin(h);
+    const back = TRAIN_HALF - CABIN_CAM_X; // how far behind the nose the eye sits
+    // forward = (cos, -sin); the open near side (screen-right) = (sin, cos)
     _pos.set(
-      eye.x + CABIN_CAM_SIDE * Math.sin(eye.theta),
+      head.x - cos * back + sin * CABIN_CAM_SIDE,
       LEVELS.roof + CABIN_EYE_UP,
-      eye.z + CABIN_CAM_SIDE * Math.cos(eye.theta)
+      head.z + sin * back + cos * CABIN_CAM_SIDE
     );
     _look.set(
-      head.x + fwd.x * CABIN_LOOK_AHEAD,
+      head.x + cos * CABIN_LOOK_AHEAD,
       LEVELS.roof + CABIN_LOOK_UP,
-      head.z + fwd.z * CABIN_LOOK_AHEAD
+      head.z - sin * CABIN_LOOK_AHEAD
     );
     this.#frameFromLook(outPos, outQuat, _pos, _look);
   }
