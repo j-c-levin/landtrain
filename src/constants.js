@@ -63,6 +63,7 @@ export const TUNING = {
 
   revealRadius: 112,
   revealEvery: 14, // units travelled between fog punches
+  fogOpacity: 1.0, // full-blend shroud opacity; <1 leaks hazard geometry through
 };
 
 // speed = baseSpeed * effMult * treadMult — never zero, only sluggish.

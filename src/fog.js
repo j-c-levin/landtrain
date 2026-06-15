@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD } from './constants.js';
+import { WORLD, TUNING } from './constants.js';
 
 // Fog of war: an opaque dark canvas stretched over the whole world on a
 // plane at y=60 (between the overhead camera and the ground). Travel
@@ -81,7 +81,7 @@ export class FogOfWar {
   // before the scene's distance fog opens — so undiscovered terrain is
   // never glimpsed mid-transition.
   setBlend(blend) {
-    this.material.opacity = Math.min(1, blend / 0.35) * 0.98;
+    this.material.opacity = Math.min(1, blend / 0.35) * TUNING.fogOpacity;
     this.mesh.visible = blend > 0.01;
   }
 }
