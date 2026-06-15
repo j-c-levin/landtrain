@@ -41,6 +41,7 @@ renderer.toneMappingExposure = 1.05;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 9000);
 const markerVec = new THREE.Vector3();
+const fwdDir = new THREE.Vector3();
 
 const world = createWorld(scene);
 const sky = new SkyCycle(scene, renderer, world.sunLight);
@@ -64,18 +65,36 @@ train.onEvent = (name) => {
 const state = {
   arrived: false,
   started: false,
-  // fog-reveal bookkeeping: distance and position of the last reveal, so the
-  // travel loop can fire on distance and aim the cone along actual heading.
+  // distance travelled at the last fog reveal, so the travel loop fires on
+  // distance rather than time.
   lastRevealAt: 0,
-  lastRevealPos: { x: train.pos.x, z: train.pos.z },
 };
+
+// Reveal a forward-fanning cone at the train, aimed along where it FACES (not
+// where it has been) — so the cone is there from the first frame at spawn, even
+// before the train moves, and always points the way the cab view looks.
+function revealAhead() {
+  train.forwardDir(fwdDir);
+  fog.revealCone(
+    train.pos.x,
+    train.pos.z,
+    fwdDir.x,
+    fwdDir.z,
+    TUNING.revealRadius,
+    TUNING.revealRadius * TUNING.revealForwardMult,
+    TUNING.revealConeEndRadius,
+    TUNING.revealConeNearRadius,
+    TUNING.revealConeSteps
+  );
+}
 
 // time scale for tuning/testing: ?ts=4
 const params = new URLSearchParams(location.search);
 const timeScale = clamp(parseFloat(params.get('ts') || '1') || 1, 0.1, 20);
 
-// first reveal around the spawn point (state already seeded with this position)
-fog.reveal(train.pos.x, train.pos.z, TUNING.revealRadius * 1.3);
+// first reveal at the spawn point — a forward cone along the train's facing,
+// so the way ahead is already partly lit before you drive a single unit.
+revealAhead();
 
 // ------------------------------------------------------------- map input
 const raycaster = new THREE.Raycaster();
@@ -297,25 +316,11 @@ function tick() {
     train.paused = rig.mapEngaged;
     train.update(dt, elapsed, world.obstacles);
 
-    // fog peels back as the train travels — a forward-fanning cone aimed
-    // along the direction of travel, so we reveal as far ahead as the cutaway
-    // view can actually see, while the side radius stays as before.
+    // fog peels back as the train travels — re-stamp the forward cone every
+    // few units so it reveals as far ahead as the cutaway view can see.
     if (train.distanceTraveled - state.lastRevealAt >= TUNING.revealEvery) {
       state.lastRevealAt = train.distanceTraveled;
-      const dx = train.pos.x - state.lastRevealPos.x;
-      const dz = train.pos.z - state.lastRevealPos.z;
-      fog.revealCone(
-        train.pos.x,
-        train.pos.z,
-        dx,
-        dz,
-        TUNING.revealRadius,
-        TUNING.revealRadius * TUNING.revealForwardMult,
-        TUNING.revealConeEndRadius,
-        TUNING.revealConeNearRadius,
-        TUNING.revealConeSteps
-      );
-      state.lastRevealPos = { x: train.pos.x, z: train.pos.z };
+      revealAhead();
     }
 
     // arrival — gentle, once
