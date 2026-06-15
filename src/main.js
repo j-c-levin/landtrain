@@ -62,6 +62,7 @@ train.onEvent = (name) => {
 const state = {
   arrived: false,
   lastRevealAt: -999,
+  lastRevealPos: { x: 0, z: 0 },
   started: false,
 };
 
@@ -72,6 +73,7 @@ const timeScale = clamp(parseFloat(params.get('ts') || '1') || 1, 0.1, 20);
 // first reveal around the spawn point
 fog.reveal(train.pos.x, train.pos.z, TUNING.revealRadius * 1.3);
 state.lastRevealAt = 0;
+state.lastRevealPos = { x: train.pos.x, z: train.pos.z };
 
 // ------------------------------------------------------------- map input
 const raycaster = new THREE.Raycaster();
@@ -286,10 +288,25 @@ function tick() {
     train.paused = rig.mapEngaged;
     train.update(dt, elapsed, world.obstacles);
 
-    // fog peels back as the train travels
+    // fog peels back as the train travels — a forward-fanning cone aimed
+    // along the direction of travel, so we reveal as far ahead as the cutaway
+    // view can actually see, while the side radius stays as before.
     if (train.distanceTraveled - state.lastRevealAt >= TUNING.revealEvery) {
       state.lastRevealAt = train.distanceTraveled;
-      fog.reveal(train.pos.x, train.pos.z, TUNING.revealRadius);
+      const dx = train.pos.x - state.lastRevealPos.x;
+      const dz = train.pos.z - state.lastRevealPos.z;
+      fog.revealCone(
+        train.pos.x,
+        train.pos.z,
+        dx,
+        dz,
+        TUNING.revealRadius,
+        TUNING.revealRadius * TUNING.revealForwardMult,
+        TUNING.revealConeEndRadius,
+        TUNING.revealConeNearRadius,
+        TUNING.revealConeSteps
+      );
+      state.lastRevealPos = { x: train.pos.x, z: train.pos.z };
     }
 
     // arrival — gentle, once
