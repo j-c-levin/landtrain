@@ -9,6 +9,7 @@ import { Interactions } from './interactions.js';
 import { UI } from './ui.js';
 import { AudioFX } from './audio.js';
 import { LANDMARK, ARRIVE_RADIUS, TUNING, WORLD, CAB_FROM_X, clamp } from './constants.js';
+import { edgePlacement } from './markers.js';
 
 // ----------------------------------------------------------------- input
 const keys = new Set();
@@ -39,6 +40,7 @@ renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 9000);
+const markerVec = new THREE.Vector3();
 
 const world = createWorld(scene);
 const sky = new SkyCycle(scene, renderer, world.sunLight);
@@ -261,6 +263,13 @@ syncRendererSize();
 const clock = new THREE.Clock();
 let elapsed = 0;
 
+// Project a world point (ground height) and decide its edge-marker placement.
+function placeMarker(tx, tz) {
+  markerVec.set(tx, 0, tz).project(camera);
+  const behind = markerVec.z > 1; // point is behind the camera
+  return edgePlacement(markerVec.x, markerVec.y, behind, 0.9);
+}
+
 function tick() {
   requestAnimationFrame(tick);
   syncRendererSize();
@@ -337,6 +346,12 @@ function tick() {
   ui.setGauges(train.eff, train.wear);
   ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
   ui.setOrbitActive(rig.autoOrbit);
+  if (state.started) {
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    ui.setEdgeMarker('tree', placeMarker(LANDMARK.x, LANDMARK.z), W, H);
+    ui.setEdgeMarker('train', placeMarker(train.pos.x, train.pos.z), W, H);
+  }
   world.update(dt, elapsed, train.pos, camera.position);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
   audio.update(dt, train.speed / TUNING.baseSpeed);
