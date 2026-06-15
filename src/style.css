@@ -480,3 +480,42 @@ body.map-mode #btn-clear {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }
 }
+
+/* ---------- edge markers (off-screen destination / train) ---------- */
+#edge-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.edge-marker {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px; /* center on its left/top point */
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(36, 29, 46, 0.66);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+}
+.edge-marker[hidden] {
+  display: none;
+}
+.edge-marker .edge-icon {
+  width: 24px;
+  height: 24px;
+}
+.edge-marker .edge-arrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  /* a triangle pointing right at angle 0; rotated to face the target */
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 9px solid var(--cream);
+  transform-origin: -22px center; /* orbit outside the badge */
+  transform: translate(0, -50%) rotate(0rad);
+}

@@ -16,6 +16,8 @@ export class UI {
     this.btnExit = document.getElementById('btn-exit');
     this.btnUndo = document.getElementById('btn-undo');
     this.btnClear = document.getElementById('btn-clear');
+    this.markerTree = document.getElementById('marker-tree');
+    this.markerTrain = document.getElementById('marker-train');
 
     // coarse pointer = phone/tablet — swaps hint text to touch wording
     this.isTouch = window.matchMedia('(pointer: coarse)').matches;
@@ -80,6 +82,21 @@ export class UI {
 
   setOrbitActive(on) {
     this.btnOrbit.classList.toggle('active', on);
+  }
+
+  // placement = { onScreen, sx, sy, angle } from edgePlacement(); w,h = viewport px.
+  setEdgeMarker(name, placement, w, h) {
+    const el = name === 'tree' ? this.markerTree : this.markerTrain;
+    if (!el) return;
+    if (placement.onScreen) {
+      el.hidden = true;
+      return;
+    }
+    el.hidden = false;
+    el.style.left = `${placement.sx * w}px`;
+    el.style.top = `${placement.sy * h}px`;
+    const arrow = el.querySelector('.edge-arrow');
+    arrow.style.transform = `translate(0, -50%) rotate(${placement.angle}rad)`;
   }
 
   firstCabVisit() {
