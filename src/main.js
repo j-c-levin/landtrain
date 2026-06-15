@@ -346,11 +346,15 @@ function tick() {
   ui.setGauges(train.eff, train.wear);
   ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
   ui.setOrbitActive(rig.autoOrbit);
-  if (state.started) {
+  // Edge markers are a map-view aid only — point to the tree (and back to the
+  // train) along the map's borders, hidden in the inhabit and book views.
+  if (state.started && rig.mapEngaged) {
     const W = canvas.clientWidth;
     const H = canvas.clientHeight;
     ui.setEdgeMarker('tree', placeMarker(LANDMARK.x, LANDMARK.z), W, H);
     ui.setEdgeMarker('train', placeMarker(train.pos.x, train.pos.z), W, H);
+  } else {
+    ui.hideEdgeMarkers();
   }
   world.update(dt, elapsed, train.pos, camera.position);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);

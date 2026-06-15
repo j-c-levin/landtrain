@@ -99,6 +99,11 @@ export class UI {
     arrow.style.transform = `translate(0, -50%) rotate(${placement.angle}rad)`;
   }
 
+  hideEdgeMarkers() {
+    if (this.markerTree) this.markerTree.hidden = true;
+    if (this.markerTrain) this.markerTrain.hidden = true;
+  }
+
   firstCabVisit() {
     this.visitedCab = true;
   }
