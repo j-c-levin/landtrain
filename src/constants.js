@@ -62,6 +62,10 @@ export const TUNING = {
   climbSpeed: 2.7,
 
   revealRadius: 112,
+    revealForwardMult: 2.5, // forward reach as a multiple of revealRadius (~280u)
+    revealConeEndRadius: 150, // half-width of the cone at its far end
+    revealConeNearRadius: 40, // half-width where the cone leaves the train
+    revealConeSteps: 18, // overlapping circle stamps along the heading
   revealEvery: 14, // units travelled between fog punches
   fogOpacity: 1.0, // full-blend shroud opacity; <1 leaks hazard geometry through
 };
