@@ -63,19 +63,19 @@ train.onEvent = (name) => {
 
 const state = {
   arrived: false,
-  lastRevealAt: -999,
-  lastRevealPos: { x: 0, z: 0 },
   started: false,
+  // fog-reveal bookkeeping: distance and position of the last reveal, so the
+  // travel loop can fire on distance and aim the cone along actual heading.
+  lastRevealAt: 0,
+  lastRevealPos: { x: train.pos.x, z: train.pos.z },
 };
 
 // time scale for tuning/testing: ?ts=4
 const params = new URLSearchParams(location.search);
 const timeScale = clamp(parseFloat(params.get('ts') || '1') || 1, 0.1, 20);
 
-// first reveal around the spawn point
+// first reveal around the spawn point (state already seeded with this position)
 fog.reveal(train.pos.x, train.pos.z, TUNING.revealRadius * 1.3);
-state.lastRevealAt = 0;
-state.lastRevealPos = { x: train.pos.x, z: train.pos.z };
 
 // ------------------------------------------------------------- map input
 const raycaster = new THREE.Raycaster();
@@ -267,7 +267,7 @@ let elapsed = 0;
 function placeMarker(tx, tz) {
   markerVec.set(tx, 0, tz).project(camera);
   const behind = markerVec.z > 1; // point is behind the camera
-  return edgePlacement(markerVec.x, markerVec.y, behind, 0.9);
+  return edgePlacement(markerVec.x, markerVec.y, behind, 0.9); // 0.9 = ride 5% in from each edge
 }
 
 function tick() {
