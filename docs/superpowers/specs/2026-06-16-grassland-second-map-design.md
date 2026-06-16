@@ -23,6 +23,18 @@ friction (rivers), never danger.
 
 ---
 
+> **Revision 2026-06-16 (after first playtest):** the discrete fade-to-black
+> *teleport* below was replaced by a **seamless continuous world**. The
+> grassland is now placed EAST of the prairie (beyond the old map edge); the
+> world is split at the zig-zag mountains (`SPLIT_X`) into chunks. Reaching the
+> prairie tree streams the grassland in, unloads the western prairie
+> (`world.disposeBefore()`), and switches the goal marker to the new tree — no
+> fade, no teleport; you just drive on into it. The mountains stay loaded as the
+> natural backtrack barrier. Consequence: a single continuous world means **one
+> shared sky and sun** — the grassland differs by ground, water, flora, and its
+> tree rather than a separate cool sky. Sections 4–6 still hold; section 2's
+> teleport mechanic is superseded.
+
 ## 2. Progression & the transition
 
 Reaching the prairie tree triggers a one-way move into the grassland. Because
