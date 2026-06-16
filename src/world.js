@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD, LANDMARK, clamp } from './constants.js';
+import { WORLD, LANDMARK, ARRIVE_RADIUS, TRAIN_HALF, clamp } from './constants.js';
 
 // Deterministic PRNG so the prairie looks the same every run.
 function mulberry(seed) {
@@ -28,7 +28,7 @@ function softDiscTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,25
 
 export { softDiscTexture };
 
-function bigRockCluster(rand, cx, cz, r, scene, obstacles) {
+function bigRockCluster(rand, cx, cz, r, root, obstacles) {
   const group = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: 0x8d7f72, roughness: 0.95, flatShading: true });
   const matDark = new THREE.MeshStandardMaterial({ color: 0x6f6258, roughness: 0.95, flatShading: true });
@@ -43,11 +43,11 @@ function bigRockCluster(rand, cx, cz, r, scene, obstacles) {
     rock.scale.y = 0.6 + rand() * 0.5;
     group.add(rock);
   }
-  scene.add(group);
+  root.add(group);
   obstacles.push({ type: 'circle', x: cx, z: cz, r });
 }
 
-function ridge(rand, x1, z1, x2, z2, scene, obstacles) {
+function ridge(rand, x1, z1, x2, z2, root, obstacles) {
   const group = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: 0x7d6e63, roughness: 0.95, flatShading: true });
   const matWarm = new THREE.MeshStandardMaterial({ color: 0x94806c, roughness: 0.95, flatShading: true });
@@ -68,11 +68,11 @@ function ridge(rand, x1, z1, x2, z2, scene, obstacles) {
     rock.rotation.x = (rand() - 0.5) * 0.14;
     group.add(rock);
   }
-  scene.add(group);
+  root.add(group);
   obstacles.push({ type: 'seg', x1, z1, x2, z2, w: 16 });
 }
 
-function buildLandmark(scene) {
+function buildLandmark(root) {
   const group = new THREE.Group();
   group.position.set(LANDMARK.x, 0, LANDMARK.z);
 
@@ -125,7 +125,7 @@ function buildLandmark(scene) {
   halo.position.y = 78;
   group.add(halo);
 
-  scene.add(group);
+  root.add(group);
   return group;
 }
 
@@ -133,7 +133,13 @@ export function createWorld(scene) {
   const rand = mulberry(20260612);
   const obstacles = [];
 
+  // Single root so the whole biome can be torn down (dispose) in one move —
+  // only one biome is ever held in memory on mobile WebGL.
+  const root = new THREE.Group();
+  scene.add(root);
+
   // --- fog (colour is driven per-frame by the SkyCycle) -----------------
+  // Stays global (not under root): the next biome installs its own fog.
   scene.fog = new THREE.Fog(0xdfe9df, 130, 560);
 
   // --- lights ------------------------------------------------------------
@@ -151,8 +157,8 @@ export function createWorld(scene) {
   dir.shadow.camera.near = 20;
   dir.shadow.camera.far = 600;
   dir.shadow.bias = -0.0008;
-  scene.add(dir);
-  scene.add(dir.target);
+  root.add(dir);
+  root.add(dir.target);
 
   // --- ground ----------------------------------------------------------
   const ground = new THREE.Mesh(
@@ -162,7 +168,7 @@ export function createWorld(scene) {
   ground.rotation.x = -Math.PI / 2;
   ground.position.set((WORLD.minX + WORLD.maxX) / 2, 0, 0);
   ground.receiveShadow = true;
-  scene.add(ground);
+  root.add(ground);
 
   // Meadow patches — big soft tinted discs break up the plain.
   const patchGeo = new THREE.CircleGeometry(1, 20);
@@ -189,7 +195,7 @@ export function createWorld(scene) {
     );
     patches.add(m);
   }
-  scene.add(patches);
+  root.add(patches);
 
   // --- instanced scatter ------------------------------------------------
   const dummy = new THREE.Object3D();
@@ -205,7 +211,7 @@ export function createWorld(scene) {
     }
     inst.instanceMatrix.needsUpdate = true;
     if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
-    scene.add(inst);
+    root.add(inst);
     return inst;
   }
 
@@ -302,7 +308,7 @@ export function createWorld(scene) {
     treeGroup.add(t);
     trees.push({ group: t, mats: [trunkMat, leafMat] });
   }
-  scene.add(treeGroup);
+  root.add(treeGroup);
 
   // --- distant hills -----------------------------------------------------
   const hillMat = new THREE.MeshStandardMaterial({ color: 0xb3a584, roughness: 1, flatShading: true });
@@ -318,28 +324,60 @@ export function createWorld(scene) {
     hill.position.set(cx, -6, cz);
     hills.add(hill);
   }
-  scene.add(hills);
+  root.add(hills);
 
   // --- obstacle layout: scattered rocks, then the two ridge walls ---------
-  bigRockCluster(rand, 350, 70, 40, scene, obstacles);
-  bigRockCluster(rand, 565, -150, 46, scene, obstacles);
-  bigRockCluster(rand, 790, 95, 42, scene, obstacles);
-  bigRockCluster(rand, 1010, -55, 52, scene, obstacles);
-  bigRockCluster(rand, 1255, 170, 44, scene, obstacles);
-  bigRockCluster(rand, 1460, -185, 50, scene, obstacles);
-  bigRockCluster(rand, 1660, 45, 46, scene, obstacles);
+  bigRockCluster(rand, 350, 70, 40, root, obstacles);
+  bigRockCluster(rand, 565, -150, 46, root, obstacles);
+  bigRockCluster(rand, 790, 95, 42, root, obstacles);
+  bigRockCluster(rand, 1010, -55, 52, root, obstacles);
+  bigRockCluster(rand, 1255, 170, 44, root, obstacles);
+  bigRockCluster(rand, 1460, -185, 50, root, obstacles);
+  bigRockCluster(rand, 1660, 45, 46, root, obstacles);
 
   // Ridge A blocks the south + centre (pass to the north),
   // Ridge B then blocks the north + centre (pass back south): a gentle S.
-  ridge(rand, 1900, -760, 1900, 130, scene, obstacles);
-  ridge(rand, 2130, 760, 2130, -50, scene, obstacles);
+  ridge(rand, 1900, -760, 1900, 130, root, obstacles);
+  ridge(rand, 2130, 760, 2130, -50, root, obstacles);
 
-  const landmark = buildLandmark(scene);
+  const landmark = buildLandmark(root);
+
+  // Walk the root, releasing every GPU buffer it owns, then detach it. No
+  // biome geometry/material/texture should survive a transition.
+  function dispose() {
+    const seenTex = new Set();
+    const disposeMat = (mat) => {
+      if (!mat) return;
+      for (const key of Object.keys(mat)) {
+        const val = mat[key];
+        if (val && val.isTexture && !seenTex.has(val)) {
+          seenTex.add(val);
+          val.dispose();
+        }
+      }
+      mat.dispose();
+    };
+    root.traverse((obj) => {
+      if (obj.isMesh || obj.isInstancedMesh || obj.isSprite) {
+        if (obj.geometry) obj.geometry.dispose();
+        const mat = obj.material;
+        if (Array.isArray(mat)) mat.forEach(disposeMat);
+        else disposeMat(mat);
+        if (obj.instanceColor) obj.instanceColor.dispose?.();
+      }
+    });
+    scene.remove(root);
+  }
 
   return {
     obstacles,
     landmark,
     sunLight: dir,
+    root,
+    dispose,
+    landmarkPos: { x: LANDMARK.x, z: LANDMARK.z },
+    arriveRadius: ARRIVE_RADIUS,
+    start: { x: TRAIN_HALF, z: 0, heading: 0 },
     update(_dt, _time, trainPos, cameraPos) {
       // shadow box follows the train
       dir.position.set(trainPos.x - 110, 170, trainPos.z + 90);
@@ -358,7 +396,10 @@ export function createWorld(scene) {
 
 // --- collision helpers ------------------------------------------------------
 
-function segDist(px, pz, x1, z1, x2, z2) {
+// Distance from a point to a segment, plus the clamped parameter t (0..1) of
+// the closest point along (x1,z1)->(x2,z2). The t lets callers test bridge
+// gaps without recomputing the projection.
+export function segDist(px, pz, x1, z1, x2, z2) {
   const dx = x2 - x1;
   const dz = z2 - z1;
   const len2 = dx * dx + dz * dz;
@@ -366,7 +407,7 @@ function segDist(px, pz, x1, z1, x2, z2) {
   t = clamp(t, 0, 1);
   const cx = x1 + dx * t;
   const cz = z1 + dz * t;
-  return Math.hypot(px - cx, pz - cz);
+  return { dist: Math.hypot(px - cx, pz - cz), t };
 }
 
 export function blockedAt(obstacles, x, z, pad) {
@@ -374,7 +415,13 @@ export function blockedAt(obstacles, x, z, pad) {
     if (o.type === 'circle') {
       if (Math.hypot(x - o.x, z - o.z) < o.r + pad) return true;
     } else {
-      if (segDist(x, z, o.x1, o.z1, o.x2, o.z2) < o.w + pad) return true;
+      const { dist, t } = segDist(x, z, o.x1, o.z1, o.x2, o.z2);
+      if (dist < o.w + pad) {
+        // A `gaps: [{t0, t1}]` window marks a bridge — the closest point on
+        // the seg falling inside any gap means this seg does not block here.
+        if (o.gaps && o.gaps.some((g) => t >= g.t0 && t <= g.t1)) continue;
+        return true;
+      }
     }
   }
   return false;

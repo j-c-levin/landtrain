@@ -173,6 +173,25 @@ export class Train {
     this.#placeCars();
   }
 
+  // Drop the whole train at a fresh spawn (new biome) facing `heading`,
+  // exactly as a newly-constructed train would sit. Reseeds the trail, clears
+  // the route, and resets gauges to fresh-journey values.
+  reset({ x, z, heading }) {
+    this.heading = heading;
+    this.speed = 0;
+    this.paused = false;
+    this.blocked = false;
+    this.clearRoute();
+    this.distanceTraveled = 0;
+    this.eff = 88;
+    this.wear = 8;
+    this.plants = 95;
+
+    this.headPos.set(x, 0, z);
+    this.path.seed(this.headPos.x, this.headPos.z, this.heading, 100);
+    this.#placeCars();
+  }
+
   #nearWallMat(zone) {
     if (!this.zoneMats[zone]) {
       this.zoneMats[zone] = new THREE.MeshStandardMaterial({

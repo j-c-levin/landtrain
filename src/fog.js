@@ -16,25 +16,7 @@ export class FogOfWar {
     this.canvas.height = Math.round(h * this.scale);
     this.ctx = this.canvas.getContext('2d');
 
-    // warm-dark plum, with faint wandering blotches so the unknown has texture
-    this.ctx.fillStyle = '#221a30';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = 'rgba(58,44,72,0.35)';
-    let sx = 12345;
-    const rnd = () => ((sx = (sx * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < 130; i++) {
-      this.ctx.beginPath();
-      this.ctx.ellipse(
-        rnd() * this.canvas.width,
-        rnd() * this.canvas.height,
-        8 + rnd() * 36,
-        6 + rnd() * 24,
-        rnd() * Math.PI,
-        0,
-        Math.PI * 2
-      );
-      this.ctx.fill();
-    }
+    this.#shroud();
 
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -56,6 +38,36 @@ export class FogOfWar {
     this.mesh.renderOrder = 50;
     this.mesh.visible = false;
     scene.add(this.mesh);
+  }
+
+  // Fill the canvas fully opaque: warm-dark plum, with faint wandering
+  // blotches so the unknown has texture. The fresh, fully-shrouded state.
+  #shroud() {
+    this.ctx.globalCompositeOperation = 'source-over';
+    this.ctx.fillStyle = '#221a30';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = 'rgba(58,44,72,0.35)';
+    let sx = 12345;
+    const rnd = () => ((sx = (sx * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 130; i++) {
+      this.ctx.beginPath();
+      this.ctx.ellipse(
+        rnd() * this.canvas.width,
+        rnd() * this.canvas.height,
+        8 + rnd() * 36,
+        6 + rnd() * 24,
+        rnd() * Math.PI,
+        0,
+        Math.PI * 2
+      );
+      this.ctx.fill();
+    }
+  }
+
+  // Re-shroud everything when entering a fresh biome.
+  reset() {
+    this.#shroud();
+    this.texture.needsUpdate = true;
   }
 
   // Paint one soft radial hole (world space). Caller manages texture.needsUpdate.
