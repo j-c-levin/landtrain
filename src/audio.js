@@ -104,7 +104,7 @@ export class AudioFX {
     if (this.biome === 'grassland') {
       this.chirpTimer -= dt;
       if (this.chirpTimer <= 0) {
-        this.chirpTimer = 2.5 + Math.random() * 5.5;
+        this.chirpTimer = 3.5 + Math.random() * 7; // ~3.5-10.5s, irregular
         this.#chirp();
       }
     }
@@ -126,40 +126,76 @@ export class AudioFX {
     osc.stop(t + dur + 0.05);
   }
 
-  // A short soft synth blip — a bird trill or a frog plip — routed through the
-  // chirp bus so its level follows the grassland crossfade.
+  // A short soft fauna sound — a warm bird whistle, a cricket trill, or a soft
+  // frog plip — routed through the chirp bus so its level follows the grassland
+  // crossfade. Sine-based throughout to avoid the harsh synthetic beep of the
+  // old triangle bird; the cricket carries the "alive meadow" texture.
   #chirp() {
     if (!this.started || this.muted) return;
     const ctx = this.ctx;
     const t = ctx.currentTime;
-    const frog = Math.random() < 0.4;
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    if (frog) {
-      // low gulping plip
+    const roll = Math.random();
+
+    if (roll < 0.5) {
+      // Songbird whistle: warm sine with a gentle descending glide and a touch
+      // of vibrato so it reads as a distant bird, not a tone generator.
+      const osc = ctx.createOscillator();
+      const vib = ctx.createOscillator();
+      const vibGain = ctx.createGain();
+      const g = ctx.createGain();
       osc.type = 'sine';
-      const f = 150 + Math.random() * 90;
+      const f = 2000 + Math.random() * 700;
       osc.frequency.setValueAtTime(f, t);
-      osc.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(f * 1.12, t + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.9, t + 0.28);
+      vib.type = 'sine';
+      vib.frequency.value = 16 + Math.random() * 8; // ~16-24 Hz vibrato
+      vibGain.gain.value = f * 0.018; // shallow pitch wobble
+      vib.connect(vibGain).connect(osc.frequency);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.09, t + 0.015);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      g.gain.exponentialRampToValueAtTime(0.04, t + 0.03);
+      g.gain.setValueAtTime(0.04, t + 0.16);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
       osc.connect(g).connect(this.chirpGain);
-      osc.start(t);
-      osc.stop(t + 0.2);
+      osc.start(t); vib.start(t);
+      osc.stop(t + 0.38); vib.stop(t + 0.38);
+    } else if (roll < 0.85) {
+      // Cricket stridulation: a high carrier chopped by a fast amplitude
+      // modulator (the LFO drives the gain), giving the dry pulsing trill.
+      const carrier = ctx.createOscillator();
+      const mod = ctx.createOscillator();
+      const modGain = ctx.createGain();
+      const am = ctx.createGain();
+      const g = ctx.createGain();
+      carrier.type = 'sine';
+      carrier.frequency.value = 4200 + Math.random() * 700;
+      mod.type = 'sine';
+      mod.frequency.value = 30 + Math.random() * 14; // pulse rate
+      modGain.gain.value = 0.5;
+      am.gain.value = 0.5; // centre: modulated between ~0 and ~1
+      mod.connect(modGain).connect(am.gain);
+      const dur = 0.22 + Math.random() * 0.2;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.028, t + 0.05);
+      g.gain.setValueAtTime(0.028, t + dur - 0.06);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      carrier.connect(am).connect(g).connect(this.chirpGain);
+      carrier.start(t); mod.start(t);
+      carrier.stop(t + dur + 0.02); mod.stop(t + dur + 0.02);
     } else {
-      // light upward bird tweet, two quick notes
-      osc.type = 'triangle';
-      const f = 1800 + Math.random() * 1100;
+      // Distant frog plip: soft low sine, kept gentle.
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      const f = 150 + Math.random() * 70;
       osc.frequency.setValueAtTime(f, t);
-      osc.frequency.exponentialRampToValueAtTime(f * 1.25, t + 0.06);
-      osc.frequency.exponentialRampToValueAtTime(f * 1.1, t + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.7, t + 0.12);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+      g.gain.exponentialRampToValueAtTime(0.06, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
       osc.connect(g).connect(this.chirpGain);
       osc.start(t);
-      osc.stop(t + 0.18);
+      osc.stop(t + 0.22);
     }
   }
 
@@ -175,7 +211,7 @@ export class AudioFX {
     this.windGain.gain.setTargetAtTime(grass ? 0.006 : 0.025, t, 1.5);
     this.waterGain.gain.setTargetAtTime(grass ? 0.05 : 0, t, 1.5);
     this.waterLfoGain.gain.setTargetAtTime(grass ? 0.03 : 0, t, 1.5);
-    this.chirpGain.gain.setTargetAtTime(grass ? 0.6 : 0, t, 1.5);
+    this.chirpGain.gain.setTargetAtTime(grass ? 0.45 : 0, t, 1.5);
     if (grass && this.chirpTimer <= 0) this.chirpTimer = 1 + Math.random() * 2;
   }
 

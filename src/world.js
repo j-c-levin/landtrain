@@ -173,29 +173,40 @@ export function createWorld(scene) {
   // Two coplanar planes abutting at SPLIT_X so the western half can be
   // unloaded. They share the exact edge x (overlapping by a unit, kept
   // coplanar) so they meet with no visible gap and no z-fighting.
+  // The east plane's skirt overruns into the grassland region, so both
+  // grounds sit a hair below y=0 (GROUND_Y) — the grassland ground stays at
+  // y=0 and thus always wins the depth test where they overlap, killing the
+  // sand/grass flicker without a visible step.
+  const GROUND_Y = -0.05;
   const groundMargin = 1300; // half of the old +2600 generous margin
   const groundDepth = PRAIRIE.maxZ - PRAIRIE.minZ + 2600;
   // Separate materials per plane so disposeBefore() can free the west plane's
   // material without affecting the still-live east plane.
   const groundColor = 0xc9af72;
 
+  // Positive polygonOffset pushes both prairie planes *back* in the depth
+  // buffer (slope-scaled, so it holds at any zoom) — the grassland ground wins
+  // their coplanar overlap with no checkerboard z-fighting, while leaving the
+  // grass at neutral depth so the rivers (pulled forward) still sit on top.
+  const groundOffset = { polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 };
+
   const westW = SPLIT_X - PRAIRIE.minX + groundMargin + 1;
   const groundWest = new THREE.Mesh(
     new THREE.PlaneGeometry(westW, groundDepth),
-    new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1, ...groundOffset })
   );
   groundWest.rotation.x = -Math.PI / 2;
-  groundWest.position.set((PRAIRIE.minX - groundMargin + SPLIT_X) / 2, 0, 0);
+  groundWest.position.set((PRAIRIE.minX - groundMargin + SPLIT_X) / 2, GROUND_Y, 0);
   groundWest.receiveShadow = true;
   chunkBefore.add(groundWest);
 
   const eastW = PRAIRIE.maxX - SPLIT_X + groundMargin + 1;
   const groundEast = new THREE.Mesh(
     new THREE.PlaneGeometry(eastW, groundDepth),
-    new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1, ...groundOffset })
   );
   groundEast.rotation.x = -Math.PI / 2;
-  groundEast.position.set((SPLIT_X + PRAIRIE.maxX + groundMargin) / 2, 0, 0);
+  groundEast.position.set((SPLIT_X + PRAIRIE.maxX + groundMargin) / 2, GROUND_Y, 0);
   groundEast.receiveShadow = true;
   chunkAfter.add(groundEast);
 
