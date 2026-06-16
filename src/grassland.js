@@ -283,7 +283,13 @@ export function createGrassland(scene) {
     return { x, z };
   };
 
-  // Meadow patches — big soft tinted green discs break up the plain.
+  // Meadow patches — big soft tinted green discs break up the plain. These are
+  // translucent and (intentionally) overlap each other and the ground, all
+  // near y=0. Relying on a tiny per-disc y-lift to order them z-fights badly in
+  // the far/high map view where depth precision collapses (the same problem the
+  // river water solves below). So: depthWrite:false to stop the discs fighting
+  // each other (they blend in stable render order instead), and polygonOffset to
+  // pull them cleanly in front of the ground plane at any zoom.
   const patchGeo = new THREE.CircleGeometry(1, 20);
   const patchColors = [0x6fa050, 0x528a3e, 0x77a85a, 0x4f7d3c, 0x82b066];
   const patches = new THREE.Group();
@@ -295,6 +301,10 @@ export function createGrassland(scene) {
         roughness: 1,
         transparent: true,
         opacity: 0.4 + rand() * 0.3,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
       })
     );
     m.rotation.x = -Math.PI / 2;
@@ -302,7 +312,7 @@ export function createGrassland(scene) {
     m.scale.set(s, s * (0.6 + rand() * 0.7), 1);
     m.rotation.z = rand() * Math.PI;
     const pp = randClearXZ();
-    m.position.set(pp.x, 0.04 + i * 0.0004, pp.z);
+    m.position.set(pp.x, 0.04, pp.z);
     patches.add(m);
   }
   root.add(patches);
