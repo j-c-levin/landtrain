@@ -438,7 +438,7 @@ export function createGrassland(scene) {
     water.rotation.x = -Math.PI / 2;
     water.rotation.z = Math.PI / 2; // align the plane's long axis with N-S (z)
     water.scale.set(zSpan, def.w * 2.0, 1);
-    water.position.set(def.x, 0.12, (zMin + zMax) / 2);
+    water.position.set(def.x, -6.4, (zMin + zMax) / 2); // WATER_Y: channel floor
     root.add(water);
     waters.push({ mat: waterMat, axis: 'x' }); // flows down-river (along U)
 
@@ -460,16 +460,16 @@ export function createGrassland(scene) {
     const planks = 7;
     for (let i = 0; i < planks; i++) {
       const t = i / (planks - 1);
-      const arch = Math.sin(t * Math.PI) * 1.6; // shallow arc, peak mid-river
+      const arch = Math.sin(t * Math.PI) * 0.8; // shallow arc, peak mid-river
       const plank = new THREE.Mesh(new THREE.BoxGeometry(deckW / planks + 1.2, 0.5, pathZ), deckMat);
-      plank.position.set(def.x - deckW / 2 + deckW * t, 0.9 + arch, gapMidZ);
+      plank.position.set(def.x - deckW / 2 + deckW * t, 0.3 + arch, gapMidZ);
       plank.castShadow = true;
       deckGroup.add(plank);
     }
     // low side rails — run bank-to-bank (along X) on the up/down-river edges
     for (const side of [-1, 1]) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(deckW + 2, 1.0, 0.5), railMat);
-      rail.position.set(def.x, 1.8, gapMidZ + side * pathZ * 0.5);
+      rail.position.set(def.x, 1.1, gapMidZ + side * pathZ * 0.5);
       deckGroup.add(rail);
     }
     root.add(deckGroup);
@@ -484,7 +484,7 @@ export function createGrassland(scene) {
       const z = zMin + zSpan * t;
       if (t >= g.t0 - 0.02 && t <= g.t1 + 0.02) continue; // keep the crossing clear
       const side = rand() > 0.5 ? 1 : -1;
-      const offX = def.x + side * (def.w + 2 + rand() * 6);
+      const offX = def.x + side * (FOOT + 2 + rand() * 6); // stand on the flat lip
       const offZ = z + (rand() - 0.5) * 8;
       const reed = new THREE.Mesh(reedGeo, reedMat);
       reed.position.set(offX, 2.2, offZ);
@@ -506,7 +506,7 @@ export function createGrassland(scene) {
       pad.rotation.x = -Math.PI / 2;
       const s = 1.4 + rand() * 2.2;
       pad.scale.set(s, s, 1);
-      pad.position.set(def.x + (rand() - 0.5) * def.w * 1.4, 0.14, z);
+      pad.position.set(def.x + (rand() - 0.5) * def.w * 1.6, -6.36, z); // on WATER_Y
       root.add(pad);
     }
   }
@@ -531,24 +531,62 @@ export function createGrassland(scene) {
     root.add(ringTerrain);
   }
 
-  // Cosmetic-only delta water ringing the tree island (NO obstacle) so the
-  // tree reads as sitting on a delta island. Kept thin and well clear of the
-  // open approach so it never blocks reaching the tree.
+  // ring water — a flat annulus sitting on the channel floor, sunken below the
+  // banks; same scrolling-ripple trick as the rivers.
   {
     const ripple = waterNormalTexture();
-    ripple.repeat.set(54, 4); // ~square cells around (U=angle) and across (V=radial)
+    ripple.repeat.set(54, 4);
     const deltaMat = new THREE.MeshStandardMaterial({
       color: riverColor, roughness: 0.3, metalness: 0.15,
-      transparent: true, opacity: 0.72,
+      transparent: true, opacity: 0.85,
       normalMap: ripple, normalScale: new THREE.Vector2(0.55, 0.55),
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
     waters.push({ mat: deltaMat, axis: 'y' }); // radial flow across the annulus
-    // a flat ring (annulus) of water around the knoll, raised just above ground
-    const ring = new THREE.Mesh(new THREE.RingGeometry(150, 230, 48), deltaMat);
+    // fill the flat floor band (R_MID +/- W_RING = 172..208)
+    const ring = new THREE.Mesh(new THREE.RingGeometry(172, 208, 48), deltaMat);
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(GRASS_LANDMARK.x, 0.1, GRASS_LANDMARK.z);
+    ring.position.set(GRASS_LANDMARK.x, -6.4, GRASS_LANDMARK.z); // WATER_Y
     root.add(ring);
+  }
+
+  // ring collision: impassable annulus with two bridge gaps (north +z, south -z)
+  {
+    const GAP_A = 0.16; // angular half-gap
+    obstacles.push({
+      type: 'ring', x: GRASS_LANDMARK.x, z: GRASS_LANDMARK.z, rInner: 150, rOuter: 230,
+      gaps: [
+        { a0: Math.PI / 2 - GAP_A, a1: Math.PI / 2 + GAP_A },   // north (+z)
+        { a0: -Math.PI / 2 - GAP_A, a1: -Math.PI / 2 + GAP_A }, // south (-z)
+      ],
+    });
+
+    // two bridge decks crossing the channel radially at north and south, at the
+    // train's level. Each runs from the island edge (r=150) to outer (r=230)
+    // along z, planks stepping across that span, long axis along x.
+    const deckMat = new THREE.MeshStandardMaterial({ color: 0x9c6b3f, roughness: 0.85, flatShading: true });
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9, flatShading: true });
+    const rIn = 150, rOut = 230, span = rOut - rIn; // 80
+    const deckW = 30;   // path width (tangential, along x)
+    const planks = 9;
+    for (const dir of [1, -1]) { // +1 = north (+z), -1 = south (-z)
+      const deck = new THREE.Group();
+      for (let i = 0; i < planks; i++) {
+        const t = i / (planks - 1);
+        const r = rIn + span * t;                 // distance from centre
+        const arch = Math.sin(t * Math.PI) * 0.8; // shallow arc, peak mid-span
+        const plank = new THREE.Mesh(new THREE.BoxGeometry(deckW, 0.5, span / planks + 1.2), deckMat);
+        plank.position.set(GRASS_LANDMARK.x, 0.3 + arch, GRASS_LANDMARK.z + dir * r);
+        plank.castShadow = true;
+        deck.add(plank);
+      }
+      for (const side of [-1, 1]) { // side rails along the path (offset in x)
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, span + 2), railMat);
+        rail.position.set(GRASS_LANDMARK.x + side * deckW * 0.5, 1.1, GRASS_LANDMARK.z + dir * (rIn + span / 2));
+        deck.add(rail);
+      }
+      root.add(deck);
+    }
   }
 
   // --- willows (individual, so they can fade near the camera) -----------
