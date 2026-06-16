@@ -173,10 +173,12 @@ export function createWorld(scene) {
   // Two coplanar planes abutting at SPLIT_X so the western half can be
   // unloaded. They share the exact edge x (overlapping by a unit, kept
   // coplanar) so they meet with no visible gap and no z-fighting.
-  // The east plane's skirt overruns into the grassland region, so both
-  // grounds sit a hair below y=0 (GROUND_Y) — the grassland ground stays at
-  // y=0 and thus always wins the depth test where they overlap, killing the
-  // sand/grass flicker without a visible step.
+  // Both prairie grounds sit a hair below y=0 (GROUND_Y) so the grassland
+  // ground (y=0) wins the depth test where they overlap at the seam, killing
+  // the sand/grass flicker without a visible step. The east plane stops AT the
+  // seam (PRAIRIE.maxX) rather than overrunning east into the grassland: the
+  // grassland owns all ground east of the seam, and an overrunning opaque plane
+  // would float over the grassland's sunken river channels and hide the water.
   const GROUND_Y = -0.05;
   const groundMargin = 1300; // half of the old +2600 generous margin
   const groundDepth = PRAIRIE.maxZ - PRAIRIE.minZ + 2600;
@@ -200,13 +202,16 @@ export function createWorld(scene) {
   groundWest.receiveShadow = true;
   chunkBefore.add(groundWest);
 
-  const eastW = PRAIRIE.maxX - SPLIT_X + groundMargin + 1;
+  // No east skirt: stop at the seam (PRAIRIE.maxX) with a 1u overlap so the
+  // grassland's ground takes over east of here without this plane occluding the
+  // grassland's sunken channels.
+  const eastW = PRAIRIE.maxX - SPLIT_X + 1;
   const groundEast = new THREE.Mesh(
     new THREE.PlaneGeometry(eastW, groundDepth),
     new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1, ...groundOffset })
   );
   groundEast.rotation.x = -Math.PI / 2;
-  groundEast.position.set((SPLIT_X + PRAIRIE.maxX + groundMargin) / 2, GROUND_Y, 0);
+  groundEast.position.set((SPLIT_X + PRAIRIE.maxX + 1) / 2, GROUND_Y, 0);
   groundEast.receiveShadow = true;
   chunkAfter.add(groundEast);
 

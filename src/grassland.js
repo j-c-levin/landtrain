@@ -268,6 +268,21 @@ export function createGrassland(scene) {
     root.add(island);
   }
 
+  // Is (x,z) over a sunken water channel? Scatter (grass, bushes, flowers,
+  // patches, willows) is placed at y≈0, so anything landing on a channel would
+  // hover above the recessed water. Used to reject/re-roll those positions.
+  const onWater = (x, z) => {
+    for (const rx of riverXs) if (Math.abs(x - rx) < FOOT + 3) return true;
+    const dr = Math.hypot(x - GRASS_LANDMARK.x, z - GRASS_LANDMARK.z);
+    return dr > 150 - 3 && dr < 230 + 3; // the ring channel annulus
+  };
+  // a random ground position that isn't over a channel (re-roll, capped)
+  const randClearXZ = () => {
+    let x = randX(), z = randZ(), n = 0;
+    while (onWater(x, z) && ++n < 10) { x = randX(); z = randZ(); }
+    return { x, z };
+  };
+
   // Meadow patches — big soft tinted green discs break up the plain.
   const patchGeo = new THREE.CircleGeometry(1, 20);
   const patchColors = [0x6fa050, 0x528a3e, 0x77a85a, 0x4f7d3c, 0x82b066];
@@ -286,7 +301,8 @@ export function createGrassland(scene) {
     const s = 26 + rand() * 90;
     m.scale.set(s, s * (0.6 + rand() * 0.7), 1);
     m.rotation.z = rand() * Math.PI;
-    m.position.set(randX(), 0.04 + i * 0.0004, randZ());
+    const pp = randClearXZ();
+    m.position.set(pp.x, 0.04 + i * 0.0004, pp.z);
     patches.add(m);
   }
   root.add(patches);
@@ -310,7 +326,8 @@ export function createGrassland(scene) {
   }
 
   const randPos = (o) => {
-    o.position.set(randX(), 0, randZ());
+    const { x, z } = randClearXZ();
+    o.position.set(x, 0, z);
   };
 
   // grass tufts — fresh green (hue ~0.28) instead of the prairie's olive ~0.13
@@ -455,10 +472,11 @@ export function createGrassland(scene) {
     const deckMat = new THREE.MeshStandardMaterial({ color: 0x9c6b3f, roughness: 0.85, flatShading: true });
     const railMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9, flatShading: true });
     // The river runs N-S (Z), so the crossing goes E-W (X): the deck spans the
-    // river width bank-to-bank along X, and the path is as wide as the gap (Z).
-    const deckW = def.w * 2.6; // spans the river width (X), bank to bank
-    const pathZ = gapLen;      // crossing-path width along the river's length (Z)
-    const planks = 7;
+    // full banked channel along X (footprint FOOT each side + a little onto the
+    // grass lips), and the path is as wide as the gap (Z).
+    const deckW = FOOT * 2 + 8; // spans the sunken channel bank-to-bank (X)
+    const pathZ = gapLen;       // crossing-path width along the river's length (Z)
+    const planks = 9;
     for (let i = 0; i < planks; i++) {
       const t = i / (planks - 1);
       const arch = Math.sin(t * Math.PI) * 0.8; // shallow arc, peak mid-river
@@ -610,11 +628,13 @@ export function createGrassland(scene) {
     skirt.position.y = h * 0.7;
     skirt.scale.set(1.5, 1.9, 1.5);
     t.add(trunk, crown, skirt);
-    t.position.set(randX(), 0, randZ());
-    // keep willows off the landmark knoll
-    if (Math.hypot(t.position.x - GRASS_LANDMARK.x, t.position.z - GRASS_LANDMARK.z) < 130) {
-      t.position.x -= 240;
+    // keep willows off the channels and off the landmark knoll
+    let wx = randX(), wz = randZ(), n = 0;
+    while (n++ < 12 && (onWater(wx, wz) ||
+           Math.hypot(wx - GRASS_LANDMARK.x, wz - GRASS_LANDMARK.z) < 130)) {
+      wx = randX(); wz = randZ();
     }
+    t.position.set(wx, 0, wz);
     treeGroup.add(t);
     trees.push({ group: t, mats: [trunkMat, leafMat] });
   }
