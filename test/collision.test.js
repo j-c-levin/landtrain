@@ -24,3 +24,36 @@ test('a circle obstacle still blocks', () => {
   assert.equal(blockedAt(obstacles, 5, 5, 0), true);
   assert.equal(blockedAt(obstacles, 100, 100, 0), false);
 });
+
+// A ring (annulus) centered at origin, band r=150..230, with one bridge gap
+// centered on +z (angle +PI/2), half-width 0.16 rad.
+const ringObs = () => [{
+  type: 'ring', x: 0, z: 0, rInner: 150, rOuter: 230,
+  gaps: [{ a0: Math.PI / 2 - 0.16, a1: Math.PI / 2 + 0.16 }],
+}];
+
+test('point inside the ring band off-gap is blocked', () => {
+  // due east (angle 0), radius 190 -> inside band, not in the +z gap
+  assert.equal(blockedAt(ringObs(), 190, 0, 0), true);
+});
+
+test('point inside the ring band within the gap is not blocked', () => {
+  // due north (+z, angle +PI/2), radius 190 -> inside the bridge gap
+  assert.equal(blockedAt(ringObs(), 0, 190, 0), false);
+});
+
+test('point inside the inner radius (island) is not blocked', () => {
+  assert.equal(blockedAt(ringObs(), 100, 0, 0), false);
+});
+
+test('point outside the outer radius is not blocked', () => {
+  assert.equal(blockedAt(ringObs(), 300, 0, 0), false);
+});
+
+test('a ring gap window that wraps past PI is handled', () => {
+  // gap centered on PI (due west). A point due west should be in the gap.
+  const o = [{ type: 'ring', x: 0, z: 0, rInner: 150, rOuter: 230,
+    gaps: [{ a0: Math.PI - 0.16, a1: -Math.PI + 0.16 }] }];
+  assert.equal(blockedAt(o, -190, 0, 0), false); // due west, in wrapped gap
+  assert.equal(blockedAt(o, 190, 0, 0), true);   // due east, blocked
+});
