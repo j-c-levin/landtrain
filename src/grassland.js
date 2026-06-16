@@ -1,14 +1,20 @@
 import * as THREE from 'three';
-import { WORLD, clamp } from './constants.js';
+import { GRASSLAND, clamp } from './constants.js';
 import { softDiscTexture } from './world.js';
 
-// The grassland is map 2: a lush, river-laced biome reached after the prairie.
+// The grassland is the eastern region of the seamless continuous world. It sits
+// EAST of the prairie (beyond the old map edge at x=2700) and shares ONE sky
+// and ONE sun with the prairie. It does NOT create its own directional light
+// and does NOT touch scene.fog — the shared SkyCycle drives both globally.
+//
 // It mirrors world.js's structure (mulberry PRNG, InstancedMesh scatter, the
 // root-Group + dispose() teardown) with the dials flipped to green + water.
+// Everything is placed within the GRASSLAND region so its west edge abuts the
+// prairie's east ground cleanly at x=2700.
 
-// Grassland-specific landmark (the second magic tree) and arrival ring. The
-// prairie's LANDMARK/ARRIVE_RADIUS are prairie-specific, so we keep our own.
-const GRASS_LANDMARK = { x: 2450, z: 0 };
+// Grassland-specific landmark (the second magic tree) and arrival ring, in the
+// far east of the region so the player drives toward it from the west.
+const GRASS_LANDMARK = { x: GRASSLAND.maxX - 250, z: 0 }; // ≈ 5400
 const GRASS_ARRIVE_RADIUS = 95;
 
 // Deterministic PRNG so the grassland looks the same every run. Seed differs
@@ -74,7 +80,8 @@ function mossyBoulders(rand, cx, cz, r, root, obstacles) {
 // The second magic tree — a re-skin of world.js's buildLandmark. Same
 // silhouette family (knoll + trunk + leaf blobs + glowing accents + halo) but
 // cooler: a green grassy knoll, silver/blue blossom, cool glowing accents. All
-// fog:false so it reads as a far silhouette on the horizon.
+// fog:false so it reads as a far silhouette on the horizon when approaching
+// from the west.
 function buildGrassLandmark(root) {
   const group = new THREE.Group();
   group.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
@@ -141,36 +148,43 @@ export function createGrassland(scene) {
   const root = new THREE.Group();
   scene.add(root);
 
-  // --- fog (cool blue-green fallback; SkyCycle recolours per-frame later) ---
-  // Stays global (not under root): each biome installs its own fog.
-  scene.fog = new THREE.Fog(0xb9d6cf, 130, 560);
+  // NOTE: no scene.fog assignment and no DirectionalLight here. In the seamless
+  // continuous world there is ONE sun (the prairie's) and ONE fog (the shared
+  // SkyCycle's); the grassland is lit by that shared sun and must not stomp the
+  // global atmosphere.
 
-  // --- lights ------------------------------------------------------------
-  // The directional sun/moon key light. SkyCycle recolours it; the shadow box
-  // follows the train from update(). Shadow config copied from world.js's dir.
-  const dir = new THREE.DirectionalLight(0xfff1d6, 2.25);
-  dir.position.set(-110, 170, 90);
-  dir.castShadow = true;
-  dir.shadow.mapSize.set(2048, 2048);
-  dir.shadow.camera.left = -75;
-  dir.shadow.camera.right = 75;
-  dir.shadow.camera.top = 75;
-  dir.shadow.camera.bottom = -75;
-  dir.shadow.camera.near = 20;
-  dir.shadow.camera.far = 600;
-  dir.shadow.bias = -0.0008;
-  root.add(dir);
-  root.add(dir.target);
+  // Region extents — everything is placed inside the GRASSLAND region so the
+  // west edge abuts the prairie's east ground at x=GRASSLAND.minX (2700).
+  const xMin = GRASSLAND.minX;
+  const xMax = GRASSLAND.maxX;
+  const zMin = GRASSLAND.minZ;
+  const zMax = GRASSLAND.maxZ;
+  const xSpan = xMax - xMin;
+  const zSpan = zMax - zMin;
+  const cxRegion = (xMin + xMax) / 2;
+
+  const randX = () => xMin + rand() * xSpan;
+  const randZ = () => zMin + rand() * zSpan;
 
   // --- ground (lush green, replacing the prairie's dry gold) -------------
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(WORLD.maxX - WORLD.minX + 2600, WORLD.maxZ - WORLD.minZ + 2600),
-    new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set((WORLD.minX + WORLD.maxX) / 2, 0, 0);
-  ground.receiveShadow = true;
-  root.add(ground);
+  // Sized to the region with a small east/south/north overscan, but the WEST
+  // edge is pinned to xMin (2700) so it meets the prairie ground coplanar with
+  // a ~1u overlap rather than leaving a gap or z-fighting seam.
+  {
+    const overEast = 2600; // generous east/N/S skirt so the plane reaches the horizon
+    const overlapW = 1; // overlap the prairie edge by ~1u, coplanar at y=0
+    const planeW = xSpan + overEast + overlapW;
+    const planeD = zSpan + overEast;
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(planeW, planeD),
+      new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    // Center so the west edge lands at xMin - overlapW (overlapping the prairie).
+    ground.position.set(xMin - overlapW + planeW / 2, 0, 0);
+    ground.receiveShadow = true;
+    root.add(ground);
+  }
 
   // Meadow patches — big soft tinted green discs break up the plain.
   const patchGeo = new THREE.CircleGeometry(1, 20);
@@ -190,11 +204,7 @@ export function createGrassland(scene) {
     const s = 26 + rand() * 90;
     m.scale.set(s, s * (0.6 + rand() * 0.7), 1);
     m.rotation.z = rand() * Math.PI;
-    m.position.set(
-      WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
-      0.04 + i * 0.0004,
-      WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ)
-    );
+    m.position.set(randX(), 0.04 + i * 0.0004, randZ());
     patches.add(m);
   }
   root.add(patches);
@@ -218,11 +228,7 @@ export function createGrassland(scene) {
   }
 
   const randPos = (o) => {
-    o.position.set(
-      WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
-      0,
-      WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ)
-    );
+    o.position.set(randX(), 0, randZ());
   };
 
   // grass tufts — fresh green (hue ~0.28) instead of the prairie's olive ~0.13
@@ -286,22 +292,19 @@ export function createGrassland(scene) {
   );
 
   // --- rivers + water + bridges ----------------------------------------
-  // Each river is one vertical seg spanning the full N-S extent, running from
-  // south (minZ, t=0) to north (maxZ, t=1) so gap t-values read intuitively.
-  // One bridge gap per river; the gap side escalates so the player must scout
-  // the bank to find each crossing.
+  // Each river is one vertical seg spanning the full N-S extent of the region,
+  // running from south (minZ, t=0) to north (maxZ, t=1) so gap t-values read
+  // intuitively. One bridge gap per river; the gap side escalates so the player
+  // must scout the bank to find each crossing.
   const riverColor = new THREE.Color(0x3f78a8);
   const waters = []; // { mat } for animated flow in update()
 
   const riverDefs = [
-    { x: 600, w: 18, gaps: [{ t0: 0.58, t1: 0.62 }] }, // bridge just N of centre
-    { x: 1300, w: 18, gaps: [{ t0: 0.29, t1: 0.33 }] }, // bridge down south
-    { x: 1950, w: 18, gaps: [{ t0: 0.52, t1: 0.56 }] }, // final approach, near centre
+    { x: xMin + 420, w: 18, gaps: [{ t0: 0.58, t1: 0.62 }] }, // A ≈3120, bridge just N of centre
+    { x: xMin + 1180, w: 18, gaps: [{ t0: 0.29, t1: 0.33 }] }, // B ≈3880, bridge down south
+    { x: xMin + 1980, w: 18, gaps: [{ t0: 0.52, t1: 0.56 }] }, // C ≈4680, near centre
   ];
 
-  const zMin = WORLD.minZ;
-  const zMax = WORLD.maxZ;
-  const zSpan = zMax - zMin;
   const waterGeo = new THREE.PlaneGeometry(1, 1);
 
   for (const def of riverDefs) {
@@ -434,11 +437,7 @@ export function createGrassland(scene) {
     skirt.position.y = h * 0.7;
     skirt.scale.set(1.5, 1.9, 1.5);
     t.add(trunk, crown, skirt);
-    t.position.set(
-      WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
-      0,
-      WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ)
-    );
+    t.position.set(randX(), 0, randZ());
     // keep willows off the landmark knoll
     if (Math.hypot(t.position.x - GRASS_LANDMARK.x, t.position.z - GRASS_LANDMARK.z) < 130) {
       t.position.x -= 240;
@@ -454,7 +453,7 @@ export function createGrassland(scene) {
   for (let i = 0; i < 26; i++) {
     const a = rand() * Math.PI * 2;
     const d = 1150 + rand() * 700;
-    const cx = (WORLD.minX + WORLD.maxX) / 2 + Math.cos(a) * d * 1.4;
+    const cx = cxRegion + Math.cos(a) * d * 1.4;
     const cz = Math.sin(a) * d;
     const s = 120 + rand() * 240;
     const hill = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 7), hillMat);
@@ -465,10 +464,11 @@ export function createGrassland(scene) {
   root.add(hills);
 
   // --- mossy-boulder clusters between rivers (kept clear of bridge lanes) --
-  // River A bridge lane ~z+187, River B ~z-296, River C ~z+62. These sit well
-  // off those lanes and off the straight east-bound path to each gap.
-  mossyBoulders(rand, 950, 320, 46, root, obstacles);
-  mossyBoulders(rand, 1620, -420, 50, root, obstacles);
+  // Bridge lanes: River A gap ~z+156, River B ~z-296, River C ~z+62. These
+  // clusters sit between adjacent rivers and well off those lanes and off the
+  // straight east-bound path to each gap.
+  mossyBoulders(rand, xMin + 800, -180, 46, root, obstacles); // between A & B, north of B's lane
+  mossyBoulders(rand, xMin + 1580, 380, 50, root, obstacles); // between B & C, north of C's lane
 
   const landmark = buildGrassLandmark(root);
 
@@ -500,19 +500,16 @@ export function createGrassland(scene) {
   }
 
   return {
-    obstacles,
-    landmark,
-    sunLight: dir,
     root,
     dispose,
+    obstacles,
+    landmark,
     landmarkPos: { x: GRASS_LANDMARK.x, z: GRASS_LANDMARK.z },
     arriveRadius: GRASS_ARRIVE_RADIUS,
-    start: { x: 40, z: 0, heading: 0 },
     update(_dt, time, trainPos, cameraPos) {
-      // shadow box follows the train
-      dir.position.set(trainPos.x - 110, 170, trainPos.z + 90);
-      dir.target.position.copy(trainPos);
-      dir.target.updateMatrixWorld();
+      // No directional light here — the shared world sun lights the grassland,
+      // and world.update() already follows the train everywhere. We only
+      // animate water and fade willows near the side-on camera.
 
       // animate water flow: slow-scroll the map/alphaMap offset over time
       for (const w of waters) {
