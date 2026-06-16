@@ -409,6 +409,16 @@ window.__game = {
   get obstacles() { return obstacles; },
   get goalPos() { return goalPos; },
   // warp the train ~150u SHORT of the active goal so you can drive into it and
-  // watch the streaming / end beat happen.
-  warpToTree: () => train.reset({ x: goalPos.x - 150, z: goalPos.z, heading: 0 }),
+  // watch the streaming / end beat happen. Returns a status line (reset itself
+  // returns nothing) — then drive in from the cab, or use driveToTree().
+  warpToTree: () => {
+    train.reset({ x: goalPos.x - 150, z: goalPos.z, heading: 0 });
+    return `warped to (${Math.round(train.pos.x)}, ${Math.round(train.pos.z)}); goal at (${goalPos.x}, ${goalPos.z}). Route cleared — drive in from the cab, or run __game.driveToTree().`;
+  },
+  // warp short AND auto-route into the goal so it drives in on its own.
+  driveToTree: () => {
+    train.reset({ x: goalPos.x - 150, z: goalPos.z, heading: 0 });
+    train.addWaypoint(goalPos.x, goalPos.z);
+    return `driving into goal at (${goalPos.x}, ${goalPos.z})…`;
+  },
 };
