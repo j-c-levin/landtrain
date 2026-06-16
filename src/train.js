@@ -5,6 +5,11 @@ import {
 } from './constants.js';
 import { blockedAt, softDiscTexture } from './world.js';
 
+// Height of the map-view route overlay (line, dots, train ring). It MUST equal
+// the y of the plane that map clicks raycast against (main.js groundPlane = 0),
+// or the tilted map camera projects the markers off the cursor as parallax.
+const ROUTE_Y = 0;
+
 const M = {
   hull: new THREE.MeshStandardMaterial({ color: 0xb5573c, roughness: 0.75 }),
   hullDark: new THREE.MeshStandardMaterial({ color: 0x96452f, roughness: 0.8 }),
@@ -715,7 +720,11 @@ export class Train {
     const pts = [[p.x, p.z], ...this.route.map((w) => [w.x, w.y])];
     for (let i = 0; i < pts.length && i < 64; i++) {
       this.linePositions[i * 3] = pts[i][0];
-      this.linePositions[i * 3 + 1] = 77;
+      // The overlay MUST sit on the same plane map clicks raycast to (the
+      // y=0 ground plane in main.js). The map camera is a tilted perspective,
+      // so any vertical gap projects as parallax — markers would drift away
+      // from the cursor toward the screen edges. Keep this at ROUTE_Y = 0.
+      this.linePositions[i * 3 + 1] = ROUTE_Y;
       this.linePositions[i * 3 + 2] = pts[i][1];
     }
     this.routeLine.geometry.setDrawRange(0, Math.min(pts.length, 64));
@@ -734,13 +743,13 @@ export class Train {
       const visible = i < this.route.length;
       this.dots[i].visible = visible;
       if (visible) {
-        this.dots[i].position.set(this.route[i].x, 77, this.route[i].y);
+        this.dots[i].position.set(this.route[i].x, ROUTE_Y, this.route[i].y);
         this.dots[i].material.opacity = mapBlend * (i === this.route.length - 1 ? 1 : 0.7);
       }
     }
 
     const pulse = 1 + Math.sin(time * 2.4) * 0.12;
-    this.trainRing.position.set(p.x, 77, p.z);
+    this.trainRing.position.set(p.x, ROUTE_Y, p.z);
     this.trainRing.scale.setScalar(pulse);
     this.trainRing.material.opacity = mapBlend * 0.85;
 

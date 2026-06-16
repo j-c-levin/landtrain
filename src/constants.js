@@ -70,7 +70,8 @@ export const TUNING = {
   obstaclePad: 18, // clearance margin — firm enough to protect the side camera, fair to the eye
 
   effDriftPerSec: 0.30, // while moving
-  effFloor: 25,
+  effFloor: 0, // efficiency may fully bottom out; effMult still floors speed at 0.45×
+
   wearPerUnit: 0.085, // 100 wear ≈ 1180 u travelled
   wearCeil: 100,
   plantDriftPerSec: 0.14,

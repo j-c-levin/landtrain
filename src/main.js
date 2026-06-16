@@ -111,6 +111,8 @@ revealAhead();
 
 // ------------------------------------------------------------- map input
 const raycaster = new THREE.Raycaster();
+// Map clicks land on this plane (y=0). The route overlay in train.js must be
+// drawn at the same height (ROUTE_Y) or the tilted map camera shows parallax.
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const ndc = new THREE.Vector2();
 const hit = new THREE.Vector3();
