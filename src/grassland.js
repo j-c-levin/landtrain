@@ -194,30 +194,79 @@ export function createGrassland(scene) {
   const randX = () => xMin + rand() * xSpan;
   const randZ = () => zMin + rand() * zSpan;
 
+  // --- channel cross-section ---------------------------------------------
+  // Sunken-riverbed profile, shared by straight rivers and the tree ring.
+  const DEPTH = 7;            // channel floor sits at y = -DEPTH
+  const BANK = 24;            // bank slope width (lip -> floor) for rivers
+  const FOOT = 18 + BANK;     // river channel footprint half-width (w + BANK)
+  const smooth = (t) => t * t * (3 - 2 * t); // smoothstep 0..1
+  // height as a function of distance `d` from the channel centre line,
+  // given flat-floor half-width `w` and slope width `bank`.
+  const channelY = (d, w, bank) => {
+    if (d <= w) return -DEPTH;
+    if (d >= w + bank) return 0;
+    return -DEPTH * (1 - smooth((d - w) / bank));
+  };
+  const groundMat = () => new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 });
+
   // --- ground (lush green, replacing the prairie's dry gold) -------------
   // Sized to the region with a small east/south/north overscan, but the WEST
   // edge is pinned to xMin (2700) so it meets the prairie ground coplanar with
   // a ~1u overlap rather than leaving a gap or z-fighting seam.
+  // --- ground: flat panels split by the river channels --------------------
+  // A channel below y=0 would be hidden by a flat ground plane, so the ground
+  // is built as flat panels (y=0) with the river channels filling the gaps
+  // between them. The east panel carries the tree and gets a circular hole for
+  // the sunken ring channel.
+  const overEast = 2600;
+  const overlapW = 1;
+  const groundWestX = xMin - overlapW;              // 2699
+  const groundEastX = xMax + overEast;              // 8250
+  const planeD = zSpan + overEast;                  // full N/S depth (4160)
+  const riverXs = [xMin + 420, xMin + 1180, xMin + 1980];
+  // Panel x-spans: [west .. riverA-FOOT], between consecutive rivers, and the
+  // big east panel from riverC+FOOT to the east edge.
+  const edges = [groundWestX];
+  for (const rx of riverXs) { edges.push(rx - FOOT, rx + FOOT); }
+  edges.push(groundEastX);
+  // edges = [west, A-, A+, B-, B+, C-, C+, east]; panels are pairs (0,1)(2,3)(4,5)(6,7)
+  const treeHoleR = 230; // = ring R_OUTER; the ring channel fills this hole
+  for (let p = 0; p < edges.length; p += 2) {
+    const x0 = edges[p], x1 = edges[p + 1];
+    const w = x1 - x0;
+    const isEast = p + 2 >= edges.length; // last panel holds the tree
+    let mesh;
+    if (isEast) {
+      // east panel: rectangle with a circular hole around the landmark
+      const shape = new THREE.Shape();
+      shape.moveTo(x0, -planeD / 2);
+      shape.lineTo(x1, -planeD / 2);
+      shape.lineTo(x1, planeD / 2);
+      shape.lineTo(x0, planeD / 2);
+      shape.lineTo(x0, -planeD / 2);
+      const hole = new THREE.Path();
+      hole.absarc(GRASS_LANDMARK.x, GRASS_LANDMARK.z, treeHoleR, 0, Math.PI * 2, true);
+      shape.holes.push(hole);
+      const geo = new THREE.ShapeGeometry(shape, 64);
+      geo.rotateX(-Math.PI / 2); // shape is in XY -> lay flat into XZ
+      mesh = new THREE.Mesh(geo, groundMat());
+      // after rotateX, shape-Y maps to world -Z; flip Z back to keep orientation
+      mesh.scale.z = -1;
+    } else {
+      mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, planeD), groundMat());
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set((x0 + x1) / 2, 0, 0);
+    }
+    mesh.receiveShadow = true;
+    root.add(mesh);
+  }
+  // island disc under the knoll (flat at y=0), filling the hole's centre
   {
-    const overEast = 2600; // generous east/N/S skirt so the plane reaches the horizon
-    const overlapW = 1; // overlap the prairie edge by ~1u, coplanar at y=0
-    const planeW = xSpan + overEast + overlapW;
-    const planeD = zSpan + overEast;
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(planeW, planeD),
-      // Neutral depth: the prairie ground is pushed *back* with a positive
-      // polygonOffset (see world.js) so the grass wins their coplanar overlap,
-      // while the rivers are pulled *forward* so they stay on top of the grass.
-      // Keeping this plane unbiased gives a clean prairie < grass < river order
-      // that holds at any zoom (a small world-space y gap alone vanishes in the
-      // far/high map view where depth precision collapses).
-      new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    // Center so the west edge lands at xMin - overlapW (overlapping the prairie).
-    ground.position.set(xMin - overlapW + planeW / 2, 0, 0);
-    ground.receiveShadow = true;
-    root.add(ground);
+    const island = new THREE.Mesh(new THREE.CircleGeometry(150, 48), groundMat());
+    island.rotation.x = -Math.PI / 2;
+    island.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
+    island.receiveShadow = true;
+    root.add(island);
   }
 
   // Meadow patches — big soft tinted green discs break up the plain.
@@ -345,6 +394,23 @@ export function createGrassland(scene) {
     // collision: impassable seg with a bridge gap (south -> north)
     obstacles.push({ type: 'seg', x1: def.x, z1: zMin, x2: def.x, z2: zMax, w: def.w, gaps: def.gaps });
 
+    // sunken channel strip: a plane across the river width, vertices displaced
+    // down into the valley profile (flat lip at y=0 meets the panel edges).
+    {
+      const cgeo = new THREE.PlaneGeometry(FOOT * 2, planeD, 24, 1);
+      cgeo.rotateX(-Math.PI / 2); // local x -> world x, local y -> world -z
+      const cpos = cgeo.attributes.position;
+      for (let i = 0; i < cpos.count; i++) {
+        cpos.setY(i, channelY(Math.abs(cpos.getX(i)), def.w, BANK));
+      }
+      cpos.needsUpdate = true;
+      cgeo.computeVertexNormals();
+      const chan = new THREE.Mesh(cgeo, groundMat());
+      chan.position.set(def.x, 0, 0);
+      chan.receiveShadow = true;
+      root.add(chan);
+    }
+
     // water surface — a long thin translucent plane laid over the river line,
     // sitting just above ground. A tiling ripple normal map is scrolled along
     // its length to suggest flow.
@@ -445,6 +511,26 @@ export function createGrassland(scene) {
       pad.position.set(def.x + (rand() - 0.5) * def.w * 1.4, 0.14, z);
       root.add(pad);
     }
+  }
+
+  // --- ring channel terrain (sunken annulus around the tree) --------------
+  // Grassy banks slope from the island edge (r=150) and outer ground (r=230)
+  // down to the channel floor near r=190. The water + bridges are added later.
+  {
+    const R_INNER = 150, R_OUTER = 230, R_MID = 190, W_RING = 18, BANK_RING = 22;
+    const rgeo = new THREE.RingGeometry(R_INNER, R_OUTER, 72, 14);
+    rgeo.rotateX(-Math.PI / 2); // ring lies in XZ
+    const rpos = rgeo.attributes.position;
+    for (let i = 0; i < rpos.count; i++) {
+      const r = Math.hypot(rpos.getX(i), rpos.getZ(i)); // distance from centre
+      rpos.setY(i, channelY(Math.abs(r - R_MID), W_RING, BANK_RING));
+    }
+    rpos.needsUpdate = true;
+    rgeo.computeVertexNormals();
+    const ringTerrain = new THREE.Mesh(rgeo, groundMat());
+    ringTerrain.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
+    ringTerrain.receiveShadow = true;
+    root.add(ringTerrain);
   }
 
   // Cosmetic-only delta water ringing the tree island (NO obstacle) so the
