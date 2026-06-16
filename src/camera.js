@@ -211,6 +211,38 @@ export class CameraRig {
     return true;
   }
 
+  // Arrival cutscene: ease to the book view's wide travel framing for a warm
+  // two-shot of the train + the glowing tree, then hold. Reuses the existing
+  // book orbit machinery (no bespoke rig) so nothing about the tween is novel —
+  // it's the same pan-back used everywhere else. Force it through regardless of
+  // the current mode so the transition can always seize the camera.
+  startArrivalCutscene() {
+    const h = this.train.frameAt(0).theta;
+    this.orbit.theta = h + Math.PI + Math.PI / 4;
+    this.orbit.phi = 0.3;
+    this.orbit.dist = 60;
+    this.bookHeading = h;
+    this.autoOrbit = false; // hold the framing steady through the beat
+    this.recentering = false;
+    this.#startTransition('book', 2.2);
+  }
+
+  // Snap the rig cleanly back to the cutaway at the (new) train — used after a
+  // biome swap to guarantee a known-good state: no in-flight tween, no soft
+  // glide, no lingering map/book/cutscene framing. The camera is placed exactly
+  // where #computeInhabit wants it, so the fade-in opens on a settled view.
+  resetToInhabit() {
+    this.transition = null;
+    this.soft = null;
+    this.mode = 'inhabit';
+    this.mapBlend = 0;
+    this.followX = this.player.x;
+    this.followY = LEVELS.deck;
+    this.#computeInhabit(_pos, _q);
+    this.camera.position.copy(_pos);
+    this.camera.quaternion.copy(_q);
+  }
+
   #startTransition(target, dur) {
     this.soft = null; // a real transition supersedes any in-flight soft glide
     this.transition = {
