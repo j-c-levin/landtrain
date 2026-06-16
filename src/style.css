@@ -481,24 +481,6 @@ body.map-mode #btn-clear {
   50% { opacity: 1; }
 }
 
-/* ---------- biome-swap fade ---------- */
-/* Covers the whole screen — canvas AND HUD AND cards — so the prairie→grassland
-   dispose+rebuild happens entirely under black. Transparent + non-blocking when
-   idle; the opacity transition duration is what fadeOut/fadeIn await. */
-#fade {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: #000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.85s ease;
-}
-
-#fade.visible {
-  opacity: 1;
-}
-
 /* ---------- edge markers (off-screen destination / train) ---------- */
 #edge-markers {
   position: absolute;

@@ -26,25 +26,6 @@ export class UI {
     this.lastToast = '';
     this.lastToastAt = 0;
     this.visitedCab = false;
-
-    // Full-screen black overlay for the biome swap. Built in JS (index.html is
-    // off-limits) and appended last so it sits above the HUD too — the dispose
-    // + rebuild hitch happens entirely under black.
-    this.fadeEl = document.createElement('div');
-    this.fadeEl.id = 'fade';
-    document.body.appendChild(this.fadeEl);
-  }
-
-  // Resolve after the CSS opacity transition (matched to the .visible rule in
-  // style.css). ms is advisory padding so the await never beats the paint.
-  fadeOut(ms = 900) {
-    this.fadeEl.classList.add('visible');
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  fadeIn(ms = 900) {
-    this.fadeEl.classList.remove('visible');
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   showPrompt(text, progress, subdued = false, holding = false) {
@@ -164,29 +145,8 @@ export class UI {
     window.addEventListener('pointerdown', dismiss);
   }
 
-  arrival() {
-    this.showCard(`
-      <h2>You've arrived.</h2>
-      <div class="rule"></div>
-      <p>The Great Tree stands over you, lanterns swaying in the evening wind.
-      The engine sighs and settles.</p>
-      <p class="soft">Stay as long as you like — water the plants, read a page,
-      or plot a new wander from the cab.</p>
-      <p class="press-any">press any key to keep pottering</p>
-    `);
-    const dismiss = () => {
-      this.hideCard();
-      window.removeEventListener('keydown', dismiss);
-      window.removeEventListener('pointerdown', dismiss);
-    };
-    setTimeout(() => {
-      window.addEventListener('keydown', dismiss);
-      window.addEventListener('pointerdown', dismiss);
-    }, 600);
-  }
-
-  // The grassland tree — the end beat. A gentle "to be continued", same warm
-  // tone as arrival(), no further journey promised, free to keep pottering.
+  // The grassland tree — the end beat. A gentle "to be continued", warm in
+  // tone, no further journey promised, free to keep pottering.
   endBeat() {
     this.showCard(`
       <h2>The road goes on…</h2>

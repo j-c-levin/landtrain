@@ -45,9 +45,6 @@ const markerVec = new THREE.Vector3();
 const fwdDir = new THREE.Vector3();
 
 const world = createWorld(scene);
-// The world the loop currently drives. Reassigned to the grassland when the
-// prairie is torn down — everything downstream reads activeWorld, never `world`.
-let activeWorld = world;
 const sky = new SkyCycle(scene, renderer, world.sunLight);
 const fog = new FogOfWar(scene);
 const train = new Train(scene);
@@ -57,22 +54,30 @@ const ui = new UI();
 const audio = new AudioFX();
 const interactions = new Interactions({ train, player, rig, ui, audio });
 
+// --- seamless world streaming state ---
+// The grassland is built lazily when the prairie tree is reached; until then
+// it's null and only the prairie exists.
+let grassland = null;
+// The LIVE obstacle list the train routes against. Starts as the prairie's;
+// becomes (kept prairie) + grassland once the grassland streams in.
+let obstacles = world.obstacles;
+// The current objective — the prairie tree first, then the grassland tree.
+let goalPos = world.landmarkPos;
+// Progression: 'prairie' (driving to the first tree) → 'grassland' (driving to
+// the second) → 'done' (end beat shown). Each goal arrival fires exactly once.
+let stage = 'prairie';
+
 train.onEvent = (name) => {
   if (name === 'blocked') {
     audio.chime('soft');
     ui.toast('The way ahead is blocked — head to the cab and plot a way around.');
-  } else if (name === 'route-finished' && !state.arrived) {
+  } else if (name === 'route-finished' && stage !== 'done') {
     ui.toast('End of the plotted route. The train rests — extend it from the cab.');
   }
 };
 
 const state = {
-  // `arrived` = the current biome's tree has been handled (transition started,
-  // or end beat shown). Re-armed (false) after a biome swap.
-  arrived: false,
   started: false,
-  biome: 'prairie', // 'prairie' | 'grassland'
-  transitioning: false, // gates gameplay while the cutscene + swap run
   // distance travelled at the last fog reveal, so the travel loop fires on
   // distance rather than time.
   lastRevealAt: 0,
@@ -94,59 +99,6 @@ function revealAhead() {
     TUNING.revealConeNearRadius,
     TUNING.revealConeSteps
   );
-}
-
-// ----------------------------------------------------------- transition
-// Prairie → grassland, the one-way move. Runs ONCE on reaching the prairie
-// tree. state.transitioning gates the loop (input, interactions, train) so the
-// world is quiet while we cut, fade, dispose the prairie, build the grassland,
-// and fade back in. The fade fully masks the dispose+build hitch. Every async
-// step is guarded so a throw can never leave the screen black or the loop
-// wedged — on any error we force the rig back to inhabit and fade in.
-async function transitionToGrassland() {
-  state.transitioning = true;
-  train.clearRoute();
-  train.paused = true;
-  audio.chime('arrive');
-
-  // 1. cutscene — a warm wide two-shot of train + glowing tree, held a beat
-  rig.startArrivalCutscene();
-  await wait(2600);
-
-  try {
-    // 2. fade to black, then do the swap entirely unseen
-    await ui.fadeOut(900);
-
-    world.dispose(); // free the prairie's GPU buffers
-    const g = createGrassland(scene);
-    activeWorld = g;
-    sky.setSunLight(g.sunLight);
-    sky.setBiome('grassland');
-    audio.setBiome('grassland');
-    fog.reset();
-    train.reset(g.start);
-    state.lastRevealAt = 0;
-    revealAhead(); // re-light the cone at the new spawn
-
-    // snap the rig cleanly to the cutaway at the new train — no stale tween
-    rig.resetToInhabit();
-    state.biome = 'grassland';
-    state.arrived = false; // re-arm arrival for the grassland tree
-  } catch (err) {
-    // never strand the player under black — recover to a playable state
-    console.error('[transition] failed, recovering', err);
-    rig.resetToInhabit();
-  }
-
-  // 3. fade in on the grassland; a soft welcome chime
-  train.paused = false;
-  await ui.fadeIn(900);
-  audio.chime('soft');
-  state.transitioning = false;
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // time scale for tuning/testing: ?ts=4
@@ -356,10 +308,7 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05) * timeScale;
   elapsed += dt;
 
-  // While transitioning, gameplay is frozen: skip input, interactions, and the
-  // train so the cutscene + biome swap run undisturbed. The camera rig still
-  // ticks below (it owns the cutscene tween).
-  if (state.started && !state.transitioning) {
+  if (state.started) {
     // global keys
     if (pressedThisFrame.has('KeyM')) ui.setMuted(audio.toggleMute());
     if (rig.mode === 'map' && !rig.busy) {
@@ -378,7 +327,7 @@ function tick() {
     player.update(dt, controllable ? input : NEUTRAL_INPUT, elapsed);
 
     train.paused = rig.mapEngaged;
-    train.update(dt, elapsed, activeWorld.obstacles);
+    train.update(dt, elapsed, obstacles);
 
     // fog peels back as the train travels — re-stamp the forward cone every
     // few units so it reveals as far ahead as the cutaway view can see.
@@ -387,21 +336,30 @@ function tick() {
       revealAhead();
     }
 
-    // arrival at the active biome's tree — gentle, once
-    if (!state.arrived) {
-      const lp = activeWorld.landmarkPos;
-      const d = Math.hypot(train.pos.x - lp.x, train.pos.z - lp.z);
-      if (d < activeWorld.arriveRadius) {
-        state.arrived = true; // mark handled so it fires once
-        if (state.biome === 'prairie') {
-          // the prairie tree no longer ENDS the journey — it carries you on
-          transitionToGrassland();
+    // arrival at the current goal — gentle, fires once per goal via the stage
+    // machine (each branch advances `stage` so the test can never re-fire).
+    if (stage !== 'done') {
+      const d = Math.hypot(train.pos.x - goalPos.x, train.pos.z - goalPos.z);
+      if (d < world.arriveRadius) {
+        if (stage === 'prairie') {
+          // reached the prairie tree — stream the grassland in seamlessly. No
+          // fade, no teleport: the train keeps rolling, the player re-routes
+          // from the cab toward the new marker.
+          grassland = createGrassland(scene);
+          world.disposeBefore(); // unload the western prairie (prunes its obstacles in place)
+          obstacles = world.obstacles.concat(grassland.obstacles); // kept prairie (mountains+tree) + grassland
+          goalPos = grassland.landmarkPos;
+          audio.chime('arrive');
+          audio.setBiome('grassland'); // water/birds as you enter the wetland
+          ui.toast('Beyond the eastern hills, a new tree rises on the horizon.');
+          stage = 'grassland';
         } else {
-          // the grassland tree — the end beat
+          // reached the grassland tree — the end beat
           train.clearRoute();
           audio.chime('arrive');
-          fog.reveal(lp.x, lp.z, 220);
+          fog.reveal(goalPos.x, goalPos.z, 220);
           setTimeout(() => ui.endBeat(), 1400);
+          stage = 'done';
         }
       }
     }
@@ -427,12 +385,13 @@ function tick() {
   if (state.started && rig.mapEngaged) {
     const W = canvas.clientWidth;
     const H = canvas.clientHeight;
-    ui.setEdgeMarker('tree', placeMarker(activeWorld.landmarkPos.x, activeWorld.landmarkPos.z), W, H);
+    ui.setEdgeMarker('tree', placeMarker(goalPos.x, goalPos.z), W, H);
     ui.setEdgeMarker('train', placeMarker(train.pos.x, train.pos.z), W, H);
   } else {
     ui.hideEdgeMarkers();
   }
-  activeWorld.update(dt, elapsed, train.pos, camera.position);
+  world.update(dt, elapsed, train.pos, camera.position);
+  if (grassland) grassland.update(dt, elapsed, train.pos, camera.position);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
   audio.update(dt, train.speed / TUNING.baseSpeed);
 
@@ -442,11 +401,14 @@ function tick() {
 
 tick();
 
-// debug / verification handle. activeWorld is a getter so it always reflects
-// the live biome (the prairie reference goes stale after the swap).
+// debug / verification handle. grassland/obstacles/goalPos are getters so they
+// always reflect the live progression state.
 window.__game = {
   train, player, rig, fog, state, sky, camera, WORLD,
-  get activeWorld() { return activeWorld; },
-  // warp the train onto the active tree to trigger the transition / end beat
-  warpToTree: () => train.reset({ ...activeWorld.landmarkPos, heading: 0 }),
+  get grassland() { return grassland; },
+  get obstacles() { return obstacles; },
+  get goalPos() { return goalPos; },
+  // warp the train ~150u SHORT of the active goal so you can drive into it and
+  // watch the streaming / end beat happen.
+  warpToTree: () => train.reset({ x: goalPos.x - 150, z: goalPos.z, heading: 0 }),
 };
