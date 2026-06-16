@@ -44,6 +44,24 @@ const KEYS = [
   key(1.000, ['#1d5cb8', '#3f88d6', '#93c4ec', '#dcebd8'], '#d4e4d4', '#eaf4ff', '#8e9a70', 1.0, '#fff1d6', 2.25, '#ffffff', 1.0, 0.0, 1.06),
 ];
 
+// Grassland palette: same t keyframes as KEYS, dialled cool and watery for a
+// "fresh, misty wetland morning" mood. Blue-green fog, a gentler/cooler sun,
+// cooler hemisphere and dome gradients. Same day→dusk→night→dawn structure.
+const KEYS_GRASSLAND = [
+  key(0.000, ['#1c64a8', '#4a98c4', '#a6dcd4', '#d4eede'], '#bfe3da', '#dcf2f0', '#6f8a78', 0.95, '#eaf6e6', 2.0, '#f2fbf4', 1.0, 0.0, 1.05),
+  key(0.360, ['#2c6e9e', '#74b0c0', '#bfe0c4', '#d6ecc4'], '#cfe6cc', '#dcf2e0', '#62805e', 0.9, '#dceed0', 1.85, '#e6f4e4', 1.0, 0.0, 1.06),
+  key(0.440, ['#285a86', '#5c84a4', '#9cc8b0', '#c6dcaa'], '#c2dcb2', '#cfe6c0', '#506650', 0.74, '#cfe2c0', 1.35, '#c6e0c2', 0.95, 0.05, 1.07),
+  key(0.500, ['#142242', '#283460', '#46506e', '#86808e'], '#5a6e6e', '#566f86', '#2c3640', 0.48, '#86a0bc', 0.62, '#363e54', 0.4, 0.55, 1.02),
+  key(0.565, ['#050c1a', '#0a162c', '#10243e', '#173050'], '#173050', '#26404e', '#101c22', 0.4, '#9cc0e6', 0.5, '#121f30', 0.15, 1.0, 0.98),
+  key(0.800, ['#050c1a', '#0a162c', '#10243e', '#173050'], '#173050', '#26404e', '#101c22', 0.4, '#9cc0e6', 0.5, '#121f30', 0.15, 1.0, 0.98),
+  key(0.860, ['#091230', '#16284a', '#2a3a5a', '#4a566a'], '#3a4e58', '#3c4e60', '#1a2230', 0.45, '#90b0d4', 0.55, '#3a4858', 0.3, 0.7, 1.0),
+  key(0.905, ['#1c4470', '#4870a0', '#9cc4c4', '#d2dcb0'], '#c0dcc8', '#cfe6cc', '#56685a', 0.78, '#d0e6cc', 1.5, '#c4dcc8', 0.9, 0.08, 1.16),
+  key(0.950, ['#2670b2', '#5ea6cc', '#aeded4', '#d4eecc'], '#cfe6d4', '#dcf2e2', '#74906e', 0.92, '#e2f2d8', 1.9, '#eef8e8', 1.0, 0.0, 1.08),
+  key(1.000, ['#1c64a8', '#4a98c4', '#a6dcd4', '#d4eede'], '#bfe3da', '#dcf2f0', '#6f8a78', 0.95, '#eaf6e6', 2.0, '#f2fbf4', 1.0, 0.0, 1.05),
+];
+
+const PALETTES = { prairie: KEYS, grassland: KEYS_GRASSLAND };
+
 const STAR_VERT = /* glsl */ `
   attribute float aSize;
   attribute float aPhase;
@@ -144,6 +162,8 @@ export class SkyCycle {
   constructor(scene, renderer, sunLight) {
     this.renderer = renderer;
     this.sunLight = sunLight;
+    this.keys = KEYS; // active palette table; swapped by setBiome()
+    this.biome = 'prairie';
     this.timeOffset = 0; // debug: jump the clock (window.__game.sky.timeOffset)
     this.nightness = 0;
 
@@ -332,12 +352,28 @@ export class SkyCycle {
     return pts;
   }
 
+  // Swap the active palette table. 'prairie' (default) reproduces the original
+  // KEYS exactly; 'grassland' is the cool watery variant. The in-game biome
+  // transition fades to black before calling this, so an instant swap is fine.
+  setBiome(name) {
+    this.biome = name === 'grassland' ? 'grassland' : 'prairie';
+    this.keys = PALETTES[this.biome];
+  }
+
+  // Retarget the per-frame recolouring onto a different directional light. The
+  // grassland builds its own sun; when the prairie is disposed the old light is
+  // gone, so the sky must point at the replacement.
+  setSunLight(light) {
+    this.sunLight = light;
+  }
+
   // Lerp every channel between the two bracketing keyframes.
   #sample(phase, out) {
+    const keys = this.keys;
     let i = 0;
-    while (KEYS[i + 1].t < phase) i++;
-    const a = KEYS[i];
-    const b = KEYS[i + 1];
+    while (keys[i + 1].t < phase) i++;
+    const a = keys[i];
+    const b = keys[i + 1];
     const t = (phase - a.t) / (b.t - a.t);
     out.sky = out.sky || [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
     for (let j = 0; j < 4; j++) out.sky[j].lerpColors(a.sky[j], b.sky[j], t);
