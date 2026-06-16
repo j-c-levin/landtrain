@@ -659,6 +659,13 @@ export function createGrassland(scene) {
     const cx = cxRegion + Math.cos(a) * d * 1.4;
     const cz = Math.sin(a) * d;
     const s = 120 + rand() * 240;
+    // Keep the green hills east of the prairie border. Their wide scatter
+    // (±~2600) otherwise overflows west onto the prairie and its tree, which now
+    // coexist in the streamed world — those big green domes were the "floating
+    // mountain" over the prairie knoll. (−s so a large hill body can't reach
+    // across either.) West of here the player sees the real prairie, not a
+    // backdrop, so dropping the western few hills costs nothing.
+    if (cx - s < GRASSLAND.minX) continue;
     const hill = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 7), hillMat);
     hill.scale.y = 0.22 + rand() * 0.16;
     hill.position.set(cx, -6, cz);

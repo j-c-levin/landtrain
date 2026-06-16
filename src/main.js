@@ -67,6 +67,24 @@ let goalPos = world.landmarkPos;
 // the second) → 'done' (end beat shown). Each goal arrival fires exactly once.
 let stage = 'prairie';
 
+// Build the grassland (the second "level") behind the arrival card. By the time
+// this runs the card is already painted over the whole screen, so the one-frame
+// hitch from generating a biome's worth of geometry — and freeing the western
+// prairie — is hidden: it lands on the text the player is reading, not on live
+// gameplay. Two rAFs so the browser has actually painted the card before the
+// main thread blocks; the card locks its own dismiss for 600ms, well past this.
+function streamGrassland() {
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      grassland = createGrassland(scene);
+      world.disposeBefore(); // unload the western prairie (prunes obstacles in place)
+      obstacles = world.obstacles.concat(grassland.obstacles); // kept prairie + grassland
+      goalPos = grassland.landmarkPos; // now carry the journey on to the new tree
+      stage = 'grassland';
+    })
+  );
+}
+
 train.onEvent = (name) => {
   if (name === 'blocked') {
     audio.chime('soft');
@@ -345,21 +363,23 @@ function tick() {
 
     // arrival at the current goal — gentle, fires once per goal via the stage
     // machine (each branch advances `stage` so the test can never re-fire).
-    if (stage !== 'done') {
+    // 'streaming' is the brief gap while the grassland builds behind the card.
+    if (stage !== 'done' && stage !== 'streaming') {
       const d = Math.hypot(train.pos.x - goalPos.x, train.pos.z - goalPos.z);
       if (d < world.arriveRadius) {
         if (stage === 'prairie') {
-          // reached the prairie tree — stream the grassland in seamlessly. No
-          // fade, no teleport: the train keeps rolling, the player re-routes
-          // from the cab toward the new marker.
-          grassland = createGrassland(scene);
-          world.disposeBefore(); // unload the western prairie (prunes its obstacles in place)
-          obstacles = world.obstacles.concat(grassland.obstacles); // kept prairie (mountains+tree) + grassland
-          goalPos = grassland.landmarkPos;
+          // reached the first tree. Pull up here: clearing the route empties the
+          // waypoint queue and coasts the train to a stop (update() damps speed
+          // to 0 with no route), so you rest at the tree rather than rolling on.
+          train.clearRoute();
+          // Put the full-screen card up FIRST, then build the grassland a paint
+          // later (streamGrassland) so its hitch is hidden behind the card while
+          // the player reads — never mid-gameplay.
           audio.chime('arrive');
           audio.setBiome('grassland'); // water/birds as you enter the wetland
-          ui.toast('Beyond the eastern hills, a new tree rises on the horizon.');
-          stage = 'grassland';
+          ui.arrival(); // the big "you've arrived" card — rest here, or roll on
+          stage = 'streaming'; // freeze arrival logic until the build lands
+          streamGrassland();
         } else {
           // reached the grassland tree — the end beat
           train.clearRoute();

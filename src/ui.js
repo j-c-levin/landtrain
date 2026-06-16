@@ -145,6 +145,33 @@ export class UI {
     window.addEventListener('pointerdown', dismiss);
   }
 
+  // The first (prairie) tree — the big, restful welcome. A full-screen card,
+  // same family as the intro/end-beat: pause to take it in, then rest here or
+  // roll on east toward the next tree whenever you like. Shown in place of a
+  // fleeting toast so the arrival actually lands as a beat.
+  arrival() {
+    this.showCard(`
+      <h2>You've arrived.</h2>
+      <div class="rule"></div>
+      <p>The Great Tree stands over you, lanterns swaying in the evening wind.
+      The engine sighs and settles.</p>
+      <p class="soft">Rest here as long as you like — water the plants, read a
+      page. And when you're ready, a new tree waits beyond the eastern hills:
+      plot a fresh route from the cab and roll on.</p>
+      <p class="press-any">press any key to continue</p>
+    `);
+    const dismiss = () => {
+      this.hideCard();
+      window.removeEventListener('keydown', dismiss);
+      window.removeEventListener('pointerdown', dismiss);
+    };
+    // arm the dismiss a beat late so an in-flight keypress can't skip it
+    setTimeout(() => {
+      window.addEventListener('keydown', dismiss);
+      window.addEventListener('pointerdown', dismiss);
+    }, 600);
+  }
+
   // The grassland tree — the end beat. A gentle "to be continued", warm in
   // tone, no further journey promised, free to keep pottering.
   endBeat() {

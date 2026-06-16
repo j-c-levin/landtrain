@@ -385,6 +385,12 @@ export function createWorld(scene) {
     const cx = (PRAIRIE.minX + PRAIRIE.maxX) / 2 + Math.cos(a) * d * 1.4;
     const cz = Math.sin(a) * d;
     const s = 120 + rand() * 240;
+    // Mirror of the grassland hills' guard: keep the prairie's tan hills west of
+    // the grassland border so they don't overflow east into the green biome (the
+    // two coexist in the streamed world). Only the east x-crossing is clipped —
+    // the big north/south border hills are untouched. (+s so a large hill body
+    // can't reach across the seam either.)
+    if (cx + s > PRAIRIE.maxX) continue;
     const hill = new THREE.Mesh(
       new THREE.SphereGeometry(s, 10, 7),
       new THREE.MeshStandardMaterial({ color: hillColor, roughness: 1, flatShading: true })

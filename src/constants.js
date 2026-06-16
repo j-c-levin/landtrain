@@ -56,7 +56,10 @@ export const WORLD = {
 export const SPLIT_X = 1820;
 
 export const LANDMARK = { x: 2450, z: 0 };
-export const ARRIVE_RADIUS = 95;
+// Generous on purpose: the train is ~50u long and routing pads obstacles, so a
+// tight radius forced you to all but clip the trunk. This counts as "arrived"
+// once the tree fills the view (a touch past the reveal cone's 150u reach).
+export const ARRIVE_RADIUS = 160;
 
 export const TUNING = {
   baseSpeed: 7.0, // u/s at perfect upkeep
