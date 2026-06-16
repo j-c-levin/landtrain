@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD, LANDMARK, ARRIVE_RADIUS, TRAIN_HALF, clamp } from './constants.js';
+import { PRAIRIE, SPLIT_X, LANDMARK, ARRIVE_RADIUS, TRAIN_HALF, clamp } from './constants.js';
 
 // Deterministic PRNG so the prairie looks the same every run.
 function mulberry(seed) {
@@ -138,6 +138,15 @@ export function createWorld(scene) {
   const root = new THREE.Group();
   scene.add(root);
 
+  // Two sub-chunks partitioned by x against SPLIT_X. The western chunk
+  // (x < SPLIT_X) can be unloaded (disposeBefore) once the train passes the
+  // mountains; the eastern chunk (x >= SPLIT_X) — mountains, tree, eastern
+  // ground/scatter — stays loaded as a backtrack barrier.
+  const chunkBefore = new THREE.Group();
+  const chunkAfter = new THREE.Group();
+  root.add(chunkBefore, chunkAfter);
+  const chunkFor = (x) => (x < SPLIT_X ? chunkBefore : chunkAfter);
+
   // --- fog (colour is driven per-frame by the SkyCycle) -----------------
   // Stays global (not under root): the next biome installs its own fog.
   scene.fog = new THREE.Fog(0xdfe9df, 130, 560);
@@ -161,22 +170,41 @@ export function createWorld(scene) {
   root.add(dir.target);
 
   // --- ground ----------------------------------------------------------
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(WORLD.maxX - WORLD.minX + 2600, WORLD.maxZ - WORLD.minZ + 2600),
-    new THREE.MeshStandardMaterial({ color: 0xc9af72, roughness: 1 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set((WORLD.minX + WORLD.maxX) / 2, 0, 0);
-  ground.receiveShadow = true;
-  root.add(ground);
+  // Two coplanar planes abutting at SPLIT_X so the western half can be
+  // unloaded. They share the exact edge x (overlapping by a unit, kept
+  // coplanar) so they meet with no visible gap and no z-fighting.
+  const groundMargin = 1300; // half of the old +2600 generous margin
+  const groundDepth = PRAIRIE.maxZ - PRAIRIE.minZ + 2600;
+  // Separate materials per plane so disposeBefore() can free the west plane's
+  // material without affecting the still-live east plane.
+  const groundColor = 0xc9af72;
 
-  // Meadow patches — big soft tinted discs break up the plain.
-  const patchGeo = new THREE.CircleGeometry(1, 20);
+  const westW = SPLIT_X - PRAIRIE.minX + groundMargin + 1;
+  const groundWest = new THREE.Mesh(
+    new THREE.PlaneGeometry(westW, groundDepth),
+    new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1 })
+  );
+  groundWest.rotation.x = -Math.PI / 2;
+  groundWest.position.set((PRAIRIE.minX - groundMargin + SPLIT_X) / 2, 0, 0);
+  groundWest.receiveShadow = true;
+  chunkBefore.add(groundWest);
+
+  const eastW = PRAIRIE.maxX - SPLIT_X + groundMargin + 1;
+  const groundEast = new THREE.Mesh(
+    new THREE.PlaneGeometry(eastW, groundDepth),
+    new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1 })
+  );
+  groundEast.rotation.x = -Math.PI / 2;
+  groundEast.position.set((SPLIT_X + PRAIRIE.maxX + groundMargin) / 2, 0, 0);
+  groundEast.receiveShadow = true;
+  chunkAfter.add(groundEast);
+
+  // Meadow patches — big soft tinted discs break up the plain. Each owns its
+  // geometry so a west patch can be freed without touching east patches.
   const patchColors = [0xb8a868, 0xa9a673, 0x9d9c66, 0xd0b376, 0xbfa05f];
-  const patches = new THREE.Group();
   for (let i = 0; i < 150; i++) {
     const m = new THREE.Mesh(
-      patchGeo,
+      new THREE.CircleGeometry(1, 20),
       new THREE.MeshStandardMaterial({
         color: patchColors[Math.floor(rand() * patchColors.length)],
         roughness: 1,
@@ -189,37 +217,52 @@ export function createWorld(scene) {
     m.scale.set(s, s * (0.6 + rand() * 0.7), 1);
     m.rotation.z = rand() * Math.PI;
     m.position.set(
-      WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
+      PRAIRIE.minX + rand() * (PRAIRIE.maxX - PRAIRIE.minX),
       0.04 + i * 0.0004,
-      WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ)
+      PRAIRIE.minZ + rand() * (PRAIRIE.maxZ - PRAIRIE.minZ)
     );
-    patches.add(m);
+    chunkFor(m.position.x).add(m);
   }
-  root.add(patches);
 
   // --- instanced scatter ------------------------------------------------
   const dummy = new THREE.Object3D();
 
+  // Generate every placement exactly as before (same mulberry order), then
+  // bucket each instance by its x into a west / east InstancedMesh. The two
+  // buckets get their own geometry+material clones so disposeBefore() can free
+  // the west bucket without touching the live east one.
   function scatter(geo, mat, count, place) {
-    const inst = new THREE.InstancedMesh(geo, mat, count);
     const color = new THREE.Color();
+    const before = []; // { matrix, color }
+    const after = [];
     for (let i = 0; i < count; i++) {
       place(dummy, color, i);
       dummy.updateMatrix();
-      inst.setMatrixAt(i, dummy.matrix);
-      inst.setColorAt(i, color);
+      const entry = { matrix: dummy.matrix.clone(), color: color.clone() };
+      (dummy.position.x < SPLIT_X ? before : after).push(entry);
     }
-    inst.instanceMatrix.needsUpdate = true;
-    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
-    root.add(inst);
-    return inst;
+
+    const buildBucket = (entries, parent, g, m) => {
+      const inst = new THREE.InstancedMesh(g, m, entries.length);
+      for (let i = 0; i < entries.length; i++) {
+        inst.setMatrixAt(i, entries[i].matrix);
+        inst.setColorAt(i, entries[i].color);
+      }
+      inst.instanceMatrix.needsUpdate = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+      parent.add(inst);
+      return inst;
+    };
+
+    buildBucket(before, chunkBefore, geo, mat);
+    buildBucket(after, chunkAfter, geo.clone(), mat.clone());
   }
 
   const randPos = (o) => {
     o.position.set(
-      WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
+      PRAIRIE.minX + rand() * (PRAIRIE.maxX - PRAIRIE.minX),
       0,
-      WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ)
+      PRAIRIE.minZ + rand() * (PRAIRIE.maxZ - PRAIRIE.minZ)
     );
   };
 
@@ -283,7 +326,6 @@ export function createWorld(scene) {
 
   // --- trees (individual, so they can fade near the camera) -------------
   const trees = [];
-  const treeGroup = new THREE.Group();
   for (let i = 0; i < 64; i++) {
     const t = new THREE.Group();
     const h = 4 + rand() * 5;
@@ -297,54 +339,61 @@ export function createWorld(scene) {
     crown.scale.y = 1.15;
     t.add(trunk, crown);
     t.position.set(
-      WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
+      PRAIRIE.minX + rand() * (PRAIRIE.maxX - PRAIRIE.minX),
       0,
-      WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ)
+      PRAIRIE.minZ + rand() * (PRAIRIE.maxZ - PRAIRIE.minZ)
     );
     // keep trees off the landmark mesa
     if (Math.hypot(t.position.x - LANDMARK.x, t.position.z - LANDMARK.z) < 110) {
       t.position.x -= 200;
     }
-    treeGroup.add(t);
+    chunkFor(t.position.x).add(t);
     trees.push({ group: t, mats: [trunkMat, leafMat] });
   }
-  root.add(treeGroup);
 
   // --- distant hills -----------------------------------------------------
-  const hillMat = new THREE.MeshStandardMaterial({ color: 0xb3a584, roughness: 1, flatShading: true });
-  const hills = new THREE.Group();
+  // Each hill owns its geometry+material so a west hill can be freed without
+  // touching the east ones.
+  const hillColor = 0xb3a584;
   for (let i = 0; i < 26; i++) {
     const a = rand() * Math.PI * 2;
     const d = 1150 + rand() * 700;
-    const cx = (WORLD.minX + WORLD.maxX) / 2 + Math.cos(a) * d * 1.4;
+    const cx = (PRAIRIE.minX + PRAIRIE.maxX) / 2 + Math.cos(a) * d * 1.4;
     const cz = Math.sin(a) * d;
     const s = 120 + rand() * 240;
-    const hill = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 7), hillMat);
+    const hill = new THREE.Mesh(
+      new THREE.SphereGeometry(s, 10, 7),
+      new THREE.MeshStandardMaterial({ color: hillColor, roughness: 1, flatShading: true })
+    );
     hill.scale.y = 0.22 + rand() * 0.16;
     hill.position.set(cx, -6, cz);
-    hills.add(hill);
+    chunkFor(cx).add(hill);
   }
-  root.add(hills);
 
   // --- obstacle layout: scattered rocks, then the two ridge walls ---------
-  bigRockCluster(rand, 350, 70, 40, root, obstacles);
-  bigRockCluster(rand, 565, -150, 46, root, obstacles);
-  bigRockCluster(rand, 790, 95, 42, root, obstacles);
-  bigRockCluster(rand, 1010, -55, 52, root, obstacles);
-  bigRockCluster(rand, 1255, 170, 44, root, obstacles);
-  bigRockCluster(rand, 1460, -185, 50, root, obstacles);
-  bigRockCluster(rand, 1660, 45, 46, root, obstacles);
+  // Rock clusters (x≈350–1660) are all west of SPLIT_X → chunkBefore.
+  bigRockCluster(rand, 350, 70, 40, chunkBefore, obstacles);
+  bigRockCluster(rand, 565, -150, 46, chunkBefore, obstacles);
+  bigRockCluster(rand, 790, 95, 42, chunkBefore, obstacles);
+  bigRockCluster(rand, 1010, -55, 52, chunkBefore, obstacles);
+  bigRockCluster(rand, 1255, 170, 44, chunkBefore, obstacles);
+  bigRockCluster(rand, 1460, -185, 50, chunkBefore, obstacles);
+  bigRockCluster(rand, 1660, 45, 46, chunkBefore, obstacles);
 
   // Ridge A blocks the south + centre (pass to the north),
   // Ridge B then blocks the north + centre (pass back south): a gentle S.
-  ridge(rand, 1900, -760, 1900, 130, root, obstacles);
-  ridge(rand, 2130, 760, 2130, -50, root, obstacles);
+  // Both ridges (x≈1900, 2130) are east of SPLIT_X → chunkAfter; they stay
+  // loaded as the natural backtrack barrier.
+  ridge(rand, 1900, -760, 1900, 130, chunkAfter, obstacles);
+  ridge(rand, 2130, 760, 2130, -50, chunkAfter, obstacles);
 
-  const landmark = buildLandmark(root);
+  // The prairie landmark tree (x=2450) lives in chunkAfter.
+  const landmark = buildLandmark(chunkAfter);
 
-  // Walk the root, releasing every GPU buffer it owns, then detach it. No
-  // biome geometry/material/texture should survive a transition.
-  function dispose() {
+  // Walk a subtree, releasing every GPU buffer it owns (geometry, materials,
+  // material textures, instanceColor). Handles material arrays and dedupes
+  // textures so a shared texture is only released once.
+  function disposeSubtree(rootObj) {
     const seenTex = new Set();
     const disposeMat = (mat) => {
       if (!mat) return;
@@ -357,7 +406,7 @@ export function createWorld(scene) {
       }
       mat.dispose();
     };
-    root.traverse((obj) => {
+    rootObj.traverse((obj) => {
       if (obj.isMesh || obj.isInstancedMesh || obj.isSprite) {
         if (obj.geometry) obj.geometry.dispose();
         const mat = obj.material;
@@ -366,7 +415,28 @@ export function createWorld(scene) {
         if (obj.instanceColor) obj.instanceColor.dispose?.();
       }
     });
+  }
+
+  // Frees the whole biome (both chunks + lights) and detaches root. No biome
+  // geometry/material/texture should survive a transition.
+  function dispose() {
+    disposeSubtree(root);
     scene.remove(root);
+  }
+
+  // Unloads ONLY the western prairie chunk once the train has passed the
+  // mountains: frees every GPU buffer chunkBefore owns, detaches it from root,
+  // and prunes the western obstacles (center/segment x < SPLIT_X) from the
+  // obstacles array in place so the caller's reference stays valid. After this,
+  // only the mountains + tree + eastern ground/scatter remain.
+  function disposeBefore() {
+    disposeSubtree(chunkBefore);
+    root.remove(chunkBefore);
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const o = obstacles[i];
+      const ox = o.type === 'circle' ? o.x : Math.min(o.x1, o.x2);
+      if (ox < SPLIT_X) obstacles.splice(i, 1);
+    }
   }
 
   return {
@@ -375,6 +445,7 @@ export function createWorld(scene) {
     sunLight: dir,
     root,
     dispose,
+    disposeBefore,
     landmarkPos: { x: LANDMARK.x, z: LANDMARK.z },
     arriveRadius: ARRIVE_RADIUS,
     start: { x: TRAIN_HALF, z: 0, heading: 0 },

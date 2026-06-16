@@ -26,12 +26,34 @@ export const LADDERS = [
 // The raised cab occupies the front-car rooftop from this local X forward.
 export const CAB_FROM_X = 12.6;
 
-export const WORLD = {
+// The prairie region (the original first-map bounds).
+export const PRAIRIE = {
   minX: -250,
   maxX: 2700,
   minZ: -780,
   maxZ: 780,
 };
+
+// The grassland region, abutting the prairie's east edge at x=2700.
+export const GRASSLAND = {
+  minX: 2700,
+  maxX: 5650,
+  minZ: -780,
+  maxZ: 780,
+};
+
+// Full continuous world — the union of both regions. Fog, the overhead map,
+// the waypoint clamp, and the sky all key off WORLD and must cover everything.
+export const WORLD = {
+  minX: -250,
+  maxX: 5650,
+  minZ: -780,
+  maxZ: 780,
+};
+
+// Chunk boundary, just WEST of the first mountain ridge (x≈1900). Everything
+// west of it is the unloadable western prairie.
+export const SPLIT_X = 1820;
 
 export const LANDMARK = { x: 2450, z: 0 };
 export const ARRIVE_RADIUS = 95;
