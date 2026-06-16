@@ -226,6 +226,14 @@ export function createWorld(scene) {
         roughness: 1,
         transparent: true,
         opacity: 0.4 + rand() * 0.3,
+        // translucent discs near y=0 z-fight each other and the ground in the
+        // far/high map view (depth precision collapses there). depthWrite:false
+        // lets them blend in stable render order; polygonOffset pulls them
+        // cleanly in front of the ground at any zoom.
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
       })
     );
     m.rotation.x = -Math.PI / 2;
@@ -234,7 +242,7 @@ export function createWorld(scene) {
     m.rotation.z = rand() * Math.PI;
     m.position.set(
       PRAIRIE.minX + rand() * (PRAIRIE.maxX - PRAIRIE.minX),
-      0.04 + i * 0.0004,
+      0.04,
       PRAIRIE.minZ + rand() * (PRAIRIE.maxZ - PRAIRIE.minZ)
     );
     chunkFor(m.position.x).add(m);
