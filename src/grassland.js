@@ -29,29 +29,57 @@ function mulberry(seed) {
   };
 }
 
-// A small canvas of soft horizontal streaks, used as the water's scrolling
-// flow map/alphaMap. Tiled along the river and slid in update() to fake flow.
-function waterFlowTexture() {
+// A tileable water-ripple NORMAL map. Heights come from a few integer-frequency
+// sine waves (periodic over the tile, so it repeats seamlessly); the per-pixel
+// gradient becomes the surface normal. Tiled to ~square world cells (see the
+// repeat() calls below) so ripples stay round instead of smearing down the long
+// thin channel, and scrolled in update() to suggest flow. This is the standard
+// three.js water trick — scroll a tiling normal map over a flat surface (what
+// THREE.Water does, minus the planar reflections).
+function waterNormalTexture() {
+  const S = 128;
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = S;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  ctx.fillRect(0, 0, 128, 128);
-  let sx = 9871;
-  const rnd = () => ((sx = (sx * 16807) % 2147483647) / 2147483647);
-  for (let i = 0; i < 70; i++) {
-    const y = rnd() * 128;
-    const w = 20 + rnd() * 80;
-    const x = rnd() * 128;
-    const a = 0.12 + rnd() * 0.4;
-    ctx.fillStyle = `rgba(255,255,255,${a})`;
-    ctx.beginPath();
-    ctx.ellipse(x, y, w, 1.2 + rnd() * 2.4, 0, 0, Math.PI * 2);
-    ctx.fill();
+  const img = ctx.createImageData(S, S);
+  const TAU = Math.PI * 2;
+  // periodic wave components — integer (fx, fy) guarantees a seamless tile
+  const waves = [
+    { fx: 1, fy: 2, a: 1.0, p: 0.0 },
+    { fx: 2, fy: -1, a: 0.7, p: 1.7 },
+    { fx: 3, fy: 2, a: 0.5, p: 3.1 },
+    { fx: -2, fy: 3, a: 0.4, p: 0.6 },
+  ];
+  const height = (x, y) => {
+    let h = 0;
+    for (const w of waves) h += w.a * Math.sin((TAU * (w.fx * x + w.fy * y)) / S + w.p);
+    return h;
+  };
+  const strength = 2.2;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      // central differences with wrap -> normals stay seamless across the seam
+      let nx = (height((x - 1 + S) % S, y) - height((x + 1) % S, y)) * strength;
+      let ny = (height(x, (y - 1 + S) % S) - height(x, (y + 1) % S)) * strength;
+      const inv = 1 / Math.hypot(nx, ny, 1);
+      nx *= inv;
+      ny *= inv;
+      const i = (y * S + x) * 4;
+      img.data[i] = (nx * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
+      img.data[i + 2] = inv * 255; // nz * 255, and nz = 1 * inv
+      img.data[i + 3] = 255;
+    }
   }
+  ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
+  // normal maps are linear data, not colour — keep them out of sRGB
+  tex.colorSpace = THREE.NoColorSpace;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = 8;
   return tex;
 }
 
@@ -177,6 +205,12 @@ export function createGrassland(scene) {
     const planeD = zSpan + overEast;
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(planeW, planeD),
+      // Neutral depth: the prairie ground is pushed *back* with a positive
+      // polygonOffset (see world.js) so the grass wins their coplanar overlap,
+      // while the rivers are pulled *forward* so they stay on top of the grass.
+      // Keeping this plane unbiased gives a clean prairie < grass < river order
+      // that holds at any zoom (a small world-space y gap alone vanishes in the
+      // far/high map view where depth precision collapses).
       new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 })
     );
     ground.rotation.x = -Math.PI / 2;
@@ -312,18 +346,29 @@ export function createGrassland(scene) {
     obstacles.push({ type: 'seg', x1: def.x, z1: zMin, x2: def.x, z2: zMax, w: def.w, gaps: def.gaps });
 
     // water surface — a long thin translucent plane laid over the river line,
-    // sitting just above ground. Scrolls along its length to suggest flow.
-    const flow = waterFlowTexture();
-    flow.repeat.set(1, zSpan / 90);
+    // sitting just above ground. A tiling ripple normal map is scrolled along
+    // its length to suggest flow.
+    const ripple = waterNormalTexture();
+    // Tile to ~square world cells so ripples stay round, not smeared: U runs
+    // down the river's length (world Z, = zSpan), V across its width (def.w*2).
+    // Same world-units-per-tile (TILE) on both axes => isotropic ripples.
+    const TILE = 22;
+    ripple.repeat.set(zSpan / TILE, (def.w * 2.0) / TILE);
     const waterMat = new THREE.MeshStandardMaterial({
       color: riverColor,
-      roughness: 0.18,
-      metalness: 0.35,
+      roughness: 0.3,
+      metalness: 0.15,
       transparent: true,
-      opacity: 0.78,
-      map: flow,
-      alphaMap: flow,
+      opacity: 0.85,
+      normalMap: ripple,
+      normalScale: new THREE.Vector2(0.55, 0.55),
       fog: true,
+      // pull the water forward in the depth buffer so it stays on top of the
+      // grass ground at any zoom (the small world-space y=0.12 lift alone
+      // vanishes in the far/high map view where depth precision collapses).
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
     const water = new THREE.Mesh(waterGeo, waterMat);
     water.rotation.x = -Math.PI / 2;
@@ -331,7 +376,7 @@ export function createGrassland(scene) {
     water.scale.set(zSpan, def.w * 2.0, 1);
     water.position.set(def.x, 0.12, (zMin + zMax) / 2);
     root.add(water);
-    waters.push({ mat: waterMat });
+    waters.push({ mat: waterMat, axis: 'x' }); // flows down-river (along U)
 
     // bridge deck — a low arched plank/stone deck across each gap, in warm
     // wood tones to contrast the cool water. Built from a few short raised
@@ -344,20 +389,23 @@ export function createGrassland(scene) {
     const deckGroup = new THREE.Group();
     const deckMat = new THREE.MeshStandardMaterial({ color: 0x9c6b3f, roughness: 0.85, flatShading: true });
     const railMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9, flatShading: true });
-    const deckW = def.w * 2.6; // spans the river width comfortably
+    // The river runs N-S (Z), so the crossing goes E-W (X): the deck spans the
+    // river width bank-to-bank along X, and the path is as wide as the gap (Z).
+    const deckW = def.w * 2.6; // spans the river width (X), bank to bank
+    const pathZ = gapLen;      // crossing-path width along the river's length (Z)
     const planks = 7;
     for (let i = 0; i < planks; i++) {
       const t = i / (planks - 1);
-      const arch = Math.sin(t * Math.PI) * 1.6; // shallow arc, peak mid-span
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(deckW, 0.5, gapLen / planks + 1.2), deckMat);
-      plank.position.set(def.x, 0.9 + arch, gapMidZ - gapLen / 2 + gapLen * t);
+      const arch = Math.sin(t * Math.PI) * 1.6; // shallow arc, peak mid-river
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(deckW / planks + 1.2, 0.5, pathZ), deckMat);
+      plank.position.set(def.x - deckW / 2 + deckW * t, 0.9 + arch, gapMidZ);
       plank.castShadow = true;
       deckGroup.add(plank);
     }
-    // low side rails
+    // low side rails — run bank-to-bank (along X) on the up/down-river edges
     for (const side of [-1, 1]) {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, gapLen + 2), railMat);
-      rail.position.set(def.x + side * deckW * 0.5, 1.8, gapMidZ);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(deckW + 2, 1.0, 0.5), railMat);
+      rail.position.set(def.x, 1.8, gapMidZ + side * pathZ * 0.5);
       deckGroup.add(rail);
     }
     root.add(deckGroup);
@@ -403,13 +451,15 @@ export function createGrassland(scene) {
   // tree reads as sitting on a delta island. Kept thin and well clear of the
   // open approach so it never blocks reaching the tree.
   {
-    const flow = waterFlowTexture();
-    flow.repeat.set(6, 1);
+    const ripple = waterNormalTexture();
+    ripple.repeat.set(54, 4); // ~square cells around (U=angle) and across (V=radial)
     const deltaMat = new THREE.MeshStandardMaterial({
-      color: riverColor, roughness: 0.18, metalness: 0.35,
-      transparent: true, opacity: 0.7, map: flow, alphaMap: flow,
+      color: riverColor, roughness: 0.3, metalness: 0.15,
+      transparent: true, opacity: 0.72,
+      normalMap: ripple, normalScale: new THREE.Vector2(0.55, 0.55),
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
-    waters.push({ mat: deltaMat });
+    waters.push({ mat: deltaMat, axis: 'y' }); // radial flow across the annulus
     // a flat ring (annulus) of water around the knoll, raised just above ground
     const ring = new THREE.Mesh(new THREE.RingGeometry(150, 230, 48), deltaMat);
     ring.rotation.x = -Math.PI / 2;
@@ -511,11 +561,13 @@ export function createGrassland(scene) {
       // and world.update() already follows the train everywhere. We only
       // animate water and fade willows near the side-on camera.
 
-      // animate water flow: slow-scroll the map/alphaMap offset over time
+      // animate water flow: slow-scroll the ripple normal map's offset over time
+      // along each water's own axis ('x' = down-river, 'y' = radial for the ring)
       for (const w of waters) {
         const off = (time * 0.04) % 1;
-        if (w.mat.map) w.mat.map.offset.y = off;
-        if (w.mat.alphaMap && w.mat.alphaMap !== w.mat.map) w.mat.alphaMap.offset.y = off;
+        const axis = w.axis || 'y';
+        const tex = w.mat.normalMap || w.mat.map;
+        if (tex) tex.offset[axis] = off;
       }
 
       // willows/trees fade out when they'd block the side-on camera
