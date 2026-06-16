@@ -208,6 +208,7 @@ export function createGrassland(scene) {
     if (d >= w + bank) return 0;
     return -DEPTH * (1 - smooth((d - w) / bank));
   };
+  const WATER_Y = -DEPTH + 0.6; // water surface: 0.6 above the channel floor
   const groundMat = () => new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 });
 
   // --- ground: flat panels split by the river channels --------------------
@@ -438,7 +439,7 @@ export function createGrassland(scene) {
     water.rotation.x = -Math.PI / 2;
     water.rotation.z = Math.PI / 2; // align the plane's long axis with N-S (z)
     water.scale.set(zSpan, def.w * 2.0, 1);
-    water.position.set(def.x, -6.4, (zMin + zMax) / 2); // WATER_Y: channel floor
+    water.position.set(def.x, WATER_Y, (zMin + zMax) / 2); // on the channel floor
     root.add(water);
     waters.push({ mat: waterMat, axis: 'x' }); // flows down-river (along U)
 
@@ -506,7 +507,7 @@ export function createGrassland(scene) {
       pad.rotation.x = -Math.PI / 2;
       const s = 1.4 + rand() * 2.2;
       pad.scale.set(s, s, 1);
-      pad.position.set(def.x + (rand() - 0.5) * def.w * 1.6, -6.36, z); // on WATER_Y
+      pad.position.set(def.x + (rand() - 0.5) * def.w * 1.6, WATER_Y + 0.04, z); // on WATER_Y
       root.add(pad);
     }
   }
@@ -546,7 +547,7 @@ export function createGrassland(scene) {
     // fill the flat floor band (R_MID +/- W_RING = 172..208)
     const ring = new THREE.Mesh(new THREE.RingGeometry(172, 208, 48), deltaMat);
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(GRASS_LANDMARK.x, -6.4, GRASS_LANDMARK.z); // WATER_Y
+    ring.position.set(GRASS_LANDMARK.x, WATER_Y, GRASS_LANDMARK.z); // WATER_Y
     root.add(ring);
   }
 
