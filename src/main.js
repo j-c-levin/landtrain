@@ -327,6 +327,11 @@ function tick() {
     // the length of the tween. Only feed real input when it's drivable.
     const controllable = (rig.mode === 'inhabit' || rig.mode === 'cabin') && !rig.busy;
     player.update(dt, controllable ? input : NEUTRAL_INPUT, elapsed);
+    // Bolt the player rigidly into the car it occupies while the camera is locked
+    // close (cab + seated views) so it rides the car's sway instead of hanging
+    // static above a wobbling floor. Self-healing: derives dock state from the
+    // current camera mode every frame, so every path into the cab is covered.
+    player.syncDock(rig.mode);
 
     train.paused = rig.mapEngaged;
     train.update(dt, elapsed, obstacles);

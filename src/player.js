@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LEVELS, LADDERS, TRAIN_HALF, TUNING, clamp, damp } from './constants.js';
+import { LEVELS, LADDERS, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from './constants.js';
 
 const LEVEL_ORDER = ['under', 'deck', 'roof'];
 
@@ -9,6 +9,8 @@ const LEVEL_ORDER = ['under', 'deck', 'roof'];
 export class Player {
   constructor(train, scene) {
     this.train = train;
+    this.scene = scene;
+    this.docked = null; // null = free on the trail; else the car index we're bolted to
     this.x = 12; // spawn on the front-car deck, ladder to the cab nearby
     this.level = 'deck';
     this.y = LEVELS.deck;
@@ -140,12 +142,25 @@ export class Player {
   }
 
   #sync(time = 0) {
-    // map train-arc coordinates onto the world through the trail
-    const f = this.train.frameAt(this.x);
-    const sin = Math.sin(f.theta);
-    const cos = Math.cos(f.theta);
-    this.group.position.set(f.x + this.z * sin, this.y, f.z + this.z * cos);
-    this.group.rotation.y = f.theta + (this.facing > 0 ? 0 : Math.PI);
+    if (this.docked != null) {
+      // Riding inside a car: express the pose in that car's LOCAL frame so the
+      // player is a rigid part of the car group — inheriting its trail position,
+      // yaw AND the suspension roll/pitch/bob. There's no second world-space
+      // sampling to drift against, so the cab can't wobble out from under us and
+      // the per-frame judder is gone. Train-arc X maps to car-local X by simply
+      // subtracting the car centre; Y (height) and Z (depth) are already the
+      // car's local axes; the parent group supplies the heading.
+      this.group.position.set(this.x - CAR_CENTERS[this.docked], this.y, this.z);
+      this.group.rotation.set(0, this.facing > 0 ? 0 : Math.PI, 0);
+    } else {
+      // Free on the train: map train-arc coordinates onto the world through the
+      // trail the cars follow, so walking the corridor stays straight mid-turn.
+      const f = this.train.frameAt(this.x);
+      const sin = Math.sin(f.theta);
+      const cos = Math.cos(f.theta);
+      this.group.position.set(f.x + this.z * sin, this.y, f.z + this.z * cos);
+      this.group.rotation.y = f.theta + (this.facing > 0 ? 0 : Math.PI);
+    }
 
     if (this.moving) {
       this.body.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.07;
@@ -154,6 +169,33 @@ export class Player {
       this.body.position.y = Math.sin(time * 1.8) * 0.015;
       this.body.rotation.z = 0;
     }
+  }
+
+  // Which car (0 cab, 1 engine, 2 living) owns a given train-arc X — the same
+  // split the see-through walls use, at the ~±8.3 coupling gaps.
+  #carIndexAt(x) {
+    return x > 8.3 ? 0 : x < -8.3 ? 2 : 1;
+  }
+
+  // Reconcile rigid-parenting each frame (called from the main loop). The player
+  // is bolted into a car group while the camera is locked close inside it — the
+  // driver's cab (cabin mode) and the two seated views — so it rides the car's
+  // suspension sway instead of hanging static above a wobbling floor. Otherwise
+  // it rides the trail free in world space. A no-op when nothing changed.
+  syncDock(mode) {
+    let car = null;
+    if (mode === 'cabin') car = 0;
+    else if (this.sitting) car = this.#carIndexAt(this.sitPose.x);
+    this.#dockTo(car);
+  }
+
+  #dockTo(carIndex) {
+    if (this.docked === carIndex) return;
+    this.docked = carIndex;
+    const parent = carIndex == null ? this.scene : this.train.cars[carIndex].group;
+    parent.add(this.group); // Object3D.add re-parents, detaching from the old parent
+    this.#sync(); // CRITICAL: re-parenting keeps LOCAL numbers, not world position —
+                  // recompute the pose in the new frame this same frame or it teleports
   }
 
   sit(pose) {

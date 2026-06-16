@@ -6,6 +6,7 @@ const _look = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
+const _pp = new THREE.Vector3();
 
 // Driver's-cab forward view: sat back behind the cab and off to the open
 // (near) side, looking lengthwise down the cabin and out the big front
@@ -105,7 +106,7 @@ export class CameraRig {
     // the focus onto the resting character.
     const o = this.orbit;
     const c = this.train.pos;
-    const pp = this.player.group.position;
+    const pp = this.player.group.getWorldPosition(_pp);
     const blend = clamp((50 - o.dist) / 38, 0, 1);
     _look.set(
       lerp(c.x, pp.x, blend),
