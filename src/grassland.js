@@ -198,7 +198,8 @@ export function createGrassland(scene) {
   // Sunken-riverbed profile, shared by straight rivers and the tree ring.
   const DEPTH = 7;            // channel floor sits at y = -DEPTH
   const BANK = 24;            // bank slope width (lip -> floor) for rivers
-  const FOOT = 18 + BANK;     // river channel footprint half-width (w + BANK)
+  const RIVER_W = 18;         // river flat-floor half-width (shared w)
+  const FOOT = RIVER_W + BANK; // river channel footprint half-width (w + BANK)
   const smooth = (t) => t * t * (3 - 2 * t); // smoothstep 0..1
   // height as a function of distance `d` from the channel centre line,
   // given flat-floor half-width `w` and slope width `bank`.
@@ -209,10 +210,6 @@ export function createGrassland(scene) {
   };
   const groundMat = () => new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 });
 
-  // --- ground (lush green, replacing the prairie's dry gold) -------------
-  // Sized to the region with a small east/south/north overscan, but the WEST
-  // edge is pinned to xMin (2700) so it meets the prairie ground coplanar with
-  // a ~1u overlap rather than leaving a gap or z-fighting seam.
   // --- ground: flat panels split by the river channels --------------------
   // A channel below y=0 would be hidden by a flat ground plane, so the ground
   // is built as flat panels (y=0) with the river channels filling the gaps
@@ -223,6 +220,7 @@ export function createGrassland(scene) {
   const groundWestX = xMin - overlapW;              // 2699
   const groundEastX = xMax + overEast;              // 8250
   const planeD = zSpan + overEast;                  // full N/S depth (4160)
+  // NOTE: keep in sync with riverDefs x-values below (these drive panel cuts).
   const riverXs = [xMin + 420, xMin + 1180, xMin + 1980];
   // Panel x-spans: [west .. riverA-FOOT], between consecutive rivers, and the
   // big east panel from riverC+FOOT to the east edge.
@@ -383,9 +381,9 @@ export function createGrassland(scene) {
   const waters = []; // { mat } for animated flow in update()
 
   const riverDefs = [
-    { x: xMin + 420, w: 18, gaps: [{ t0: 0.58, t1: 0.62 }] }, // A ≈3120, bridge just N of centre
-    { x: xMin + 1180, w: 18, gaps: [{ t0: 0.29, t1: 0.33 }] }, // B ≈3880, bridge down south
-    { x: xMin + 1980, w: 18, gaps: [{ t0: 0.52, t1: 0.56 }] }, // C ≈4680, near centre
+    { x: xMin + 420, w: RIVER_W, gaps: [{ t0: 0.58, t1: 0.62 }] }, // A ≈3120, bridge just N of centre
+    { x: xMin + 1180, w: RIVER_W, gaps: [{ t0: 0.29, t1: 0.33 }] }, // B ≈3880, bridge down south
+    { x: xMin + 1980, w: RIVER_W, gaps: [{ t0: 0.52, t1: 0.56 }] }, // C ≈4680, near centre
   ];
 
   const waterGeo = new THREE.PlaneGeometry(1, 1);
