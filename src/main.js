@@ -241,6 +241,35 @@ function releaseTouch(e) {
 window.addEventListener('pointerup', releaseTouch);
 window.addEventListener('pointercancel', releaseTouch);
 
+// -------------------------------------------------------- secret debug tap
+// Three centre-screen taps within one second while standing on the undercarriage
+// at the rear of the train warps the train to just short of the current goal.
+const _debugTapTimes = [];
+
+function _isCentreZone(x, y) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  return x > w / 3 && x < (2 * w) / 3 && y > h / 3 && y < (2 * h) / 3;
+}
+
+window.addEventListener('pointerup', (e) => {
+  if ((rig.mode !== 'inhabit' && rig.mode !== 'cabin') || rig.busy) return;
+  if (!_isCentreZone(e.clientX, e.clientY)) return;
+  // must be on the underside at the rear (rear ladder is at x=-24.0)
+  if (player.level !== 'under' || player.x > -21) return;
+
+  const now = performance.now();
+  _debugTapTimes.push(now);
+  // keep only the taps that fall within the last second
+  while (_debugTapTimes.length && now - _debugTapTimes[0] > 1000) _debugTapTimes.shift();
+
+  if (_debugTapTimes.length >= 3) {
+    _debugTapTimes.length = 0;
+    train.reset({ x: goalPos.x - 150, z: goalPos.z, heading: 0 });
+    ui.toast('warped to tree');
+  }
+});
+
 // ----------------------------------------------------------- view buttons
 // Clear hit targets for the views a phone can't E/Escape out of.
 function toggleOrbitView() {
