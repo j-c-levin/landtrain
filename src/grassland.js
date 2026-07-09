@@ -117,18 +117,31 @@ function buildGrassLandmark(root) {
   group.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
 
   const knollMat = new THREE.MeshStandardMaterial({ color: 0x5f8a4c, roughness: 0.95, fog: false, flatShading: true });
+  const knollFootMat = new THREE.MeshStandardMaterial({ color: 0x54793f, roughness: 0.95, fog: false, flatShading: true });
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a5340, roughness: 0.9, fog: false });
   const leafMat = new THREE.MeshStandardMaterial({
-    color: 0xc6d6e8, roughness: 0.7, fog: false, emissive: 0x9fb6d8, emissiveIntensity: 0.4, flatShading: true,
+    color: 0xa9c0dc, roughness: 0.7, fog: false, emissive: 0x9fb6d8, emissiveIntensity: 0.18, flatShading: true,
+  });
+  // Brighter accent blobs studded across the crown surface so the blossom
+  // reads as structured (a paler bloom catching the light) rather than one
+  // flat silver-blue mass.
+  const accentMat = new THREE.MeshStandardMaterial({
+    color: 0xe8f0fa, roughness: 0.6, fog: false, emissive: 0xcfe0f2, emissiveIntensity: 0.25, flatShading: true,
   });
   const lanternMat = new THREE.MeshStandardMaterial({
-    color: 0xbfe6ff, emissive: 0x7fc4ff, emissiveIntensity: 2.2, fog: false,
+    color: 0xd6ecff, emissive: 0x9fd4ff, emissiveIntensity: 2.6, fog: false,
   });
 
   // Grassy knoll instead of the prairie's red mesa.
   const knoll = new THREE.Mesh(new THREE.CylinderGeometry(46, 64, 16, 9), knollMat);
   knoll.position.y = 8;
   group.add(knoll);
+
+  // A stepped foot flaring wider than the knoll body — reads as a rocky/mossy
+  // shelf the knoll sits on rather than a cylinder planted straight in the turf.
+  const knollFoot = new THREE.Mesh(new THREE.CylinderGeometry(52, 58, 5, 9), knollFootMat);
+  knollFoot.position.y = 2.5;
+  group.add(knollFoot);
 
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(5, 9, 62, 7), trunkMat);
   trunk.position.y = 16 + 31;
@@ -145,10 +158,25 @@ function buildGrassLandmark(root) {
     group.add(blob);
   }
 
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
+  const accentBlobs = [
+    [14, 92, 10, 12],
+    [-24, 80, -6, 11],
+    [8, 68, 20, 13],
+  ];
+  for (const [bx, by, bz, br] of accentBlobs) {
+    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(br, 1), accentMat);
+    blob.position.set(bx, by, bz);
+    group.add(blob);
+  }
+
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    // orbit radius varies 22-30 via an index-based pseudo-variation (kept
+    // parameter-free — this function takes no rand — so the layout stays
+    // deterministic without threading the PRNG through)
+    const orbitR = 22 + 8 * (0.5 + 0.5 * Math.sin(i * 1.7));
     const lantern = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 8), lanternMat);
-    lantern.position.set(Math.cos(a) * 26, 56 + Math.sin(i * 2.7) * 10, Math.sin(a) * 26);
+    lantern.position.set(Math.cos(a) * orbitR, 56 + Math.sin(i * 2.7) * 10, Math.sin(a) * orbitR);
     group.add(lantern);
   }
 
@@ -394,7 +422,9 @@ export function createGrassland(scene) {
     mesh.receiveShadow = true;
     root.add(mesh);
   }
-  // island disc under the knoll (flat at y=0), filling the hole's centre
+  // island disc under the knoll (flat at y=0), filling the hole's centre —
+  // dressed with its own scatter pass + a boulder ring below, so it reads as
+  // flora-covered ground, not a bare green plate
   {
     const island = new THREE.Mesh(new THREE.CircleGeometry(150, 48), groundMat());
     island.rotation.x = -Math.PI / 2;
@@ -527,6 +557,77 @@ export function createGrassland(scene) {
     700,
     (o, c) => {
       randPos(o);
+      o.scale.setScalar(0.9 + rand() * 1.3);
+      o.position.y = 0.35;
+      const pick = rand();
+      const hue = pick < 0.34 ? 0.0 : pick < 0.67 ? 0.13 : 0.78; // red, gold, violet
+      c.setHSL(hue, 0.9, 0.65 + rand() * 0.12);
+    }
+  );
+
+  // --- island dressing (the disc under the knoll was bare) ---------------
+  // Placements sit within r 70-140 of the landmark — the annulus outside the
+  // knoll's stepped foot + boulder ring (r<70 stays clear) and inside the
+  // island's edge (r=150). Same geometries/palettes as the main tuft/bush/
+  // flower scatter above (post-Task-4 calmed values), just re-placed with a
+  // polar (angle, radius) sampler centred on GRASS_LANDMARK instead of
+  // randClearXZ's region-wide rectangle.
+  const islandPos = (o, rMin, rMax) => {
+    const a = rand() * Math.PI * 2;
+    const r = rMin + rand() * (rMax - rMin);
+    o.position.set(GRASS_LANDMARK.x + Math.cos(a) * r, 0, GRASS_LANDMARK.z + Math.sin(a) * r);
+  };
+
+  scatter(
+    new THREE.ConeGeometry(0.5, 1.2, 5),
+    new THREE.MeshStandardMaterial({ roughness: 1 }),
+    60,
+    (o, c) => {
+      islandPos(o, 70, 140);
+      const s = 0.6 + rand() * 1.2;
+      o.scale.set(s, s * (0.8 + rand() * 0.9), s);
+      o.position.y = (o.scale.y * 1.2) / 2 - 0.05;
+      o.rotation.y = rand() * Math.PI;
+      c.setHSL(0.26 + rand() * 0.06, 0.35 + rand() * 0.15, 0.34 + rand() * 0.10);
+    }
+  );
+
+  scatter(
+    new THREE.IcosahedronGeometry(0.9, 1),
+    new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }),
+    6,
+    (o, c) => {
+      islandPos(o, 70, 140);
+      const s = 0.9 + rand() * 1.7;
+      o.scale.set(s, s * 0.65, s);
+      o.position.y = s * 0.4;
+      o.rotation.y = rand() * Math.PI;
+      c.setHSL(0.27 + rand() * 0.06, 0.34 + rand() * 0.18, 0.3 + rand() * 0.12);
+    }
+  );
+
+  scatter(
+    new THREE.SphereGeometry(0.16, 6, 5),
+    new THREE.MeshStandardMaterial({ roughness: 0.8 }),
+    20,
+    (o, c) => {
+      islandPos(o, 70, 140);
+      o.scale.setScalar(0.9 + rand() * 1.3);
+      o.position.y = 0.35;
+      const pick = rand();
+      const hue = pick < 0.34 ? 0.0 : pick < 0.67 ? 0.13 : 0.78; // red, gold, violet
+      c.setHSL(hue, 0.9, 0.65 + rand() * 0.12);
+    }
+  );
+
+  // flower ring — a denser wildflower band right at r 66-80, framing the
+  // knoll's boulder ring from just outside it
+  scatter(
+    new THREE.SphereGeometry(0.16, 6, 5),
+    new THREE.MeshStandardMaterial({ roughness: 0.8 }),
+    40,
+    (o, c) => {
+      islandPos(o, 66, 80);
       o.scale.setScalar(0.9 + rand() * 1.3);
       o.position.y = 0.35;
       const pick = rand();
@@ -868,6 +969,33 @@ export function createGrassland(scene) {
     root.add(ring);
   }
 
+  // glow reflection pools — four soft discs lying flat on the ring water at
+  // the compass points, reading as the landmark's glow caught in the moat.
+  // Local dressing (not a horizon silhouette like the landmark halo), so NOT
+  // fog:false. One shared material+texture for all four.
+  {
+    const glowMat = new THREE.MeshBasicMaterial({
+      map: softDiscTexture('rgba(140,190,255,0.5)', 'rgba(140,190,255,0)'),
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+    });
+    const discGeo = new THREE.CircleGeometry(1, 24);
+    for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const disc = new THREE.Mesh(discGeo, glowMat);
+      disc.rotation.x = -Math.PI / 2;
+      disc.scale.setScalar(40);
+      disc.position.set(
+        GRASS_LANDMARK.x + Math.cos(a) * 190,
+        WATER_Y + 0.05,
+        GRASS_LANDMARK.z + Math.sin(a) * 190
+      );
+      root.add(disc);
+    }
+  }
+
   // ring collision: impassable annulus with two bridge gaps (north +z, south -z)
   {
     const GAP_A = 0.16; // angular half-gap
@@ -960,6 +1088,25 @@ export function createGrassland(scene) {
   mossyBoulders(rand, xMin + 1580, 380, 50, root, obstacles); // between B & C, north of C's lane
 
   const landmark = buildGrassLandmark(root);
+
+  // decorative boulder ring hugging the knoll's stepped foot (r 52-60) — same
+  // mossy palette as mossyBoulders() but placed directly and NOT pushed as an
+  // obstacle: the knoll's own footprint already blocks the player here, so
+  // these rocks are pure dressing, not collision.
+  {
+    const bMat = new THREE.MeshStandardMaterial({ color: 0x6f7a5c, roughness: 0.96, flatShading: true });
+    const bMatDark = new THREE.MeshStandardMaterial({ color: 0x586349, roughness: 0.96, flatShading: true });
+    for (let i = 0; i < 8; i++) {
+      const a = rand() * Math.PI * 2;
+      const r = 52 + rand() * 8;
+      const s = 4 + rand() * 4;
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rand() > 0.5 ? bMat : bMatDark);
+      rock.position.set(GRASS_LANDMARK.x + Math.cos(a) * r, s * 0.3, GRASS_LANDMARK.z + Math.sin(a) * r);
+      rock.rotation.set(rand() * Math.PI, rand() * Math.PI, rand() * Math.PI);
+      rock.castShadow = true;
+      root.add(rock);
+    }
+  }
 
   // Walk the root, releasing every GPU buffer it owns, then detach it. No
   // biome geometry/material/texture should survive a transition.
