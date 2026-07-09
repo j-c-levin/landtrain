@@ -666,7 +666,7 @@ export function createGrassland(scene) {
   const cattailStalkMatrices = [];
   const cattailStalkColors = [];
   const cattailHeadMatrices = [];
-  const CLUMPS_PER_RIVER = 28;
+  const CLUMPS_PER_RIVER = 46;
   // The stalk lean needs Euler order 'YXZ' (y-spin applied AFTER the x-tilt in
   // matrix terms, R = Ry·Rx) so the spin sweeps the tilt around the full
   // horizontal circle. With the default 'XYZ' (R = Rx·Ry) the y-spin turns the
@@ -831,7 +831,7 @@ export function createGrassland(scene) {
       for (let s = 0; s < stalkCount; s++) {
         const a = rand() * Math.PI * 2;
         const r = rand() * 1.2; // tight jitter so stalks read as one clump
-        const height = 1.6 + rand() * 1.0;
+        const height = 2.2 + rand() * 1.2;
         dummy.position.set(baseX + Math.cos(a) * r, baseY + height / 2, z + Math.sin(a) * r);
         // tilt ±0.25 rad off vertical, then (order 'YXZ', set above) spin that
         // tilt about world-up — leaning the stalk in a random compass direction.
@@ -1122,8 +1122,8 @@ export function createGrassland(scene) {
 
   // decorative boulder ring hugging the knoll's stepped foot (r 52-60) — same
   // mossy palette as mossyBoulders() but placed directly and NOT pushed as an
-  // obstacle: the knoll's own footprint already blocks the player here, so
-  // these rocks are pure dressing, not collision.
+  // obstacle: the landmark has no collision geometry of its own, so these
+  // rocks are pure dressing, not collision.
   {
     const bMat = new THREE.MeshStandardMaterial({ color: 0x6f7a5c, roughness: 0.96, flatShading: true });
     const bMatDark = new THREE.MeshStandardMaterial({ color: 0x586349, roughness: 0.96, flatShading: true });
@@ -1135,6 +1135,7 @@ export function createGrassland(scene) {
       rock.position.set(GRASS_LANDMARK.x + Math.cos(a) * r, s * 0.3, GRASS_LANDMARK.z + Math.sin(a) * r);
       rock.rotation.set(rand() * Math.PI, rand() * Math.PI, rand() * Math.PI);
       rock.castShadow = true;
+      rock.scale.y = 0.55 + rand() * 0.4;
       root.add(rock);
     }
   }
@@ -1173,7 +1174,7 @@ export function createGrassland(scene) {
     landmark,
     landmarkPos: { x: GRASS_LANDMARK.x, z: GRASS_LANDMARK.z },
     arriveRadius: GRASS_ARRIVE_RADIUS,
-    update(_dt, time, trainPos, cameraPos) {
+    update(_dt, time, _trainPos, cameraPos) {
       // No directional light here — the shared world sun lights the grassland,
       // and world.update() already follows the train everywhere. We only
       // animate water and fade willows near the side-on camera.
