@@ -951,19 +951,46 @@ export function createGrassland(scene) {
   }
 
   // ring water — a flat annulus sitting on the channel floor, sunken below the
-  // banks; same scrolling-ripple trick as the rivers.
+  // banks; same scrolling-ripple trick as the rivers. RingGeometry's default
+  // UVs are planar (projected onto the unit square), which smears a repeating
+  // pattern anisotropically across an annulus — rewritten below to polar UVs
+  // (U = angle around the ring, V = radial fraction across the band) so the
+  // ripple stays round and can flow around the ring instead of sliding
+  // linearly across it.
   {
     const ripple = waterNormalTexture();
-    ripple.repeat.set(54, 4);
+    // Local TILE, kept in sync with the river block's `const TILE = 30`
+    // above — that one is scoped inside the `for (const def of riverDefs)`
+    // loop and isn't visible down here.
+    const TILE = 30;
+    const RTHETA = 48, RPHI = 1; // must match the RingGeometry args below
+    // U repeat rounded to an integer so the seam column (U=1.0) tiles
+    // cleanly against the start column (U=0).
+    ripple.repeat.set(Math.round((2 * Math.PI * 190) / TILE), (208 - 172) / TILE); // (40, 1.2)
     const deltaMat = new THREE.MeshStandardMaterial({
       color: riverColor, roughness: 0.25, metalness: 0.1,
       transparent: true, opacity: 0.7,
       normalMap: ripple, normalScale: new THREE.Vector2(0.55, 0.55),
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
-    waters.push({ mat: deltaMat, axis: 'y' }); // radial flow across the annulus
+    waters.push({ mat: deltaMat, axis: 'x' }); // flow scrolls U — around the ring
     // fill the flat floor band (R_MID +/- W_RING = 172..208)
-    const ring = new THREE.Mesh(new THREE.RingGeometry(172, 208, 48), deltaMat);
+    const rgeo = new THREE.RingGeometry(172, 208, RTHETA, RPHI);
+    // Rewrite UVs to polar. Per three.js's RingGeometry source, vertices are
+    // built with the outer loop j = 0..phiSegments walking the radius from
+    // innerRadius to outerRadius, and the inner loop i = 0..thetaSegments
+    // walking theta around the ring (the seam column is duplicated: i=0 and
+    // i=thetaSegments are separate vertices at the same position). Index =
+    // j*(thetaSegments+1) + i, so U = i/thetaSegments gives the last seam
+    // column exactly 1.0 (no wrap to 0), and V = j/phiSegments spans the band.
+    const ruv = rgeo.attributes.uv;
+    for (let j = 0; j <= RPHI; j++) {
+      for (let i = 0; i <= RTHETA; i++) {
+        ruv.setXY(j * (RTHETA + 1) + i, i / RTHETA, j / RPHI);
+      }
+    }
+    ruv.needsUpdate = true;
+    const ring = new THREE.Mesh(rgeo, deltaMat);
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(GRASS_LANDMARK.x, WATER_Y, GRASS_LANDMARK.z); // WATER_Y
     root.add(ring);
@@ -1035,15 +1062,19 @@ export function createGrassland(scene) {
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a5236, roughness: 1, transparent: true });
     const leafMat = new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true, transparent: true });
     leafMat.color.setHSL(0.27 + rand() * 0.06, 0.36 + rand() * 0.16, 0.32 + rand() * 0.12);
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.32, h, 6), trunkMat);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, h, 6), trunkMat);
     trunk.position.y = h / 2;
-    // drooping willow crown: stretched downward, wider than tall at the skirt
+    // drooping willow crown: stretched downward, wider than tall at the skirt.
+    // Lowered to h*0.9 so the crown sits over a bigger, lower skirt with no
+    // air gap — a droop-to-the-grass teardrop silhouette at a distance.
     const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(h * 0.5, 1), leafMat);
-    crown.position.y = h + h * 0.05;
+    crown.position.y = h * 0.9;
     crown.scale.set(1.25, 1.7, 1.25); // vertically stretched (drooping)
-    const skirt = new THREE.Mesh(new THREE.IcosahedronGeometry(h * 0.38, 1), leafMat);
-    skirt.position.y = h * 0.7;
-    skirt.scale.set(1.5, 1.9, 1.5);
+    // Skirt enlarged and lowered so its bottom edge nears the ground (grounded
+    // look) rather than floating above it.
+    const skirt = new THREE.Mesh(new THREE.IcosahedronGeometry(h * 0.45, 1), leafMat);
+    skirt.position.y = h * 0.55;
+    skirt.scale.set(1.6, 1.35, 1.6);
     t.add(trunk, crown, skirt);
     // keep willows off the channels and off the landmark knoll
     let wx = randX(), wz = randZ(), n = 0;
@@ -1148,7 +1179,8 @@ export function createGrassland(scene) {
       // animate water and fade willows near the side-on camera.
 
       // animate water flow: slow-scroll the ripple normal map's offset over time
-      // along each water's own axis ('x' = down-river, 'y' = radial for the ring).
+      // along each water's own axis ('y' = down-river; 'x' = around the ring,
+      // using the polar UVs' theta coordinate).
       // `dir` (default 1) flips the scroll for the dense overlay layer so its
       // tiling drifts opposite the base layer instead of lining up with it.
       for (const w of waters) {
