@@ -202,6 +202,83 @@ export function chainRiverSegs(def, zMin, zSpan, centerXAt, nSegs = 12) {
   return segs;
 }
 
+// A low lantern causeway: a flush wood-plank crossing (no arch — the old 0.8u
+// arc over a 92u span read as flat anyway, and its 0.3-1.35u plank height let
+// the train clip through) over a narrowed visual path, framed by four corner
+// lantern posts that read from bank-scouting distance long before the deck
+// itself does. Shared by the three straight river decks (crossing runs along
+// X, path width along Z) and the two radial ring decks (crossing runs along
+// Z, path width along X) via `axis`; `uCenter`/`uSpan` describe the crossing
+// direction, `vCenter`/`vWidth` the path direction. Posts/lanterns/rails all
+// sit `vWidth/2 + 1.5` outside the path centreline, so nothing above y≈0.3
+// intrudes on the train's lane (|offset| < vWidth/2).
+function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCenter, vWidth, planks = 9 }) {
+  const group = new THREE.Group();
+  const baseDeck = new THREE.Color(0x9c6b3f);
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9, flatShading: true });
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x6a4a2e, roughness: 0.9, flatShading: true });
+  const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffc46a, emissiveIntensity: 1.6 });
+
+  // flush planks: centre y=0.12, thickness 0.24 (top ≈ 0.24, well under the
+  // train's clearance). A small ±0.02 lightness jitter per plank keeps the
+  // deck from reading as one flat-shaded slab.
+  const lenU = uSpan / planks + 1.2; // small overlap so seams don't gap
+  const hsl = {};
+  for (let i = 0; i < planks; i++) {
+    const t = i / (planks - 1);
+    const u = uCenter - uSpan / 2 + uSpan * t;
+    baseDeck.getHSL(hsl);
+    const plankColor = new THREE.Color().setHSL(hsl.h, hsl.s, clamp(hsl.l + (rand() - 0.5) * 0.04, 0, 1));
+    const plankMat = new THREE.MeshStandardMaterial({ color: plankColor, roughness: 0.85, flatShading: true });
+    const geo =
+      axis === 'x' ? new THREE.BoxGeometry(lenU, 0.24, vWidth) : new THREE.BoxGeometry(vWidth, 0.24, lenU);
+    const plank = new THREE.Mesh(geo, plankMat);
+    plank.position.set(axis === 'x' ? u : vCenter, 0.12, axis === 'x' ? vCenter : u);
+    plank.castShadow = true;
+    group.add(plank);
+  }
+
+  // four corner posts, OUTSIDE the path, each topped with a glowing lantern +
+  // a soft glow sprite (shared material) so the crossing is visible long
+  // before the planks are.
+  const edge = vWidth / 2 + 1.5;
+  const postH = 3.2;
+  for (const uSide of [-1, 1]) {
+    for (const vSide of [-1, 1]) {
+      const u = uCenter + uSide * (uSpan / 2);
+      const v = vCenter + vSide * edge;
+      const px = axis === 'x' ? u : v;
+      const pz = axis === 'x' ? v : u;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, postH, 6), postMat);
+      post.position.set(px, postH / 2, pz);
+      post.castShadow = true;
+      group.add(post);
+
+      const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), lanternMat);
+      lantern.position.set(px, postH, pz);
+      group.add(lantern);
+
+      const glow = new THREE.Sprite(glowMat);
+      glow.scale.setScalar(6);
+      glow.position.copy(lantern.position);
+      group.add(glow);
+    }
+  }
+
+  // rope rails along the crossing at the path edges, sitting on the posts' line
+  for (const vSide of [-1, 1]) {
+    const v = vCenter + vSide * edge;
+    const geo =
+      axis === 'x' ? new THREE.BoxGeometry(uSpan, 0.12, 0.15) : new THREE.BoxGeometry(0.15, 0.12, uSpan);
+    const rail = new THREE.Mesh(geo, railMat);
+    rail.position.set(axis === 'x' ? uCenter : v, 0.9, axis === 'x' ? v : uCenter);
+    group.add(rail);
+  }
+
+  root.add(group);
+  return group;
+}
+
 export function createGrassland(scene) {
   const rand = mulberry(20260616);
   const obstacles = [];
@@ -464,6 +541,16 @@ export function createGrassland(scene) {
   // (maxZ, t=1) so gap t-values read intuitively. One bridge gap per river; the
   // gap side escalates so the player must scout the bank to find each crossing.
   const riverColor = new THREE.Color(0x5b93a8);
+  // One shared glow sprite material for every lantern on every causeway (3
+  // river decks + 2 ring decks × 4 posts = 20 lanterns) — sprites can share a
+  // material, so this avoids building 20 redundant softDiscTexture canvases.
+  // Not fog:false: unlike the landmark halo (a horizon silhouette), these are
+  // a mid-range crossing signal and should fade into the shared fog normally.
+  const bridgeGlowMat = new THREE.SpriteMaterial({
+    map: softDiscTexture('rgba(255,196,110,0.5)', 'rgba(255,196,110,0)'),
+    transparent: true,
+    depthWrite: false,
+  });
   const waters = []; // { mat, axis, dir } for animated flow in update(); dir
   // flips the scroll direction (the dense overlay layer scrolls opposite the
   // base layer so their tiling never lines up into a visible lattice)
@@ -604,39 +691,27 @@ export function createGrassland(scene) {
     root.add(water2);
     waters.push({ mat: waterMat2, axis: 'y', dir: -1 }); // opposite scroll direction
 
-    // bridge deck — a low arched plank/stone deck across each gap, in warm
-    // wood tones to contrast the cool water. Built from a few short raised
-    // planks following a shallow arc.
+    // lantern causeway — a low flush deck across each gap, warm wood tones
+    // against the cool water, with four corner lantern posts glowing at
+    // bank-scouting distance. The river runs N-S (Z), so the crossing goes
+    // E-W (X): the deck spans the full banked channel along X (footprint
+    // FOOT each side + a little onto the grass lips), and the visual path is
+    // narrowed to at most 34u along Z, centred on the gap (the collision gap
+    // itself is untouched).
     const g = def.gaps[0];
     const gapZ0 = zMin + zSpan * g.t0;
     const gapZ1 = zMin + zSpan * g.t1;
     const gapMidZ = (gapZ0 + gapZ1) / 2;
     const gapLen = gapZ1 - gapZ0;
-    const deckGroup = new THREE.Group();
-    const deckMat = new THREE.MeshStandardMaterial({ color: 0x9c6b3f, roughness: 0.85, flatShading: true });
-    const railMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9, flatShading: true });
-    // The river runs N-S (Z), so the crossing goes E-W (X): the deck spans the
-    // full banked channel along X (footprint FOOT each side + a little onto the
-    // grass lips), and the path is as wide as the gap (Z).
-    const deckW = FOOT * 2 + 8; // spans the sunken channel bank-to-bank (X)
-    const pathZ = gapLen;       // crossing-path width along the river's length (Z)
     const deckCx = riverCenterX(def, gapMidZ); // deck centres on the meandering channel
-    const planks = 9;
-    for (let i = 0; i < planks; i++) {
-      const t = i / (planks - 1);
-      const arch = Math.sin(t * Math.PI) * 0.8; // shallow arc, peak mid-river
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(deckW / planks + 1.2, 0.5, pathZ), deckMat);
-      plank.position.set(deckCx - deckW / 2 + deckW * t, 0.3 + arch, gapMidZ);
-      plank.castShadow = true;
-      deckGroup.add(plank);
-    }
-    // low side rails — run bank-to-bank (along X) on the up/down-river edges
-    for (const side of [-1, 1]) {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(deckW + 2, 1.0, 0.5), railMat);
-      rail.position.set(deckCx, 1.1, gapMidZ + side * pathZ * 0.5);
-      deckGroup.add(rail);
-    }
-    root.add(deckGroup);
+    const pathZ = Math.min(gapLen, 34);        // narrowed visual path width along Z
+    buildCauseway(root, rand, bridgeGlowMat, {
+      axis: 'x',
+      uCenter: deckCx,
+      uSpan: (FOOT + 4) * 2,
+      vCenter: gapMidZ,
+      vWidth: pathZ,
+    });
 
     // Cattail clumps: 28 clump sites along the bank slope near the waterline,
     // skipping the bridge crossing. Each clump is 3-6 leaning stalks with 1-2
@@ -804,31 +879,21 @@ export function createGrassland(scene) {
       ],
     });
 
-    // two bridge decks crossing the channel radially at north and south, at the
-    // train's level. Each runs from the island edge (r=150) to outer (r=230)
-    // along z, planks stepping across that span, long axis along x.
-    const deckMat = new THREE.MeshStandardMaterial({ color: 0x9c6b3f, roughness: 0.85, flatShading: true });
-    const railMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9, flatShading: true });
+    // two lantern causeways crossing the channel radially at north and south,
+    // at the train's level. Each runs from the island edge (r=150) to outer
+    // bank (r=230) along z, flush planks stepping across that span, path
+    // width along x; posts + lanterns sit at the island-side and outer-side
+    // corners (same buildCauseway treatment as the river decks, axis 'z').
     const rIn = 150, rOut = 230, span = rOut - rIn; // 80
-    const deckW = 30;   // path width (tangential, along x)
-    const planks = 9;
+    const deckW = 30; // path width (tangential, along x)
     for (const dir of [1, -1]) { // +1 = north (+z), -1 = south (-z)
-      const deck = new THREE.Group();
-      for (let i = 0; i < planks; i++) {
-        const t = i / (planks - 1);
-        const r = rIn + span * t;                 // distance from centre
-        const arch = Math.sin(t * Math.PI) * 0.8; // shallow arc, peak mid-span
-        const plank = new THREE.Mesh(new THREE.BoxGeometry(deckW, 0.5, span / planks + 1.2), deckMat);
-        plank.position.set(GRASS_LANDMARK.x, 0.3 + arch, GRASS_LANDMARK.z + dir * r);
-        plank.castShadow = true;
-        deck.add(plank);
-      }
-      for (const side of [-1, 1]) { // side rails along the path (offset in x)
-        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, span + 2), railMat);
-        rail.position.set(GRASS_LANDMARK.x + side * deckW * 0.5, 1.1, GRASS_LANDMARK.z + dir * (rIn + span / 2));
-        deck.add(rail);
-      }
-      root.add(deck);
+      buildCauseway(root, rand, bridgeGlowMat, {
+        axis: 'z',
+        uCenter: GRASS_LANDMARK.z + dir * (rIn + span / 2),
+        uSpan: span,
+        vCenter: GRASS_LANDMARK.x,
+        vWidth: deckW,
+      });
     }
   }
 
