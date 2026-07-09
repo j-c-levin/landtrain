@@ -244,12 +244,12 @@ export function createGrassland(scene) {
     return -DEPTH * (1 - smooth((d - w) / bank));
   };
   const WATER_Y = -DEPTH + 0.6; // water surface: 0.6 above the channel floor
-  const groundMat = () => new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 });
+  const groundMat = () => new THREE.MeshStandardMaterial({ color: 0x6a9148, roughness: 1 });
   // Shore treatment palette for the vertex-colored channel strips: lip green ->
   // wet-mud floor, with a pale highlight right at the waterline. Baked per
   // vertex below (MeshStandardMaterial multiplies vertex colors by
   // material.color, so the strip material's base color is set to white).
-  const shoreLip = new THREE.Color(0x5a8a44);
+  const shoreLip = new THREE.Color(0x6a9148);
   const shoreMud = new THREE.Color(0x4f5a34);
   const shorePale = new THREE.Color(0x79a35b);
 
@@ -349,7 +349,7 @@ export function createGrassland(scene) {
   // each other (they blend in stable render order instead), and polygonOffset to
   // pull them cleanly in front of the ground plane at any zoom.
   const patchGeo = new THREE.CircleGeometry(1, 20);
-  const patchColors = [0x6fa050, 0x528a3e, 0x77a85a, 0x4f7d3c, 0x82b066];
+  const patchColors = [0x7fae5c, 0x55803c, 0x8fbc6e, 0x4a7136, 0x9cc078];
   const patches = new THREE.Group();
   for (let i = 0; i < 150; i++) {
     const m = new THREE.Mesh(
@@ -358,7 +358,7 @@ export function createGrassland(scene) {
         color: patchColors[Math.floor(rand() * patchColors.length)],
         roughness: 1,
         transparent: true,
-        opacity: 0.4 + rand() * 0.3,
+        opacity: 0.35 + rand() * 0.35,
         depthWrite: false,
         polygonOffset: true,
         polygonOffsetFactor: -2,
@@ -409,7 +409,7 @@ export function createGrassland(scene) {
       o.scale.set(s, s * (0.8 + rand() * 0.9), s);
       o.position.y = (o.scale.y * 1.2) / 2 - 0.05;
       o.rotation.y = rand() * Math.PI;
-      c.setHSL(0.28 + rand() * 0.07, 0.45 + rand() * 0.22, 0.4 + rand() * 0.16);
+      c.setHSL(0.26 + rand() * 0.06, 0.35 + rand() * 0.15, 0.34 + rand() * 0.10);
     }
   );
 
@@ -467,6 +467,18 @@ export function createGrassland(scene) {
   const waters = []; // { mat, axis, dir } for animated flow in update(); dir
   // flips the scroll direction (the dense overlay layer scrolls opposite the
   // base layer so their tiling never lines up into a visible lattice)
+
+  // Cattail clumps: one InstancedMesh for every stalk across all three rivers
+  // and one for every seed head, so the whole biome pays for two draw calls
+  // instead of ~90 individual reed meshes. Two-pass build: the per-river loop
+  // below only pushes placements (matrix + color) into these arrays in
+  // deterministic rand order; the InstancedMeshes are sized from the final
+  // array lengths and filled once, after all rivers have contributed (see
+  // "cattail InstancedMesh build" after the loop).
+  const cattailStalkMatrices = [];
+  const cattailStalkColors = [];
+  const cattailHeadMatrices = [];
+  const CLUMPS_PER_RIVER = 28;
 
   for (const def of riverDefs) {
     // collision: the meander approximated by a chain of 12 straight segs whose
@@ -619,25 +631,53 @@ export function createGrassland(scene) {
     }
     root.add(deckGroup);
 
-    // reedy/cattail clusters along the banks (thin cones), skipping the gap
-    const reedMat = new THREE.MeshStandardMaterial({ color: 0x4f6b3a, roughness: 1, flatShading: true });
-    const reedTopMat = new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 1, flatShading: true });
-    const reedGeo = new THREE.ConeGeometry(0.3, 4.5, 4);
-    const reedTopGeo = new THREE.ConeGeometry(0.5, 1.4, 5);
-    for (let i = 0; i < 90; i++) {
+    // Cattail clumps: 28 clump sites along the bank slope near the waterline,
+    // skipping the bridge crossing. Each clump is 3-6 leaning stalks with 1-2
+    // seed heads riding the tips of the tallest ones. Only placements (matrix +
+    // color) are pushed here — see the InstancedMesh build after this loop.
+    for (let i = 0; i < CLUMPS_PER_RIVER; i++) {
       const t = rand();
+      if (t >= g.t0 - 0.03 && t <= g.t1 + 0.03) continue; // keep the crossing clear
       const z = zMin + zSpan * t;
-      if (t >= g.t0 - 0.02 && t <= g.t1 + 0.02) continue; // keep the crossing clear
-      const side = rand() > 0.5 ? 1 : -1;
-      const offX = riverCenterX(def, z) + side * (FOOT + 2 + rand() * 6); // stand on the flat lip
-      const offZ = z + (rand() - 0.5) * 8;
-      const reed = new THREE.Mesh(reedGeo, reedMat);
-      reed.position.set(offX, 2.2, offZ);
-      reed.rotation.z = (rand() - 0.5) * 0.18;
-      root.add(reed);
-      const top = new THREE.Mesh(reedTopGeo, reedTopMat);
-      top.position.set(offX, 4.2, offZ);
-      root.add(top);
+      const side = rand() < 0.5 ? -1 : 1;
+      const dist = RIVER_W + 3 + rand() * 10; // on the bank slope near the waterline
+      const baseX = riverCenterX(def, z) + side * dist;
+      const baseY = channelY(dist, def.w, BANK) - 0.1; // sink stalk bases into the bank
+      const stalkCount = 3 + Math.floor(rand() * 4); // 3-6 stalks per clump
+      const headCount = Math.min(stalkCount, 1 + Math.floor(rand() * 2)); // 1-2 heads
+      for (let s = 0; s < stalkCount; s++) {
+        const a = rand() * Math.PI * 2;
+        const r = rand() * 1.2; // tight jitter so stalks read as one clump
+        const height = 1.6 + rand() * 1.0;
+        dummy.position.set(baseX + Math.cos(a) * r, baseY + height / 2, z + Math.sin(a) * r);
+        // spin about a random compass heading, then lean ±0.25 rad off vertical
+        // — together these tip the stalk toward a random horizontal direction.
+        dummy.rotation.set((rand() - 0.5) * 0.5, rand() * Math.PI * 2, 0);
+        dummy.scale.set(1, height, 1); // CylinderGeometry is unit-height; stretch to 1.6-2.6
+        dummy.updateMatrix();
+        cattailStalkMatrices.push(dummy.matrix.clone());
+        cattailStalkColors.push(
+          new THREE.Color().setHSL(
+            0.26 + (rand() - 0.5) * 0.06,
+            0.45 + (rand() - 0.5) * 0.2,
+            0.35 + (rand() - 0.5) * 0.16
+          )
+        );
+        if (s < headCount) {
+          // The seed head inherits the stalk's full transform: apply the
+          // stalk's matrix to the local top of the unit-height cylinder
+          // (y=0.5) to get the tip in world space, then nudge along the same
+          // lean's up-axis by half the capsule's height so it sits ON the
+          // tip rather than centred through it.
+          const tip = new THREE.Vector3(0, 0.5, 0).applyMatrix4(dummy.matrix);
+          const up = new THREE.Vector3(0, 1, 0).applyQuaternion(dummy.quaternion);
+          const head = new THREE.Object3D();
+          head.position.copy(tip).addScaledVector(up, 0.32);
+          head.quaternion.copy(dummy.quaternion);
+          head.updateMatrix();
+          cattailHeadMatrices.push(head.matrix.clone());
+        }
+      }
     }
 
     // lily pads cluster into pools rather than scattering uniformly across the
@@ -677,6 +717,31 @@ export function createGrassland(scene) {
         root.add(pad);
       }
     }
+  }
+
+  // --- cattail InstancedMesh build ----------------------------------------
+  // Size and fill the two InstancedMeshes from the placements the river loop
+  // above pushed into cattailStalkMatrices/Colors and cattailHeadMatrices.
+  {
+    const stalkGeo = new THREE.CylinderGeometry(0.06, 0.11, 1, 5);
+    const stalkMat = new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true });
+    const stalks = new THREE.InstancedMesh(stalkGeo, stalkMat, cattailStalkMatrices.length);
+    for (let i = 0; i < cattailStalkMatrices.length; i++) {
+      stalks.setMatrixAt(i, cattailStalkMatrices[i]);
+      stalks.setColorAt(i, cattailStalkColors[i]);
+    }
+    stalks.instanceMatrix.needsUpdate = true;
+    if (stalks.instanceColor) stalks.instanceColor.needsUpdate = true;
+    root.add(stalks);
+
+    // Seed heads are a uniform tan, so no per-instance color is needed —
+    // the material's own color carries it.
+    const headGeo = new THREE.CapsuleGeometry(0.09, 0.45, 3, 6);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0x8a6a42, roughness: 1 });
+    const heads = new THREE.InstancedMesh(headGeo, headMat, cattailHeadMatrices.length);
+    for (let i = 0; i < cattailHeadMatrices.length; i++) heads.setMatrixAt(i, cattailHeadMatrices[i]);
+    heads.instanceMatrix.needsUpdate = true;
+    root.add(heads);
   }
 
   // --- ring channel terrain (sunken annulus around the tree) --------------
