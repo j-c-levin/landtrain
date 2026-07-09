@@ -814,9 +814,9 @@ export function createGrassland(scene) {
       vWidth: pathZ,
     });
 
-    // Cattail clumps: 28 clump sites along the bank slope near the waterline,
-    // skipping the bridge crossing. Each clump is 3-6 leaning stalks with 1-2
-    // seed heads riding the tips of the tallest ones. Only placements (matrix +
+    // Cattail clumps: CLUMPS_PER_RIVER sites along the bank slope near the
+    // waterline, skipping the bridge crossing. Each clump is 3-6 leaning stalks
+    // with 1-2 seed heads riding stalk tips. Only placements (matrix +
     // color) are pushed here — see the InstancedMesh build after this loop.
     for (let i = 0; i < CLUMPS_PER_RIVER; i++) {
       const t = rand();
