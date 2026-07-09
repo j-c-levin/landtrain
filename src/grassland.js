@@ -167,6 +167,39 @@ function buildGrassLandmark(root) {
   return group;
 }
 
+// Approximate a meandering river with a chain of `nSegs` straight collision
+// segs. Endpoints sample `centerXAt` at nSegs+1 evenly-spaced z values (shared
+// joints, so no pinholes; gentle bends mean seg width covers the kinks).
+//
+// A river carries GLOBAL bridge gaps `def.gaps: [{t0,t1}]` measured over the
+// full z-run (t=0 at zMin, t=1 at zMin+zSpan). Each seg only spans a slice of
+// that run, so we remap every global gap into the seg's own local t-space,
+// working in z: the global window [t0,t1] is the z-band
+// [zMin + t0*zSpan, zMin + t1*zSpan]; intersect it with the seg's z-range and
+// convert the overlap to that seg's local t fractions. (Because z varies
+// linearly along a seg, z↔local-t is exact along the seg; mapping the gap's
+// z-window is the intended approximation — the closest point's z on a gently
+// tilted seg is ~its query z.) Segs the window misses get no gaps.
+export function chainRiverSegs(def, zMin, zSpan, centerXAt, nSegs = 12) {
+  const zNode = (k) => zMin + (k / nSegs) * zSpan;
+  const segs = [];
+  for (let k = 0; k < nSegs; k++) {
+    const za = zNode(k), zb = zNode(k + 1); // south -> north, zb > za
+    const seg = { type: 'seg', x1: centerXAt(za), z1: za, x2: centerXAt(zb), z2: zb, w: def.w };
+    const localGaps = [];
+    for (const g of def.gaps || []) {
+      const gz0 = zMin + g.t0 * zSpan;
+      const gz1 = zMin + g.t1 * zSpan;
+      const lo = Math.max(gz0, za);
+      const hi = Math.min(gz1, zb);
+      if (lo < hi) localGaps.push({ t0: (lo - za) / (zb - za), t1: (hi - za) / (zb - za) });
+    }
+    if (localGaps.length) seg.gaps = localGaps;
+    segs.push(seg);
+  }
+  return segs;
+}
+
 export function createGrassland(scene) {
   const rand = mulberry(20260616);
   const obstacles = [];
@@ -211,6 +244,21 @@ export function createGrassland(scene) {
   const WATER_Y = -DEPTH + 0.6; // water surface: 0.6 above the channel floor
   const groundMat = () => new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 });
 
+  // --- river definitions + centerline ------------------------------------
+  // Each river meanders as a gentle sine wave around its base x. `amp` is the
+  // peak side-to-side swing, `waves` the number of half-cycles over the N-S
+  // run, `phase` the starting offset. Defined up here (ahead of the ground
+  // panels) because the panel cuts, onWater(), the channel/water geometry and
+  // the collision chain all derive from the same centerline — routing them
+  // through riverCenterX keeps every dependent locked to the true river path.
+  const riverDefs = [
+    { x: xMin + 420, w: RIVER_W, amp: 45, waves: 2.0, phase: 0.4, gaps: [{ t0: 0.58, t1: 0.62 }] }, // A ≈3120, bridge just N of centre
+    { x: xMin + 1180, w: RIVER_W, amp: 60, waves: 1.5, phase: 2.1, gaps: [{ t0: 0.29, t1: 0.33 }] }, // B ≈3880, bridge down south
+    { x: xMin + 1980, w: RIVER_W, amp: 40, waves: 2.5, phase: 5.0, gaps: [{ t0: 0.52, t1: 0.56 }] }, // C ≈4680, near centre
+  ];
+  const riverCenterX = (def, z) =>
+    def.x + def.amp * Math.sin(((z - zMin) / zSpan) * Math.PI * def.waves + def.phase);
+
   // --- ground: flat panels split by the river channels --------------------
   // A channel below y=0 would be hidden by a flat ground plane, so the ground
   // is built as flat panels (y=0) with the river channels filling the gaps
@@ -221,12 +269,13 @@ export function createGrassland(scene) {
   const groundWestX = xMin - overlapW;              // 2699
   const groundEastX = xMax + overEast;              // 8250
   const planeD = zSpan + overEast;                  // full N/S depth (4160)
-  // NOTE: keep in sync with riverDefs x-values below (these drive panel cuts).
-  const riverXs = [xMin + 420, xMin + 1180, xMin + 1980];
-  // Panel x-spans: [west .. riverA-FOOT], between consecutive rivers, and the
-  // big east panel from riverC+FOOT to the east edge.
+  // Panel x-spans: [west .. riverA-cut], between consecutive rivers, and the
+  // big east panel from riverC+cut to the east edge. The cut widens from FOOT
+  // to FOOT + amp because the meandering valley swings ±amp about the base x
+  // and must stay inside its straight-edged strip. Derived from riverDefs so
+  // the cut positions can never drift from the centerline.
   const edges = [groundWestX];
-  for (const rx of riverXs) { edges.push(rx - FOOT, rx + FOOT); }
+  for (const def of riverDefs) { edges.push(def.x - (FOOT + def.amp), def.x + (FOOT + def.amp)); }
   edges.push(groundEastX);
   // edges = [west, A-, A+, B-, B+, C-, C+, east]; panels are pairs (0,1)(2,3)(4,5)(6,7)
   const treeHoleR = 230; // = ring R_OUTER; the ring channel fills this hole
@@ -272,7 +321,7 @@ export function createGrassland(scene) {
   // patches, willows) is placed at y≈0, so anything landing on a channel would
   // hover above the recessed water. Used to reject/re-roll those positions.
   const onWater = (x, z) => {
-    for (const rx of riverXs) if (Math.abs(x - rx) < FOOT + 3) return true;
+    for (const def of riverDefs) if (Math.abs(x - riverCenterX(def, z)) < FOOT + 3) return true;
     const dr = Math.hypot(x - GRASS_LANDMARK.x, z - GRASS_LANDMARK.z);
     return dr > 150 - 3 && dr < 230 + 3; // the ring channel annulus
   };
@@ -401,33 +450,35 @@ export function createGrassland(scene) {
   );
 
   // --- rivers + water + bridges ----------------------------------------
-  // Each river is one vertical seg spanning the full N-S extent of the region,
-  // running from south (minZ, t=0) to north (maxZ, t=1) so gap t-values read
-  // intuitively. One bridge gap per river; the gap side escalates so the player
-  // must scout the bank to find each crossing.
+  // Each river meanders as a sine wave (riverCenterX, defined above) around its
+  // base x over the full N-S extent, running from south (minZ, t=0) to north
+  // (maxZ, t=1) so gap t-values read intuitively. One bridge gap per river; the
+  // gap side escalates so the player must scout the bank to find each crossing.
   const riverColor = new THREE.Color(0x3f78a8);
   const waters = []; // { mat } for animated flow in update()
 
-  const riverDefs = [
-    { x: xMin + 420, w: RIVER_W, gaps: [{ t0: 0.58, t1: 0.62 }] }, // A ≈3120, bridge just N of centre
-    { x: xMin + 1180, w: RIVER_W, gaps: [{ t0: 0.29, t1: 0.33 }] }, // B ≈3880, bridge down south
-    { x: xMin + 1980, w: RIVER_W, gaps: [{ t0: 0.52, t1: 0.56 }] }, // C ≈4680, near centre
-  ];
-
-  const waterGeo = new THREE.PlaneGeometry(1, 1);
-
   for (const def of riverDefs) {
-    // collision: impassable seg with a bridge gap (south -> north)
-    obstacles.push({ type: 'seg', x1: def.x, z1: zMin, x2: def.x, z2: zMax, w: def.w, gaps: def.gaps });
+    // collision: the meander approximated by a chain of 12 straight segs whose
+    // endpoints sample the centerline; the bridge gap is remapped into each
+    // sub-seg's local t-space (see chainRiverSegs).
+    for (const s of chainRiverSegs(def, zMin, zSpan, (z) => riverCenterX(def, z))) obstacles.push(s);
 
-    // sunken channel strip: a plane across the river width, vertices displaced
-    // down into the valley profile (flat lip at y=0 meets the panel edges).
+    // sunken channel strip: a straight-edged plane wide enough to hold the
+    // meandering valley (FOOT + amp each side of the base x), its vertices
+    // displaced down into the valley profile keyed off distance from the
+    // centerline. The strip is subdivided finely along z (96) so the meander
+    // reads as a smooth curved trench; the outer edges stay at y=0 and meet the
+    // flat panels exactly (there the centerline is at most `amp` away, so the
+    // distance is >= FOOT and channelY returns 0). After rotateX(-PI/2) the
+    // plane's local x is the world x-offset and the position z is world z.
     {
-      const cgeo = new THREE.PlaneGeometry(FOOT * 2, planeD, 24, 1);
+      const cgeo = new THREE.PlaneGeometry((FOOT + def.amp) * 2, planeD, 48, 96);
       cgeo.rotateX(-Math.PI / 2); // local x -> world x, local y -> world -z
       const cpos = cgeo.attributes.position;
       for (let i = 0; i < cpos.count; i++) {
-        cpos.setY(i, channelY(Math.abs(cpos.getX(i)), def.w, BANK));
+        const xWorld = def.x + cpos.getX(i);
+        const zWorld = cpos.getZ(i);
+        cpos.setY(i, channelY(Math.abs(xWorld - riverCenterX(def, zWorld)), def.w, BANK));
       }
       cpos.needsUpdate = true;
       cgeo.computeVertexNormals();
@@ -441,11 +492,12 @@ export function createGrassland(scene) {
     // sitting just above ground. A tiling ripple normal map is scrolled along
     // its length to suggest flow.
     const ripple = waterNormalTexture();
-    // Tile to ~square world cells so ripples stay round, not smeared: U runs
-    // down the river's length (world Z, = zSpan), V across its width (def.w*2).
-    // Same world-units-per-tile (TILE) on both axes => isotropic ripples.
+    // Tile to ~square world cells so ripples stay round, not smeared. The plane
+    // (below) has its U along the width (def.w*2) and V down the length (world
+    // Z, ~zSpan). Same world-units-per-tile (TILE) on both axes => isotropic
+    // ripples; flow scrolls V (down the river).
     const TILE = 22;
-    ripple.repeat.set(zSpan / TILE, (def.w * 2.0) / TILE);
+    ripple.repeat.set((def.w * 2.0) / TILE, zSpan / TILE);
     const waterMat = new THREE.MeshStandardMaterial({
       color: riverColor,
       roughness: 0.3,
@@ -462,13 +514,21 @@ export function createGrassland(scene) {
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
     });
-    const water = new THREE.Mesh(waterGeo, waterMat);
-    water.rotation.x = -Math.PI / 2;
-    water.rotation.z = Math.PI / 2; // align the plane's long axis with N-S (z)
-    water.scale.set(zSpan, def.w * 2.0, 1);
-    water.position.set(def.x, WATER_Y, (zMin + zMax) / 2); // on the channel floor
+    // A thin plane subdivided down its length; each vertex sheared in x onto
+    // the centerline so the water ribbon follows the meander. Long axis (planeD)
+    // is the plane's height -> world z after rotateX; width is def.w*2.
+    const wgeo = new THREE.PlaneGeometry(def.w * 2.0, planeD, 1, 96);
+    wgeo.rotateX(-Math.PI / 2); // local x -> world x-offset, local y -> world z
+    const wpos = wgeo.attributes.position;
+    for (let i = 0; i < wpos.count; i++) {
+      const zWorld = wpos.getZ(i);
+      wpos.setX(i, wpos.getX(i) + (riverCenterX(def, zWorld) - def.x));
+    }
+    wpos.needsUpdate = true;
+    const water = new THREE.Mesh(wgeo, waterMat);
+    water.position.set(def.x, WATER_Y, 0); // on the channel floor
     root.add(water);
-    waters.push({ mat: waterMat, axis: 'x' }); // flows down-river (along U)
+    waters.push({ mat: waterMat, axis: 'y' }); // flow scrolls V (down the river)
 
     // bridge deck — a low arched plank/stone deck across each gap, in warm
     // wood tones to contrast the cool water. Built from a few short raised
@@ -486,19 +546,20 @@ export function createGrassland(scene) {
     // grass lips), and the path is as wide as the gap (Z).
     const deckW = FOOT * 2 + 8; // spans the sunken channel bank-to-bank (X)
     const pathZ = gapLen;       // crossing-path width along the river's length (Z)
+    const deckCx = riverCenterX(def, gapMidZ); // deck centres on the meandering channel
     const planks = 9;
     for (let i = 0; i < planks; i++) {
       const t = i / (planks - 1);
       const arch = Math.sin(t * Math.PI) * 0.8; // shallow arc, peak mid-river
       const plank = new THREE.Mesh(new THREE.BoxGeometry(deckW / planks + 1.2, 0.5, pathZ), deckMat);
-      plank.position.set(def.x - deckW / 2 + deckW * t, 0.3 + arch, gapMidZ);
+      plank.position.set(deckCx - deckW / 2 + deckW * t, 0.3 + arch, gapMidZ);
       plank.castShadow = true;
       deckGroup.add(plank);
     }
     // low side rails — run bank-to-bank (along X) on the up/down-river edges
     for (const side of [-1, 1]) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(deckW + 2, 1.0, 0.5), railMat);
-      rail.position.set(def.x, 1.1, gapMidZ + side * pathZ * 0.5);
+      rail.position.set(deckCx, 1.1, gapMidZ + side * pathZ * 0.5);
       deckGroup.add(rail);
     }
     root.add(deckGroup);
@@ -513,7 +574,7 @@ export function createGrassland(scene) {
       const z = zMin + zSpan * t;
       if (t >= g.t0 - 0.02 && t <= g.t1 + 0.02) continue; // keep the crossing clear
       const side = rand() > 0.5 ? 1 : -1;
-      const offX = def.x + side * (FOOT + 2 + rand() * 6); // stand on the flat lip
+      const offX = riverCenterX(def, z) + side * (FOOT + 2 + rand() * 6); // stand on the flat lip
       const offZ = z + (rand() - 0.5) * 8;
       const reed = new THREE.Mesh(reedGeo, reedMat);
       reed.position.set(offX, 2.2, offZ);
@@ -535,7 +596,7 @@ export function createGrassland(scene) {
       pad.rotation.x = -Math.PI / 2;
       const s = 1.4 + rand() * 2.2;
       pad.scale.set(s, s, 1);
-      pad.position.set(def.x + (rand() - 0.5) * def.w * 1.6, WATER_Y + 0.04, z); // on WATER_Y
+      pad.position.set(riverCenterX(def, z) + (rand() - 0.5) * def.w * 1.6, WATER_Y + 0.04, z); // on WATER_Y
       root.add(pad);
     }
   }
