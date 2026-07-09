@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD, clamp, lerp, damp } from './constants.js';
+import { WORLD, BIOME_FADE, clamp, lerp, smootherstep, damp } from './constants.js';
 import { softDiscTexture } from './world.js';
 
 // One full day every two minutes. The whole pass is a keyframed colour
@@ -47,6 +47,8 @@ const KEYS = [
 // Grassland palette: same t keyframes as KEYS, dialled cool and watery for a
 // "fresh, misty wetland morning" mood. Blue-green fog, a gentler/cooler sun,
 // cooler hemisphere and dome gradients. Same day→dusk→night→dawn structure.
+// #sample blends this against KEYS positionally as the train crosses into
+// the grassland — see biomeBlend.
 const KEYS_GRASSLAND = [
   key(0.000, ['#1c64a8', '#4a98c4', '#a6dcd4', '#d4eede'], '#bfe3da', '#dcf2f0', '#6f8a78', 0.95, '#eaf6e6', 2.0, '#f2fbf4', 1.0, 0.0, 1.05),
   key(0.360, ['#2c6e9e', '#74b0c0', '#bfe0c4', '#d6ecc4'], '#cfe6cc', '#dcf2e0', '#62805e', 0.9, '#dceed0', 1.85, '#e6f4e4', 1.0, 0.0, 1.06),
@@ -59,8 +61,6 @@ const KEYS_GRASSLAND = [
   key(0.950, ['#2670b2', '#5ea6cc', '#aeded4', '#d4eecc'], '#cfe6d4', '#dcf2e2', '#74906e', 0.92, '#e2f2d8', 1.9, '#eef8e8', 1.0, 0.0, 1.08),
   key(1.000, ['#1c64a8', '#4a98c4', '#a6dcd4', '#d4eede'], '#bfe3da', '#dcf2f0', '#6f8a78', 0.95, '#eaf6e6', 2.0, '#f2fbf4', 1.0, 0.0, 1.05),
 ];
-
-const PALETTES = { prairie: KEYS, grassland: KEYS_GRASSLAND };
 
 const STAR_VERT = /* glsl */ `
   attribute float aSize;
@@ -162,10 +162,11 @@ export class SkyCycle {
   constructor(scene, renderer, sunLight) {
     this.renderer = renderer;
     this.sunLight = sunLight;
-    this.keys = KEYS; // active palette table; swapped by setBiome()
-    this.biome = 'prairie';
     this.timeOffset = 0; // debug: jump the clock (window.__game.sky.timeOffset)
     this.nightness = 0;
+    this.biomeBlend = 0; // 0 = prairie palette (KEYS), 1 = grassland (KEYS_GRASSLAND); driven by train x in update()
+    this._kA = {}; // scratch: KEYS sampled at the current day-phase
+    this._kB = {}; // scratch: KEYS_GRASSLAND sampled at the current day-phase
 
     // deterministic, separate stream from the world's
     let s = 977331;
@@ -352,14 +353,6 @@ export class SkyCycle {
     return pts;
   }
 
-  // Swap the active palette table. 'prairie' (default) reproduces the original
-  // KEYS exactly; 'grassland' is the cool watery variant. The in-game biome
-  // transition fades to black before calling this, so an instant swap is fine.
-  setBiome(name) {
-    this.biome = name === 'grassland' ? 'grassland' : 'prairie';
-    this.keys = PALETTES[this.biome];
-  }
-
   // Retarget the per-frame recolouring onto a different directional light. The
   // grassland builds its own sun; when the prairie is disposed the old light is
   // gone, so the sky must point at the replacement.
@@ -367,14 +360,10 @@ export class SkyCycle {
     this.sunLight = light;
   }
 
-  // Lerp every channel between the two bracketing keyframes.
-  #sample(phase, out) {
-    const keys = this.keys;
-    let i = 0;
-    while (keys[i + 1].t < phase) i++;
+  // Lerp every channel between the two bracketing keyframes of one table.
+  #lerpKeyframe(keys, i, t, out) {
     const a = keys[i];
     const b = keys[i + 1];
-    const t = (phase - a.t) / (b.t - a.t);
     out.sky = out.sky || [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
     for (let j = 0; j < 4; j++) out.sky[j].lerpColors(a.sky[j], b.sky[j], t);
     out.fog = (out.fog || new THREE.Color()).lerpColors(a.fog, b.fog, t);
@@ -390,9 +379,42 @@ export class SkyCycle {
     return out;
   }
 
+  // Sample the day/night timeline, positionally crossfaded between the
+  // prairie (KEYS) and grassland (KEYS_GRASSLAND) palettes by biomeBlend.
+  // Both tables share identical t keyframes, so the bracketing index and
+  // interpolant found once against KEYS apply unchanged to KEYS_GRASSLAND.
+  #sample(phase, out) {
+    let i = 0;
+    while (KEYS[i + 1].t < phase) i++;
+    const t = (phase - KEYS[i].t) / (KEYS[i + 1].t - KEYS[i].t);
+
+    const blend = this.biomeBlend;
+    // fast path at the biome extremes: skip sampling the other table entirely
+    if (blend <= 0) return this.#lerpKeyframe(KEYS, i, t, out);
+    if (blend >= 1) return this.#lerpKeyframe(KEYS_GRASSLAND, i, t, out);
+
+    const a = this.#lerpKeyframe(KEYS, i, t, this._kA);
+    const b = this.#lerpKeyframe(KEYS_GRASSLAND, i, t, this._kB);
+    out.sky = out.sky || [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+    for (let j = 0; j < 4; j++) out.sky[j].copy(a.sky[j]).lerp(b.sky[j], blend);
+    out.fog = (out.fog || new THREE.Color()).copy(a.fog).lerp(b.fog, blend);
+    out.hemiSky = (out.hemiSky || new THREE.Color()).copy(a.hemiSky).lerp(b.hemiSky, blend);
+    out.hemiGround = (out.hemiGround || new THREE.Color()).copy(a.hemiGround).lerp(b.hemiGround, blend);
+    out.dirCol = (out.dirCol || new THREE.Color()).copy(a.dirCol).lerp(b.dirCol, blend);
+    out.cloud = (out.cloud || new THREE.Color()).copy(a.cloud).lerp(b.cloud, blend);
+    out.hemiI = lerp(a.hemiI, b.hemiI, blend);
+    out.dirI = lerp(a.dirI, b.dirI, blend);
+    out.cloudOp = lerp(a.cloudOp, b.cloudOp, blend);
+    out.stars = lerp(a.stars, b.stars, blend);
+    out.exp = lerp(a.exp, b.exp, blend);
+    return out;
+  }
+
   update(dt, elapsed, camera, trainPos, sceneFog) {
     const time = elapsed + this.timeOffset;
     const phase = ((time / DAY_LENGTH) % 1 + 1) % 1;
+    // positional crossfade: prairie below startX, grassland above endX
+    this.biomeBlend = smootherstep((trainPos.x - BIOME_FADE.startX) / (BIOME_FADE.endX - BIOME_FADE.startX));
     const k = this.#sample(phase, (this._k = this._k || {}));
     this.nightness = k.stars;
 

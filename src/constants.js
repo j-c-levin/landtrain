@@ -55,6 +55,10 @@ export const WORLD = {
 // west of it is the unloadable western prairie.
 export const SPLIT_X = 1820;
 
+// The sky palette crossfades from prairie to grassland over this x-band
+// (starts at the prairie tree, completes shortly into the grassland).
+export const BIOME_FADE = { startX: 2450, endX: 3000 };
+
 export const LANDMARK = { x: 2450, z: 0 };
 // Generous on purpose: the train is ~50u long and routing pads obstacles, so a
 // tight radius forced you to all but clip the trunk. This counts as "arrived"
