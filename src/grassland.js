@@ -37,7 +37,7 @@ function mulberry(seed) {
 // three.js water trick — scroll a tiling normal map over a flat surface (what
 // THREE.Water does, minus the planar reflections).
 function waterNormalTexture() {
-  const S = 128;
+  const S = 256;
   const c = document.createElement('canvas');
   c.width = c.height = S;
   const ctx = c.getContext('2d');
@@ -49,6 +49,8 @@ function waterNormalTexture() {
     { fx: 2, fy: -1, a: 0.7, p: 1.7 },
     { fx: 3, fy: 2, a: 0.5, p: 3.1 },
     { fx: -2, fy: 3, a: 0.4, p: 0.6 },
+    { fx: 4, fy: -3, a: 0.3, p: 4.4 },
+    { fx: -1, fy: 4, a: 0.25, p: 2.2 },
   ];
   const height = (x, y) => {
     let h = 0;
@@ -243,6 +245,13 @@ export function createGrassland(scene) {
   };
   const WATER_Y = -DEPTH + 0.6; // water surface: 0.6 above the channel floor
   const groundMat = () => new THREE.MeshStandardMaterial({ color: 0x5a8a44, roughness: 1 });
+  // Shore treatment palette for the vertex-colored channel strips: lip green ->
+  // wet-mud floor, with a pale highlight right at the waterline. Baked per
+  // vertex below (MeshStandardMaterial multiplies vertex colors by
+  // material.color, so the strip material's base color is set to white).
+  const shoreLip = new THREE.Color(0x5a8a44);
+  const shoreMud = new THREE.Color(0x4f5a34);
+  const shorePale = new THREE.Color(0x79a35b);
 
   // --- river definitions + centerline ------------------------------------
   // Each river meanders as a gentle sine wave around its base x. `amp` is the
@@ -454,8 +463,10 @@ export function createGrassland(scene) {
   // base x over the full N-S extent, running from south (minZ, t=0) to north
   // (maxZ, t=1) so gap t-values read intuitively. One bridge gap per river; the
   // gap side escalates so the player must scout the bank to find each crossing.
-  const riverColor = new THREE.Color(0x3f78a8);
-  const waters = []; // { mat } for animated flow in update()
+  const riverColor = new THREE.Color(0x5b93a8);
+  const waters = []; // { mat, axis, dir } for animated flow in update(); dir
+  // flips the scroll direction (the dense overlay layer scrolls opposite the
+  // base layer so their tiling never lines up into a visible lattice)
 
   for (const def of riverDefs) {
     // collision: the meander approximated by a chain of 12 straight segs whose
@@ -475,14 +486,31 @@ export function createGrassland(scene) {
       const cgeo = new THREE.PlaneGeometry((FOOT + def.amp) * 2, planeD, 48, 96);
       cgeo.rotateX(-Math.PI / 2); // local x -> world x, local y -> world -z
       const cpos = cgeo.attributes.position;
+      // shore treatment: bake a lip-green -> wet-mud vertex color keyed off the
+      // same depth just displaced, with a pale highlight right at the waterline
+      const ccolor = new Float32Array(cpos.count * 3);
+      const tmpColor = new THREE.Color();
       for (let i = 0; i < cpos.count; i++) {
         const xWorld = def.x + cpos.getX(i);
         const zWorld = cpos.getZ(i);
-        cpos.setY(i, channelY(Math.abs(xWorld - riverCenterX(def, zWorld)), def.w, BANK));
+        const y = channelY(Math.abs(xWorld - riverCenterX(def, zWorld)), def.w, BANK);
+        cpos.setY(i, y);
+        const depthFrac = clamp(-y / DEPTH, 0, 1);
+        tmpColor.copy(shoreLip).lerp(shoreMud, depthFrac);
+        if (depthFrac < 0.12) tmpColor.lerp(shorePale, 0.25);
+        ccolor[i * 3] = tmpColor.r;
+        ccolor[i * 3 + 1] = tmpColor.g;
+        ccolor[i * 3 + 2] = tmpColor.b;
       }
       cpos.needsUpdate = true;
+      cgeo.setAttribute('color', new THREE.BufferAttribute(ccolor, 3));
       cgeo.computeVertexNormals();
-      const chan = new THREE.Mesh(cgeo, groundMat());
+      // base color white — MeshStandardMaterial multiplies vertex colors by
+      // material.color, so white lets the baked-in green/mud show true. A
+      // dedicated instance per river (not the shared groundMat()) so the flat
+      // panels elsewhere keep their plain green.
+      const chanMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, vertexColors: true });
+      const chan = new THREE.Mesh(cgeo, chanMat);
       chan.position.set(def.x, 0, 0);
       chan.receiveShadow = true;
       root.add(chan);
@@ -494,16 +522,17 @@ export function createGrassland(scene) {
     const ripple = waterNormalTexture();
     // Tile to ~square world cells so ripples stay round, not smeared. The plane
     // (below) has its U along the width (def.w*2) and V down the length (world
-    // Z, ~zSpan). Same world-units-per-tile (TILE) on both axes => isotropic
-    // ripples; flow scrolls V (down the river).
-    const TILE = 22;
-    ripple.repeat.set((def.w * 2.0) / TILE, zSpan / TILE);
+    // Z, planeD — the plane's actual length, not the region-only zSpan). Same
+    // world-units-per-tile (TILE) on both axes => isotropic ripples; flow
+    // scrolls V (down the river).
+    const TILE = 30;
+    ripple.repeat.set((def.w * 2.0) / TILE, planeD / TILE);
     const waterMat = new THREE.MeshStandardMaterial({
       color: riverColor,
-      roughness: 0.3,
-      metalness: 0.15,
+      roughness: 0.25,
+      metalness: 0.1,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.7,
       normalMap: ripple,
       normalScale: new THREE.Vector2(0.55, 0.55),
       fog: true,
@@ -529,6 +558,32 @@ export function createGrassland(scene) {
     water.position.set(def.x, WATER_Y, 0); // on the channel floor
     root.add(water);
     waters.push({ mat: waterMat, axis: 'y' }); // flow scrolls V (down the river)
+
+    // second, denser ripple layer scrolling the OPPOSITE direction — two
+    // overlapping tilings almost never line up, which is what actually kills
+    // the visible repeating lattice (one layer alone always shows its tile).
+    // Shares the same sheared geometry as the base layer (same mesh shape,
+    // just nudged up) rather than re-shearing a duplicate.
+    const ripple2 = waterNormalTexture();
+    ripple2.repeat.set(((def.w * 2.0) / TILE) * 2.6, (planeD / TILE) * 2.6);
+    const waterMat2 = new THREE.MeshStandardMaterial({
+      color: riverColor,
+      roughness: 0.25,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.18,
+      depthWrite: false,
+      normalMap: ripple2,
+      normalScale: new THREE.Vector2(0.4, 0.4),
+      fog: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    const water2 = new THREE.Mesh(wgeo, waterMat2);
+    water2.position.set(def.x, WATER_Y + 0.06, 0);
+    root.add(water2);
+    waters.push({ mat: waterMat2, axis: 'y', dir: -1 }); // opposite scroll direction
 
     // bridge deck — a low arched plank/stone deck across each gap, in warm
     // wood tones to contrast the cool water. Built from a few short raised
@@ -585,19 +640,42 @@ export function createGrassland(scene) {
       root.add(top);
     }
 
-    // lily-pad discs floating on the water, skipping the gap
-    const padMat = new THREE.MeshStandardMaterial({ color: 0x4f8a4e, roughness: 0.85, side: THREE.DoubleSide });
+    // lily pads cluster into pools rather than scattering uniformly across the
+    // whole river — 4 pool sites per river, each a loose cluster of 5-9 pads
+    // within a small radius, centred on the meandering centerline at that z.
     const padGeo = new THREE.CircleGeometry(1, 10);
-    for (let i = 0; i < 30; i++) {
-      const t = rand();
-      if (t >= g.t0 - 0.02 && t <= g.t1 + 0.02) continue;
-      const z = zMin + zSpan * t;
-      const pad = new THREE.Mesh(padGeo, padMat);
-      pad.rotation.x = -Math.PI / 2;
-      const s = 1.4 + rand() * 2.2;
-      pad.scale.set(s, s, 1);
-      pad.position.set(riverCenterX(def, z) + (rand() - 0.5) * def.w * 1.6, WATER_Y + 0.04, z); // on WATER_Y
-      root.add(pad);
+    const POOLS_PER_RIVER = 4;
+    for (let p = 0; p < POOLS_PER_RIVER; p++) {
+      let t = rand(), n = 0;
+      // re-roll (capped, like randClearXZ) if the site lands near the bridge gap
+      while (t >= g.t0 - 0.05 && t <= g.t1 + 0.05 && ++n < 10) t = rand();
+      const poolZ = zMin + zSpan * t;
+      const poolCx = riverCenterX(def, poolZ);
+      const poolR = 6 + rand() * 4; // 6-10u pool radius
+      const padsN = 5 + Math.floor(rand() * 5); // 5-9 pads per pool
+      for (let i = 0; i < padsN; i++) {
+        const a = rand() * Math.PI * 2;
+        const d = rand() * poolR;
+        const dx = clamp(Math.cos(a) * d, -def.w * 0.8, def.w * 0.8); // keep pads over water
+        const pad = new THREE.Mesh(
+          padGeo,
+          new THREE.MeshStandardMaterial({
+            // jitter each pad's color around a lily-pad green
+            color: new THREE.Color().setHSL(
+              0.3 + (rand() - 0.5) * 0.08,
+              0.4 + (rand() - 0.5) * 0.2,
+              0.35 + (rand() - 0.5) * 0.16
+            ),
+            roughness: 0.85,
+            side: THREE.DoubleSide,
+          })
+        );
+        pad.rotation.x = -Math.PI / 2;
+        const s = 1.4 + rand() * 2.2;
+        pad.scale.set(s, s, 1);
+        pad.position.set(poolCx + dx, WATER_Y + 0.04, poolZ + Math.sin(a) * d); // on WATER_Y
+        root.add(pad);
+      }
     }
   }
 
@@ -627,8 +705,8 @@ export function createGrassland(scene) {
     const ripple = waterNormalTexture();
     ripple.repeat.set(54, 4);
     const deltaMat = new THREE.MeshStandardMaterial({
-      color: riverColor, roughness: 0.3, metalness: 0.15,
-      transparent: true, opacity: 0.85,
+      color: riverColor, roughness: 0.25, metalness: 0.1,
+      transparent: true, opacity: 0.7,
       normalMap: ripple, normalScale: new THREE.Vector2(0.55, 0.55),
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
@@ -783,9 +861,12 @@ export function createGrassland(scene) {
       // animate water and fade willows near the side-on camera.
 
       // animate water flow: slow-scroll the ripple normal map's offset over time
-      // along each water's own axis ('x' = down-river, 'y' = radial for the ring)
+      // along each water's own axis ('x' = down-river, 'y' = radial for the ring).
+      // `dir` (default 1) flips the scroll for the dense overlay layer so its
+      // tiling drifts opposite the base layer instead of lining up with it.
       for (const w of waters) {
-        const off = (time * 0.04) % 1;
+        const dir = w.dir || 1;
+        const off = (time * 0.04 * dir) % 1;
         const axis = w.axis || 'y';
         const tex = w.mat.normalMap || w.mat.map;
         if (tex) tex.offset[axis] = off;
