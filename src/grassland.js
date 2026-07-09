@@ -479,6 +479,13 @@ export function createGrassland(scene) {
   const cattailStalkColors = [];
   const cattailHeadMatrices = [];
   const CLUMPS_PER_RIVER = 28;
+  // The stalk lean needs Euler order 'YXZ' (y-spin applied AFTER the x-tilt in
+  // matrix terms, R = Ry·Rx) so the spin sweeps the tilt around the full
+  // horizontal circle. With the default 'XYZ' (R = Rx·Ry) the y-spin turns the
+  // stalk about its own up axis first, and every stalk would lean the same
+  // fixed compass direction. Restored to 'XYZ' in the build block below —
+  // `dummy` is shared with the scatter passes above.
+  dummy.rotation.order = 'YXZ';
 
   for (const def of riverDefs) {
     // collision: the meander approximated by a chain of 12 straight segs whose
@@ -650,8 +657,8 @@ export function createGrassland(scene) {
         const r = rand() * 1.2; // tight jitter so stalks read as one clump
         const height = 1.6 + rand() * 1.0;
         dummy.position.set(baseX + Math.cos(a) * r, baseY + height / 2, z + Math.sin(a) * r);
-        // spin about a random compass heading, then lean ±0.25 rad off vertical
-        // — together these tip the stalk toward a random horizontal direction.
+        // tilt ±0.25 rad off vertical, then (order 'YXZ', set above) spin that
+        // tilt about world-up — leaning the stalk in a random compass direction.
         dummy.rotation.set((rand() - 0.5) * 0.5, rand() * Math.PI * 2, 0);
         dummy.scale.set(1, height, 1); // CylinderGeometry is unit-height; stretch to 1.6-2.6
         dummy.updateMatrix();
@@ -723,6 +730,9 @@ export function createGrassland(scene) {
   // Size and fill the two InstancedMeshes from the placements the river loop
   // above pushed into cattailStalkMatrices/Colors and cattailHeadMatrices.
   {
+    // cattail generation is done — put the shared dummy back on the default
+    // Euler order so any later use isn't silently rotated 'YXZ'.
+    dummy.rotation.order = 'XYZ';
     const stalkGeo = new THREE.CylinderGeometry(0.06, 0.11, 1, 5);
     const stalkMat = new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true });
     const stalks = new THREE.InstancedMesh(stalkGeo, stalkMat, cattailStalkMatrices.length);
