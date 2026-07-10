@@ -1,8 +1,15 @@
 // Template for dist/sw.js — the `sw-manifest` Vite plugin (vite.config.js)
 // fills in the two placeholders below at build time. This file itself is
 // never served or imported; only the rendered dist/sw.js is.
+// Cache Storage is scoped per-origin, not per-service-worker-scope, so a
+// service worker registered at one path (e.g. a branch preview under
+// /landtrain/<branch>/) can see and delete caches created by a service
+// worker registered at another path on the same origin (e.g. /landtrain/
+// for main). Namespacing the cache name by this worker's own scope keeps
+// each deployment's caches isolated from every other deployment's.
 const CACHE_VERSION = '__CACHE_VERSION__';
-const CACHE_NAME = `precache-${CACHE_VERSION}`;
+const CACHE_PREFIX = `precache-${self.registration.scope}-`;
+const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 const PRECACHE_FILES = __PRECACHE_FILES__;
 
 self.addEventListener('install', (event) => {
@@ -16,7 +23,7 @@ self.addEventListener('activate', (event) => {
       .then((names) =>
         Promise.all(
           names
-            .filter((name) => name.startsWith('precache-') && name !== CACHE_NAME)
+            .filter((name) => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME)
             .map((name) => caches.delete(name))
         )
       )
