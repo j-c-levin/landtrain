@@ -535,3 +535,48 @@ body.map-mode #btn-clear {
   transform-origin: -22px center; /* orbit outside the badge */
   transform: translate(0, -50%) rotate(0rad);
 }
+
+/* ---------- update banner ---------- */
+#update-banner {
+  position: absolute;
+  /* above #card (z-index 20): the update can install while the intro card
+     is still up (before the player has pressed a key to begin), and the
+     banner must stay clickable in that state rather than being covered. */
+  z-index: 21;
+  bottom: 118px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  max-width: 520px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 18px 11px 22px;
+  border-radius: 12px;
+  background: rgba(36, 26, 40, 0.78);
+  border: 1px solid rgba(247, 234, 210, 0.22);
+  color: var(--cream);
+  font-size: 15px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  backdrop-filter: blur(3px);
+}
+
+#update-banner.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+#update-banner-refresh {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(247, 234, 210, 0.35);
+  background: var(--rust);
+  color: var(--cream);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
