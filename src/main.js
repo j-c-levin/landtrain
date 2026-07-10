@@ -11,6 +11,9 @@ import { UI } from './ui.js';
 import { AudioFX } from './audio.js';
 import { TUNING, WORLD, CAB_FROM_X, clamp } from './constants.js';
 import { edgePlacement } from './markers.js';
+import { registerServiceWorker } from './sw-register.js';
+
+registerServiceWorker();
 
 // ----------------------------------------------------------------- input
 const keys = new Set();
