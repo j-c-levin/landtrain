@@ -38,10 +38,10 @@ Give the train a distinctive hero silhouette and authored surface detail in ever
 
 ## Handoff
 
-**Last updated:** 2026-09-14T21:36:08Z
+**Last updated:** 2026-09-14T21:37:27Z
 **Branch:** aesthetic/aes-003
 **Worktree:** /Users/joshuajosai-levin/Code/landtrain-aes-003
-**Implementation commit:** pending branch commit
+**Implementation commit:** db243a2
 **Merge commit:** not merged
 **Completed:** Reassessed rather than propagated the AES-002 prototype; added role-specific silhouettes with a pitched raised-cab canopy, working pilot and lamp housing, low mechanical engine roof with enlarged stack/dome/vents/flywheel, and a domestic living car with hipped cream roof, sage awnings, window planters, and asymmetrical roof cargo. Added selective ribs, seams, corner plates, rivets, axle housings, spring blocks, grime bands, and coupler hoses; thickened railings and ladders while moving broad trim from brass to iron. Consolidated repeated additions into articulated per-car instanced batches. Independent review findings were resolved by lifting the pilot above suspension clearance, fading near-side facade detail with its occupied zone, and disposing every `InstancedMesh` buffer.
 **Remaining:** Independent review, branch commits, serial merge, post-merge verification, done status, and worktree cleanup.
