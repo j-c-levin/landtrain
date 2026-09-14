@@ -1,0 +1,625 @@
+{
+  "capturedAt": "2026-09-14T20:48:36.993Z",
+  "environment": {
+    "browser": "Google Chrome 152.0.7977.83 headless",
+    "deviceScaleFactor": 2,
+    "note": "Desktop M1 Pro GPU; not physical mobile hardware. Forced tiers disable automatic downgrade."
+  },
+  "baselineComparison": {
+    "source": "../AES-000/performance.json",
+    "desktopPrairieMeanFrameMs": 16.666,
+    "desktopPrairieCalls": 182,
+    "desktopPrairieTriangles": 57342,
+    "mobilePrairieMeanFrameMs": 16.666,
+    "mobilePrairieCalls": 82,
+    "mobilePrairieTriangles": 54864
+  },
+  "forcedTierViewports": [
+    {
+      "profile": "portrait-390x844-low",
+      "quality": "low",
+      "forced": "low",
+      "policy": {
+        "dpr": 1,
+        "antialias": false,
+        "shadowMapSize": 1024,
+        "shadowType": "pcf",
+        "particleDensity": 0.45,
+        "slowUpdateHz": 15,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": false
+        }
+      },
+      "metrics": {
+        "tier": "low",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 315,
+        "calls": 82,
+        "triangles": 54864,
+        "drawingBufferWidth": 390,
+        "drawingBufferHeight": 844,
+        "antialias": false,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.8,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "portrait-390x844-medium",
+      "quality": "medium",
+      "forced": "medium",
+      "policy": {
+        "dpr": 1.5,
+        "antialias": true,
+        "shadowMapSize": 1536,
+        "shadowType": "pcf",
+        "particleDensity": 0.7,
+        "slowUpdateHz": 30,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": false
+        }
+      },
+      "metrics": {
+        "tier": "medium",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 317,
+        "calls": 82,
+        "triangles": 54864,
+        "drawingBufferWidth": 585,
+        "drawingBufferHeight": 1266,
+        "antialias": true,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.7,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "portrait-390x844-high",
+      "quality": "high",
+      "forced": "high",
+      "policy": {
+        "dpr": 2,
+        "antialias": true,
+        "shadowMapSize": 2048,
+        "shadowType": "pcf-soft",
+        "particleDensity": 1,
+        "slowUpdateHz": 60,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": true
+        }
+      },
+      "metrics": {
+        "tier": "high",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 318,
+        "calls": 82,
+        "triangles": 54864,
+        "drawingBufferWidth": 780,
+        "drawingBufferHeight": 1688,
+        "antialias": true,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.7,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "landscape-844x390-low",
+      "quality": "low",
+      "forced": "low",
+      "policy": {
+        "dpr": 1,
+        "antialias": false,
+        "shadowMapSize": 1024,
+        "shadowType": "pcf",
+        "particleDensity": 0.45,
+        "slowUpdateHz": 15,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": false
+        }
+      },
+      "metrics": {
+        "tier": "low",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 318,
+        "calls": 229,
+        "triangles": 58754,
+        "drawingBufferWidth": 844,
+        "drawingBufferHeight": 390,
+        "antialias": false,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.7,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "landscape-844x390-medium",
+      "quality": "medium",
+      "forced": "medium",
+      "policy": {
+        "dpr": 1.5,
+        "antialias": true,
+        "shadowMapSize": 1536,
+        "shadowType": "pcf",
+        "particleDensity": 0.7,
+        "slowUpdateHz": 30,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": false
+        }
+      },
+      "metrics": {
+        "tier": "medium",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 317,
+        "calls": 229,
+        "triangles": 58754,
+        "drawingBufferWidth": 1266,
+        "drawingBufferHeight": 585,
+        "antialias": true,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.667,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.8,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "landscape-844x390-high",
+      "quality": "high",
+      "forced": "high",
+      "policy": {
+        "dpr": 2,
+        "antialias": true,
+        "shadowMapSize": 2048,
+        "shadowType": "pcf-soft",
+        "particleDensity": 1,
+        "slowUpdateHz": 60,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": true
+        }
+      },
+      "metrics": {
+        "tier": "high",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 318,
+        "calls": 229,
+        "triangles": 58754,
+        "drawingBufferWidth": 1688,
+        "drawingBufferHeight": 780,
+        "antialias": true,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.7,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "tablet-1024x768-low",
+      "quality": "low",
+      "forced": "low",
+      "policy": {
+        "dpr": 1,
+        "antialias": false,
+        "shadowMapSize": 1024,
+        "shadowType": "pcf",
+        "particleDensity": 0.45,
+        "slowUpdateHz": 15,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": false
+        }
+      },
+      "metrics": {
+        "tier": "low",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 317,
+        "calls": 177,
+        "triangles": 57014,
+        "drawingBufferWidth": 1024,
+        "drawingBufferHeight": 768,
+        "antialias": false,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.7,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 1024,
+        "height": 768,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "tablet-1024x768-medium",
+      "quality": "medium",
+      "forced": "medium",
+      "policy": {
+        "dpr": 1.5,
+        "antialias": true,
+        "shadowMapSize": 1536,
+        "shadowType": "pcf",
+        "particleDensity": 0.7,
+        "slowUpdateHz": 30,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": false
+        }
+      },
+      "metrics": {
+        "tier": "medium",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 317,
+        "calls": 177,
+        "triangles": 57014,
+        "drawingBufferWidth": 1536,
+        "drawingBufferHeight": 1152,
+        "antialias": true,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.665,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.8,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 1024,
+        "height": 768,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "tablet-1024x768-high",
+      "quality": "high",
+      "forced": "high",
+      "policy": {
+        "dpr": 2,
+        "antialias": true,
+        "shadowMapSize": 2048,
+        "shadowType": "pcf-soft",
+        "particleDensity": 1,
+        "slowUpdateHz": 60,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": true
+        }
+      },
+      "metrics": {
+        "tier": "high",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 317,
+        "calls": 177,
+        "triangles": 57014,
+        "drawingBufferWidth": 2048,
+        "drawingBufferHeight": 1536,
+        "antialias": true,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.667,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.7,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 1024,
+        "height": 768,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "desktop-1440x900-low",
+      "quality": "low",
+      "forced": "low",
+      "policy": {
+        "dpr": 1,
+        "antialias": false,
+        "shadowMapSize": 1024,
+        "shadowType": "pcf",
+        "particleDensity": 0.45,
+        "slowUpdateHz": 15,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": false
+        }
+      },
+      "metrics": {
+        "tier": "low",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 318,
+        "calls": 196,
+        "triangles": 57678,
+        "drawingBufferWidth": 1440,
+        "drawingBufferHeight": 900,
+        "antialias": false,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.7,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "desktop-1440x900-medium",
+      "quality": "medium",
+      "forced": "medium",
+      "policy": {
+        "dpr": 1.5,
+        "antialias": true,
+        "shadowMapSize": 1536,
+        "shadowType": "pcf",
+        "particleDensity": 0.7,
+        "slowUpdateHz": 30,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": false
+        }
+      },
+      "metrics": {
+        "tier": "medium",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 317,
+        "calls": 196,
+        "triangles": 57678,
+        "drawingBufferWidth": 2160,
+        "drawingBufferHeight": 1350,
+        "antialias": true,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.8,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    },
+    {
+      "profile": "desktop-1440x900-high",
+      "quality": "high",
+      "forced": "high",
+      "policy": {
+        "dpr": 2,
+        "antialias": true,
+        "shadowMapSize": 2048,
+        "shadowType": "pcf-soft",
+        "particleDensity": 1,
+        "slowUpdateHz": 60,
+        "finishing": {
+          "postProcessing": false,
+          "enhancedAtmosphere": true
+        }
+      },
+      "metrics": {
+        "tier": "high",
+        "emaFrameMs": 0,
+        "poorMs": 0,
+        "goodMs": 0,
+        "ageMs": 0,
+        "cooldownRemainingMs": 10000,
+        "frame": 317,
+        "calls": 196,
+        "triangles": 57678,
+        "drawingBufferWidth": 2880,
+        "drawingBufferHeight": 1800,
+        "antialias": true,
+        "hidden": false
+      },
+      "frameSample": {
+        "frames": 150,
+        "meanFrameMs": 16.666,
+        "medianFrameMs": 16.7,
+        "p95FrameMs": 16.7,
+        "meanFps": 60
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900,
+        "devicePixelRatio": 2
+      },
+      "cameraMode": "inhabit",
+      "webglRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)"
+    }
+  ],
+  "cameraModes": [
+    {
+      "mode": "inhabit",
+      "frame": 178
+    },
+    {
+      "mode": "cabin",
+      "frame": 235
+    },
+    {
+      "mode": "map",
+      "frame": 292
+    },
+    {
+      "mode": "book",
+      "frame": 349
+    }
+  ],
+  "resize": {
+    "viewport": {
+      "width": 1024,
+      "height": 768
+    },
+    "drawingBuffer": {
+      "width": 2048,
+      "height": 1536
+    },
+    "cameraAspect": 1.3333333333333333
+  },
+  "serviceWorker": {
+    "registered": true,
+    "scope": "http://127.0.0.1:4174/landtrain/",
+    "active": true
+  },
+  "visibility": {
+    "beforeHidden": {
+      "hidden": false,
+      "frame": 431,
+      "x": 2.6875122712019746
+    },
+    "whileHidden": {
+      "hidden": true,
+      "frame": 431,
+      "x": 2.6875122712019746
+    },
+    "afterResume": {
+      "hidden": false,
+      "frame": 439,
+      "x": 3.358472447811444
+    },
+    "frameAdvanceWhileHidden": 0,
+    "movementWhileHidden": 0,
+    "movementFirst120msAfterResume": 0.6709601766094693
+  }
+}
