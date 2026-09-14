@@ -1,7 +1,7 @@
 # AES-003 - Train Exterior Hero Pass
 
-**Status:** proposed
-**Owner:** unassigned
+**Status:** review
+**Owner:** Kilo (primary)
 **Depends on:** AES-001, AES-002
 **Blocks:** AES-004, AES-010, AES-015
 **Exclusive scope:** `src/train.js` and train modules created by AES-002
@@ -23,13 +23,13 @@ Give the train a distinctive hero silhouette and authored surface detail in ever
 
 ## Acceptance Criteria
 
-- [ ] All three cars are distinguishable in silhouette from side and three-quarter views.
-- [ ] No new exterior detail blocks traversal, ladders, cab entry, or station interaction.
-- [ ] Near-wall transparency and full exterior book mode still work.
-- [ ] Added repeated detail is merged, shared, or instanced.
-- [ ] Low tier stays within the AES-001 performance threshold.
-- [ ] Day and night visual evidence exists at desktop and landscape-phone sizes.
-- [ ] `node --test test/*.test.js` and `npm run build` pass.
+- [x] All three cars are distinguishable in silhouette from side and three-quarter views.
+- [x] No new exterior detail blocks traversal, ladders, cab entry, or station interaction.
+- [x] Near-wall transparency and full exterior book mode still work.
+- [x] Added repeated detail is merged, shared, or instanced.
+- [x] Low tier stays within the AES-001 performance threshold.
+- [x] Day and night visual evidence exists at desktop and landscape-phone sizes.
+- [x] `node --test test/*.test.js` and `npm run build` pass.
 
 ## Verification
 
@@ -38,14 +38,14 @@ Give the train a distinctive hero silhouette and authored surface detail in ever
 
 ## Handoff
 
-**Last updated:** 2026-09-14
-**Branch:** unassigned
-**Worktree:** unassigned
-**Implementation commit:** not started
+**Last updated:** 2026-09-14T21:37:27Z
+**Branch:** aesthetic/aes-003
+**Worktree:** /Users/joshuajosai-levin/Code/landtrain-aes-003
+**Implementation commit:** db243a2
 **Merge commit:** not merged
-**Completed:** none
-**Remaining:** all work
-**Decisions/deviations:** none
-**Risks/blockers:** Keep thin detail out of the train's traversal lanes and map-overlay render ordering.
-**Verification results:** not run
-**Evidence:** none
+**Completed:** Reassessed rather than propagated the AES-002 prototype; added role-specific silhouettes with a pitched raised-cab canopy, working pilot and lamp housing, low mechanical engine roof with enlarged stack/dome/vents/flywheel, and a domestic living car with hipped cream roof, sage awnings, window planters, and asymmetrical roof cargo. Added selective ribs, seams, corner plates, rivets, axle housings, spring blocks, grime bands, and coupler hoses; thickened railings and ladders while moving broad trim from brass to iron. Consolidated repeated additions into articulated per-car instanced batches. Independent review findings were resolved by lifting the pilot above suspension clearance, fading near-side facade detail with its occupied zone, and disposing every `InstancedMesh` buffer.
+**Remaining:** Independent review, branch commits, serial merge, post-merge verification, done status, and worktree cleanup.
+**Decisions/deviations:** Large silhouette hierarchy replaced AES-002's detail-first rear-face prototype. Ribs vary by role instead of repeating uniformly; brass is reserved for the flywheel join and roof-cargo strap while railings, ladders, pipes, and broad engine trim use iron. Near-side additions remain open framing so the occupied room still reads when its wall fades. No new train module or runtime asset was needed.
+**Risks/blockers:** Chrome emulation retains the M1 Pro GPU and does not replace physical low-end mobile profiling. Renderer samples are VSync-bound and prove threshold retention on this host, not spare GPU headroom. The existing production chunk-size warning and two dependency audit findings are unchanged.
+**Verification results:** Primary visual inspection passed all 16 matched before/after book captures: side and three-quarter views, day and night, at 1440x900 high tier and 844x390 low tier; the final inhabit capture confirms facade details fade out of the occupied living-car cutaway. Chrome 152.0.7977.83 with ANGLE Metal held both before and after at 16.666 ms mean; desktop calls/triangles changed 436/85,362 -> 468/89,200 and landscape 497/87,138 -> 529/90,976. Train materials changed 28 -> 36 for zone-fading exterior variants, while repeated detail instances increased 15 -> 136. Browser probes passed under-to-deck-to-roof traversal, roof walk, cab entry, engine interaction, car articulation (three distinct yaws), focused wall opacity 0.0600 and book restoration above 0.9999, route Y=0 with render orders 59/60/61, 3 car groups, 24 wheels, the 36-sprite smoke pool, complete root disposal, and disposal events for all 24 instanced-mesh buffers. `node --test test/*.test.js` passed 28/28 and `npm run build` passed with the pre-existing >500 kB warning.
+**Evidence:** `docs/aesthetic-baseline/AES-003/before-measurements.json`; `docs/aesthetic-baseline/AES-003/after-measurements.json`; `docs/aesthetic-baseline/AES-003/verification.json`; `docs/aesthetic-baseline/AES-003/before/` (8 PNGs); `docs/aesthetic-baseline/AES-003/after/` (11 PNGs, including book day/night at both required viewports plus inhabit, cab, and map checks).

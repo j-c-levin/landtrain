@@ -1,0 +1,62 @@
+{
+  "desktop-1440x900": {
+    "quality": "high",
+    "render": {
+      "tier": "high",
+      "emaFrameMs": 0,
+      "poorMs": 0,
+      "goodMs": 0,
+      "ageMs": 0,
+      "cooldownRemainingMs": 10000,
+      "frame": 248,
+      "calls": 468,
+      "triangles": 89200,
+      "drawingBufferWidth": 1440,
+      "drawingBufferHeight": 900,
+      "antialias": true,
+      "hidden": false
+    },
+    "trainMaterials": 36,
+    "trainGeometries": 260,
+    "trainMeshes": 331,
+    "detailInstances": 136,
+    "carGroupCount": 3,
+    "wheelCount": 24,
+    "frameSample": {
+      "frames": 160,
+      "meanMs": 16.665625,
+      "medianMs": 16.699999999999818,
+      "p95Ms": 16.800000000000182
+    }
+  },
+  "landscape-844x390": {
+    "quality": "low",
+    "render": {
+      "tier": "low",
+      "emaFrameMs": 0,
+      "poorMs": 0,
+      "goodMs": 0,
+      "ageMs": 0,
+      "cooldownRemainingMs": 10000,
+      "frame": 187,
+      "calls": 529,
+      "triangles": 90976,
+      "drawingBufferWidth": 844,
+      "drawingBufferHeight": 390,
+      "antialias": false,
+      "hidden": false
+    },
+    "trainMaterials": 36,
+    "trainGeometries": 260,
+    "trainMeshes": 331,
+    "detailInstances": 136,
+    "carGroupCount": 3,
+    "wheelCount": 24,
+    "frameSample": {
+      "frames": 160,
+      "meanMs": 16.665625,
+      "medianMs": 16.699999999999818,
+      "p95Ms": 16.800000000000182
+    }
+  }
+}

@@ -93,14 +93,35 @@ function profiledBox(length, height, depth, chamfer, mat, x, y, z, parent) {
   return mesh;
 }
 
+function hippedRoof(length, width, rise, shoulder, mat, x, y, z, parent) {
+  const shape = new THREE.Shape();
+  const half = width / 2;
+  shape.moveTo(-half, 0);
+  shape.lineTo(-half + shoulder, rise);
+  shape.lineTo(half - shoulder, rise);
+  shape.lineTo(half, 0);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: length, steps: 1, bevelEnabled: false });
+  geometry.translate(0, 0, -length / 2);
+  geometry.rotateY(Math.PI / 2);
+  const mesh = new THREE.Mesh(geometry, mat);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
 function instancedDetails(items, geometry, material, parent, shadow = false) {
   const mesh = new THREE.InstancedMesh(geometry, material, items.length);
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
   const rotation = new THREE.Quaternion();
+  const euler = new THREE.Euler();
   const scale = new THREE.Vector3();
   for (let i = 0; i < items.length; i++) {
-    const [x, y, z, sx = 1, sy = 1, sz = 1] = items[i];
+    const [x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0] = items[i];
+    rotation.setFromEuler(euler.set(rx, ry, rz));
     matrix.compose(position.set(x, y, z), rotation, scale.set(sx, sy, sz));
     mesh.setMatrixAt(i, matrix);
   }
@@ -240,6 +261,7 @@ export class Train {
 
     this.wheels = [];
     this.zoneMats = {}; // see-through walls, one fading material per zone
+    this.fadeMats = [];
 
     this.cars = [];
     for (let i = 0; i < CAR_CENTERS.length; i++) {
@@ -284,6 +306,14 @@ export class Train {
     return this.zoneMats[zone];
   }
 
+  #fadingMat(zone, source) {
+    const mat = source.clone();
+    mat.transparent = true;
+    mat.opacity = 1;
+    this.fadeMats.push({ zone, mat });
+    return mat;
+  }
+
   // Build the near-side wall (camera side) with the same window rhythm as
   // the far wall. It fades out for the car the player occupies.
   #nearWall(g, zone, z = 2.36) {
@@ -312,7 +342,8 @@ export class Train {
     box(CAR_LEN + 2, 0.22, 0.5, M.iron, 0, 1.36, -1.6, g);
     box(CAR_LEN + 2, 0.22, 0.5, M.iron, 0, 1.36, 1.6, g);
     box(CAR_LEN, 0.3, 5, M.wood, 0, 1.62, 0, g);
-    if (ci === 2) profiledBox(CAR_LEN + 0.5, 0.3, 5.3, 0.14, M.cream, 0, 4.86, 0, g);
+    if (ci === 2) hippedRoof(CAR_LEN + 0.8, 5.7, 0.34, 1.15, M.cream, 0, 4.68, 0, g);
+    else if (ci === 1) hippedRoof(CAR_LEN + 0.7, 5.55, 0.3, 0.75, M.hullDark, 0, 4.72, 0, g);
     else box(CAR_LEN + 0.5, 0.3, 5.3, M.hullDark, 0, 4.86, 0, g);
 
     // far wall with window openings
@@ -360,15 +391,15 @@ export class Train {
     // roof railing along the far edge (front car: only up to the cab)
     const railSpan = isCab ? [-7.2, -4.4] : [-7, 7];
     const railLen = railSpan[1] - railSpan[0];
-    box(railLen, 0.07, 0.07, M.brass, (railSpan[0] + railSpan[1]) / 2, 5.6, -2.45, g, false);
+    box(railLen, 0.11, 0.11, M.iron, (railSpan[0] + railSpan[1]) / 2, 5.6, -2.45, g, false);
     for (let x = railSpan[0] + 0.4; x < railSpan[1]; x += 3) {
-      box(0.07, 0.55, 0.07, M.brass, x, 5.3, -2.45, g, false);
+      box(0.11, 0.6, 0.11, M.iron, x, 5.3, -2.45, g, false);
     }
 
     if (isCab) this.#buildFrontCar(g);
     if (isEngine) this.#buildEngine(g);
     if (ci === 2) this.#buildLiving(g);
-    if (ci === 2) this.#buildExteriorPrototype(g);
+    this.#buildExteriorDetails(g, ci);
 
     // ladders attached to whichever car owns that column
     for (const l of LADDERS) {
@@ -378,12 +409,12 @@ export class Train {
       const ladder = new THREE.Group();
       const h = tall ? 5.3 : 2.6;
       for (const rz of [0.62, 1.18]) {
-        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.09, h, 0.09), M.brass);
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.13, h, 0.13), M.iron);
         rail.position.set(0, h / 2, rz);
         ladder.add(rail);
       }
       for (let y = 0.45; y < h - 0.1; y += 0.48) {
-        const rung = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.62), M.brass);
+        const rung = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.62), M.iron);
         rung.position.set(0, y, 0.9);
         ladder.add(rung);
       }
@@ -402,9 +433,9 @@ export class Train {
     if (ci === 0 || ci === 2) {
       const bx = ci === 0 ? CAR_LEN / 2 + 0.4 : -CAR_LEN / 2 - 0.4;
       box(2.2, 0.22, 4.2, M.woodDark, bx, 1.56, 0, g);
-      box(2.2, 0.08, 0.08, M.brass, bx, 2.6, 2.0, g, false);
-      box(0.08, 1.0, 0.08, M.brass, bx - 1, 2.1, 2.0, g, false);
-      box(0.08, 1.0, 0.08, M.brass, bx + 1, 2.1, 2.0, g, false);
+      box(2.2, 0.12, 0.12, M.iron, bx, 2.6, 2.0, g, false);
+      box(0.12, 1.0, 0.12, M.iron, bx - 1, 2.1, 2.0, g, false);
+      box(0.12, 1.0, 0.12, M.iron, bx + 1, 2.1, 2.0, g, false);
     }
   }
 
@@ -418,9 +449,22 @@ export class Train {
     nose.position.set(CAR_LEN / 2 + 1.8, 2.5, 0);
     nose.castShadow = true;
     g.add(nose);
-    const headlamp = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), M.headlamp);
-    headlamp.position.set(CAR_LEN / 2 + 2.8, 2.5, 0);
+    const lampHousing = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.68, 0.62, 10), M.iron);
+    lampHousing.rotation.z = Math.PI / 2;
+    lampHousing.position.set(CAR_LEN / 2 + 2.75, 2.5, 0);
+    lampHousing.castShadow = true;
+    g.add(lampHousing);
+    const headlamp = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), M.headlamp);
+    headlamp.position.set(CAR_LEN / 2 + 3.08, 2.5, 0);
     g.add(headlamp);
+
+    const pilot = new THREE.Mesh(new THREE.ConeGeometry(1.45, 2.2, 4), M.iron);
+    pilot.rotation.z = -Math.PI / 2;
+    pilot.scale.z = 0.7;
+    pilot.position.set(CAR_LEN / 2 + 1.7, 1.55, 0);
+    pilot.castShadow = true;
+    g.add(pilot);
+    box(0.32, 0.5, 4.6, M.iron, CAR_LEN / 2 + 0.85, 1.22, 0, g);
 
     // deck-level quarters beneath the cab: a bunk to rest in, plus stores
     box(3.0, 0.5, 1.6, M.woodDark, 3.5, 2.05, -1.4, g); // bunk frame
@@ -465,8 +509,9 @@ export class Train {
     box(0.24, 0.45, 4.9, M.hull, 7.0, 7.32, 0, g);
     // rear lintel over the open doorway from the rooftop walk
     box(0.24, 0.35, 4.9, M.hull, lintel, 7.32, 0, g);
-    // cab roof
-    box(11.8, 0.3, 5.3, M.hullDark, 1.5, 7.62, 0, g);
+    // cab canopy
+    hippedRoof(12.4, 5.8, 0.65, 1.35, M.hullDark, 1.65, 7.48, 0, g);
+    box(0.18, 0.42, 5.55, M.cream, 7.55, 7.5, 0, g, false);
 
     // console up in the cab
     box(1.8, 1.0, 1.8, M.woodDark, 4.4, 5.55, -1.2, g);
@@ -488,13 +533,13 @@ export class Train {
   #buildEngine(g) {
     const M = this.materials;
     box(4.6, 2.3, 2.6, M.engine, 0.6, 2.95, -0.8, g);
-    box(4.0, 0.25, 2.2, M.brass, 0.6, 4.2, -0.8, g, false);
+    box(4.0, 0.25, 2.2, M.iron, 0.6, 4.2, -0.8, g, false);
     this.fireboxMat = M.firebox;
     const firebox = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.3, 0.15), this.fireboxMat);
     firebox.position.set(0.6, 2.7, 0.56);
     g.add(firebox);
     for (let i = 0; i < 3; i++) {
-      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4, 8), M.brass);
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 2.4, 8), M.iron);
       pipe.position.set(-1.6 + i * 0.5, 3.4, -1.6);
       g.add(pipe);
     }
@@ -502,14 +547,29 @@ export class Train {
     dial.rotation.x = Math.PI / 2;
     dial.position.set(-2.4, 3.5, -2.15);
     g.add(dial);
-    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.65, 2.2, 10), M.hullDark);
-    stack.position.set(1.4, 6.0, -1.3);
+    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.78, 2.35, 10), M.hullDark);
+    stack.position.set(1.4, 6.05, -1.3);
     stack.castShadow = true;
     g.add(stack);
-    const sootCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.24, 10), M.sootGrime);
-    sootCollar.position.set(1.4, 7.02, -1.3);
+    const sootCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.58, 0.42, 10), M.sootGrime);
+    sootCollar.position.set(1.4, 7.23, -1.3);
     g.add(sootCollar);
-    this.stackLocal = new THREE.Vector3(1.4, 7.2, -1.3);
+    this.stackLocal = new THREE.Vector3(1.4, 7.48, -1.3);
+
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.72, 10, 7, 0, Math.PI * 2, 0, Math.PI / 2), M.engine);
+    dome.position.set(-2.4, 5.03, -0.75);
+    dome.castShadow = true;
+    g.add(dome);
+
+    const flywheels = [[1.0, 3.0, -2.61], [1.0, 3.0, 2.61]];
+    instancedDetails(flywheels, new THREE.TorusGeometry(1.02, 0.18, 8, 18), M.iron, g, true);
+    instancedDetails(flywheels, this.geometry.wheelHub, M.brass, g);
+
+    const vents = [];
+    for (const z of [-2.54, 2.54]) {
+      for (let x = -5.4; x <= -3.0; x += 0.6) vents.push([x, 3.5, z, 0.36, 0.12, 1]);
+    }
+    instancedDetails(vents, new THREE.BoxGeometry(1, 1, 0.12), M.iron, g);
 
     this.fireLight = new THREE.PointLight(0xff7a30, 26, 14, 2);
     this.fireLight.position.set(0.6, 2.9, 0.8);
@@ -563,27 +623,85 @@ export class Train {
     const light = new THREE.PointLight(0xffb066, 28, 17, 2);
     light.position.set(-1, 4.0, -0.3);
     g.add(light);
+
+    const awningGeometry = new THREE.BoxGeometry(1, 1, 1);
+    instancedDetails([[1.6, 4.52, -2.78, 7.6, 0.16, 1.05, 0.16]], awningGeometry, M.sage, g);
+    instancedDetails([[1.6, 4.52, 2.78, 7.6, 0.16, 1.05, -0.16]], awningGeometry, this.#fadingMat('car2', M.sage), g);
+
+    const farPlanters = [];
+    const nearPlanters = [];
+    const farLeaves = [];
+    const nearLeaves = [];
+    for (const z of [-2.58, 2.58]) {
+      const planters = z < 0 ? farPlanters : nearPlanters;
+      const leaves = z < 0 ? farLeaves : nearLeaves;
+      for (const x of [0, 3.9]) {
+        planters.push([x, 2.67, z, 2.15, 0.32, 0.42]);
+        for (let i = -2; i <= 2; i++) leaves.push([x + i * 0.37, 2.98 + (i % 2) * 0.08, z, 0.65, 0.7, 0.65]);
+      }
+    }
+    const planterGeometry = new THREE.BoxGeometry(1, 1, 1);
+    instancedDetails(farPlanters, planterGeometry, M.woodDark, g);
+    instancedDetails(nearPlanters, planterGeometry, this.#fadingMat('car2', M.woodDark), g);
+    instancedDetails(farLeaves, this.geometry.leaf, M.foliage, g);
+    instancedDetails(nearLeaves, this.geometry.leaf, this.#fadingMat('car2', M.foliage), g);
+
+    box(2.4, 0.78, 1.45, M.wood, -2.1, 5.43, -1.25, g);
+    box(0.14, 0.82, 1.52, M.brass, -2.1, 5.45, -1.25, g, false);
+    const bedroll = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.0, 10), M.sage);
+    bedroll.rotation.z = Math.PI / 2;
+    bedroll.position.set(1.0, 5.43, -1.35);
+    bedroll.castShadow = true;
+    g.add(bedroll);
   }
 
-  #buildExteriorPrototype(g) {
+  #buildExteriorDetails(g, ci) {
     const M = this.materials;
-    const structure = [
-      [-5.85, 3.3, -2.54, 0.22, 2.3, 0.12],
-      [-1.95, 3.3, -2.54, 0.22, 2.3, 0.12],
-      [1.95, 3.3, -2.54, 0.22, 2.3, 0.12],
-      [5.85, 3.3, -2.54, 0.22, 2.3, 0.12],
-      [0, 2.7, -2.54, CAR_LEN - 0.35, 0.1, 0.12],
-      [-7.72, 1.22, -2.34, 0.38, 0.5, 0.12],
-      [7.72, 1.22, -2.34, 0.38, 0.5, 0.12],
+    const farStructure = [
+      [0, 2.7, -2.54, CAR_LEN - 0.35, 0.12, 0.12],
     ];
-    instancedDetails(structure, new THREE.BoxGeometry(1, 1, 1), M.hullDark, g);
-
-    const rivets = [];
-    for (const x of [-5.85, -1.95, 1.95, 5.85]) {
-      rivets.push([x, 2.95, -2.63], [x, 3.65, -2.63]);
+    const nearStructure = [[0, 2.7, 2.54, CAR_LEN - 0.35, 0.12, 0.12]];
+    const ribs = ci === 2 ? [-5.85, -1.95, 1.95, 5.85] : ci === 1 ? [-5.85, 5.85] : [-5.85];
+    for (const z of [-2.54, 2.54]) {
+      const structure = z < 0 ? farStructure : nearStructure;
+      for (const x of ribs) structure.push([x, 3.3, z, 0.22, 2.3, 0.12]);
+      structure.push([-7.72, 1.22, z, 0.38, 0.5, 0.12], [7.72, 1.22, z, 0.38, 0.5, 0.12]);
     }
-    instancedDetails(rivets, new THREE.SphereGeometry(0.14, 8, 6), M.iron, g);
-    box(CAR_LEN - 1.0, 0.2, 0.08, M.sootGrime, 0, 1.02, -2.34, g, false);
+    const structureGeometry = new THREE.BoxGeometry(1, 1, 1);
+    instancedDetails(farStructure, structureGeometry, M.hullDark, g);
+    instancedDetails(nearStructure, structureGeometry, this.#fadingMat('car' + ci, M.hullDark), g);
+
+    const runningGear = [];
+    for (const z of [-2.15, 2.15]) {
+      for (const x of [-4.3, 4.3]) {
+        runningGear.push([x, 1.13, z, 3.15, 0.38, 0.34]);
+        for (const sx of [-0.75, 0, 0.75]) runningGear.push([x + sx, 1.42, z, 0.42, 0.24, 0.28]);
+      }
+    }
+    instancedDetails(runningGear, new THREE.BoxGeometry(1, 1, 1), M.iron, g);
+
+    if (ci !== 0) {
+      const farRivets = [];
+      const nearRivets = [];
+      for (const z of [-2.64, 2.64]) {
+        const rivets = z < 0 ? farRivets : nearRivets;
+        for (const x of ci === 2 ? [-5.85, 5.85] : [-5.85]) {
+          rivets.push([x, 3.0, z], [x, 3.6, z]);
+        }
+      }
+      const rivetGeometry = new THREE.SphereGeometry(0.15, 8, 6);
+      instancedDetails(farRivets, rivetGeometry, M.iron, g);
+      instancedDetails(nearRivets, rivetGeometry, this.#fadingMat('car' + ci, M.iron), g);
+    }
+
+    for (const gapX of ci === 0 ? [-8.55] : ci === 2 ? [8.55] : []) {
+      instancedDetails([
+        [gapX, 1.05, -0.62, 1, 1, 1, 0, Math.PI / 2],
+        [gapX, 1.05, 0.62, 1, 1, 1, 0, Math.PI / 2],
+      ], new THREE.TorusGeometry(0.4, 0.08, 6, 12, Math.PI), M.iron, g);
+    }
+
+    box(CAR_LEN - 1.0, 0.18, 0.08, M.sootGrime, 0, 1.01, -2.34, g, false);
   }
 
   // ---------------------------------------------------- route display (map)
@@ -787,6 +905,11 @@ export class Train {
       mat.opacity = damp(mat.opacity, target, 7, dt);
       mat.depthWrite = mat.opacity > 0.5;
     }
+    for (const { zone: key, mat } of this.fadeMats) {
+      const target = allOpaque ? 1 : key === zone ? 0.06 : 1;
+      mat.opacity = damp(mat.opacity, target, 7, dt);
+      mat.depthWrite = mat.opacity > 0.5;
+    }
   }
 
   #updateSmoke(dt) {
@@ -865,9 +988,11 @@ export class Train {
     const geometries = new Set();
     const materials = new Set();
     const textures = new Set();
+    const instances = new Set();
     const roots = [...this.cars.map((car) => car.group), this.routeGroup, ...this.smoke.map((puff) => puff.sprite)];
     for (const root of roots) {
       root.traverse((obj) => {
+        if (obj.isInstancedMesh) instances.add(obj);
         if (obj.geometry) geometries.add(obj.geometry);
         if (!obj.material) return;
         const owned = Array.isArray(obj.material) ? obj.material : [obj.material];
@@ -880,6 +1005,7 @@ export class Train {
       });
       this.scene.remove(root);
     }
+    for (const instance of instances) instance.dispose();
     for (const texture of textures) texture.dispose();
     for (const material of materials) material.dispose();
     for (const geometry of geometries) geometry.dispose();
