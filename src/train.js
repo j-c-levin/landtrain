@@ -10,17 +10,53 @@ import { blockedAt, softDiscTexture } from './world.js';
 // or the tilted map camera projects the markers off the cursor as parallax.
 const ROUTE_Y = 0;
 
-const M = {
-  hull: new THREE.MeshStandardMaterial({ color: 0xb5573c, roughness: 0.75 }),
-  hullDark: new THREE.MeshStandardMaterial({ color: 0x96452f, roughness: 0.8 }),
-  cream: new THREE.MeshStandardMaterial({ color: 0xf2e3c6, roughness: 0.85 }),
-  innerWall: new THREE.MeshStandardMaterial({ color: 0xe9d3ac, roughness: 0.95 }),
-  wood: new THREE.MeshStandardMaterial({ color: 0x9a6b4f, roughness: 0.9 }),
-  woodDark: new THREE.MeshStandardMaterial({ color: 0x7c5238, roughness: 0.9 }),
-  iron: new THREE.MeshStandardMaterial({ color: 0x4a3f3a, roughness: 0.6, metalness: 0.35 }),
-  brass: new THREE.MeshStandardMaterial({ color: 0xc9913e, roughness: 0.4, metalness: 0.6 }),
-  glow: new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb35c, emissiveIntensity: 1.6, roughness: 0.5 }),
+const TRAIN_COLOR = {
+  hull: 0xb5573c,
+  hullDark: 0x96452f,
+  cream: 0xf2e3c6,
+  innerWall: 0xe9d3ac,
+  wood: 0x9a6b4f,
+  woodDark: 0x7c5238,
+  iron: 0x4a3f3a,
+  brass: 0xc9913e,
+  sage: 0x8a9a6b,
 };
+
+function createTrainMaterials() {
+  return {
+    hull: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.hull, roughness: 0.75 }),
+    hullDark: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.hullDark, roughness: 0.8 }),
+    cream: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.cream, roughness: 0.85 }),
+    innerWall: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.innerWall, roughness: 0.95 }),
+    wood: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.wood, roughness: 0.9 }),
+    woodDark: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.woodDark, roughness: 0.9 }),
+    iron: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.iron, roughness: 0.6, metalness: 0.35 }),
+    brass: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.brass, roughness: 0.4, metalness: 0.6 }),
+    glow: new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb35c, emissiveIntensity: 1.6, roughness: 0.5 }),
+    headlamp: new THREE.MeshStandardMaterial({ color: 0xffe9b0, emissive: 0xffc868, emissiveIntensity: 2.4 }),
+    wheel: new THREE.MeshStandardMaterial({ color: 0x4a4440, roughness: 0.55, metalness: 0.4 }),
+    foliage: new THREE.MeshStandardMaterial({ color: 0x6f9a4a, roughness: 0.9 }),
+    pillow: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.brass, roughness: 0.95 }),
+    sage: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.sage, roughness: 0.95 }),
+    engine: new THREE.MeshStandardMaterial({ color: 0x6e5e54, roughness: 0.7, metalness: 0.3 }),
+    firebox: new THREE.MeshStandardMaterial({ color: 0x6b2f1a, emissive: 0xff6a2a, emissiveIntensity: 1.2, roughness: 0.6 }),
+    upholstery: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.hull, roughness: 0.95 }),
+    book: new THREE.MeshStandardMaterial({ color: 0x5c7aa8, roughness: 0.8 }),
+    sootGrime: new THREE.MeshStandardMaterial({ color: 0x5a4035, roughness: 0.98 }),
+  };
+}
+
+function createTrainGeometry() {
+  const wheel = new THREE.CylinderGeometry(0.78, 0.78, 0.32, 14);
+  wheel.rotateX(Math.PI / 2);
+  const wheelHub = new THREE.CylinderGeometry(0.18, 0.18, 0.42, 8);
+  wheelHub.rotateX(Math.PI / 2);
+  return {
+    wheel,
+    wheelHub,
+    leaf: new THREE.SphereGeometry(0.22, 6, 5),
+  };
+}
 
 function box(w, h, d, mat, x, y, z, parent, shadow = true) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -33,23 +69,64 @@ function box(w, h, d, mat, x, y, z, parent, shadow = true) {
   return m;
 }
 
+function profiledBox(length, height, depth, chamfer, mat, x, y, z, parent) {
+  const shape = new THREE.Shape();
+  const hx = depth / 2;
+  const hy = height / 2;
+  shape.moveTo(-hx + chamfer, -hy);
+  shape.lineTo(hx - chamfer, -hy);
+  shape.lineTo(hx, -hy + chamfer);
+  shape.lineTo(hx, hy - chamfer);
+  shape.lineTo(hx - chamfer, hy);
+  shape.lineTo(-hx + chamfer, hy);
+  shape.lineTo(-hx, hy - chamfer);
+  shape.lineTo(-hx, -hy + chamfer);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: length, steps: 1, bevelEnabled: false });
+  geometry.translate(0, 0, -length / 2);
+  geometry.rotateY(Math.PI / 2);
+  const mesh = new THREE.Mesh(geometry, mat);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
+function instancedDetails(items, geometry, material, parent, shadow = false) {
+  const mesh = new THREE.InstancedMesh(geometry, material, items.length);
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const rotation = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  for (let i = 0; i < items.length; i++) {
+    const [x, y, z, sx = 1, sy = 1, sz = 1] = items[i];
+    matrix.compose(position.set(x, y, z), rotation, scale.set(sx, sy, sz));
+    mesh.setMatrixAt(i, matrix);
+  }
+  mesh.castShadow = shadow;
+  mesh.receiveShadow = shadow;
+  parent.add(mesh);
+  return mesh;
+}
+
 class Plant {
-  constructor(parent, x, z, scale = 1) {
+  constructor(parent, materials, geometry, x, z, scale = 1) {
     this.group = new THREE.Group();
     this.group.position.set(x, 1.78, z);
     this.group.scale.setScalar(scale);
 
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.42, 8), M.woodDark);
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.42, 8), materials.woodDark);
     pot.position.y = 0.21;
     pot.castShadow = true;
     this.group.add(pot);
 
-    this.leafMat = new THREE.MeshStandardMaterial({ color: 0x6f9a4a, roughness: 0.9 });
+    this.leafMat = materials.foliage;
     this.foliage = new THREE.Group();
     this.foliage.position.y = 0.42;
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
-      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 5), this.leafMat);
+      const leaf = new THREE.Mesh(geometry.leaf, this.leafMat);
       leaf.scale.set(0.55, 1.6, 0.55);
       leaf.position.set(Math.cos(a) * 0.16, 0.32, Math.sin(a) * 0.16);
       leaf.rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5);
@@ -141,6 +218,8 @@ const CAR_OFFSETS = CAR_CENTERS.map((c) => TRAIN_HALF - c); // [8, 24.6, 41.2]
 export class Train {
   constructor(scene) {
     this.scene = scene;
+    this.materials = createTrainMaterials();
+    this.geometry = createTrainGeometry();
 
     // --- state ---------------------------------------------------------
     this.heading = 0;
@@ -160,7 +239,6 @@ export class Train {
     this._pos = new THREE.Vector3();
 
     this.wheels = [];
-    this.wheelMats = [];
     this.zoneMats = {}; // see-through walls, one fading material per zone
 
     this.cars = [];
@@ -200,7 +278,7 @@ export class Train {
   #nearWallMat(zone) {
     if (!this.zoneMats[zone]) {
       this.zoneMats[zone] = new THREE.MeshStandardMaterial({
-        color: 0xe9d3ac, roughness: 0.95, transparent: true, opacity: 1,
+        color: TRAIN_COLOR.innerWall, roughness: 0.95, transparent: true, opacity: 1,
       });
     }
     return this.zoneMats[zone];
@@ -225,6 +303,7 @@ export class Train {
 
   #buildCar(ci) {
     const g = this.cars[ci].group;
+    const M = this.materials;
     const isCab = ci === 0;
     const isEngine = ci === 1;
     const zone = 'car' + ci;
@@ -233,7 +312,8 @@ export class Train {
     box(CAR_LEN + 2, 0.22, 0.5, M.iron, 0, 1.36, -1.6, g);
     box(CAR_LEN + 2, 0.22, 0.5, M.iron, 0, 1.36, 1.6, g);
     box(CAR_LEN, 0.3, 5, M.wood, 0, 1.62, 0, g);
-    box(CAR_LEN + 0.5, 0.3, 5.3, isCab || isEngine ? M.hullDark : M.cream, 0, 4.86, 0, g);
+    if (ci === 2) profiledBox(CAR_LEN + 0.5, 0.3, 5.3, 0.14, M.cream, 0, 4.86, 0, g);
+    else box(CAR_LEN + 0.5, 0.3, 5.3, M.hullDark, 0, 4.86, 0, g);
 
     // far wall with window openings
     box(CAR_LEN - 0.3, 0.92, 0.28, M.innerWall, 0, 2.24, -2.36, g);
@@ -245,7 +325,8 @@ export class Train {
     this.#nearWall(g, zone);
 
     // hull skirt below deck
-    box(CAR_LEN, 0.55, 4.6, M.hull, 0, 1.2, 0, g);
+    if (ci === 2) profiledBox(CAR_LEN, 0.55, 4.6, 0.16, M.hull, 0, 1.2, 0, g);
+    else box(CAR_LEN, 0.55, 4.6, M.hull, 0, 1.2, 0, g);
 
     // end walls with a doorway on the near side
     for (const side of [-1, 1]) {
@@ -254,26 +335,22 @@ export class Train {
       box(0.24, 1.95, 2.5, M.hull, ex, 2.72, -1.2, g);
     }
 
-    // brass window sills, both sides
+    // dark wood window sills, both sides
     for (let wi = -1; wi <= 1; wi++) {
-      box(2.0, 0.07, 0.34, M.brass, wi * 3.9, 2.72, -2.36, g, false);
-      box(2.0, 0.07, 0.34, M.brass, wi * 3.9, 2.72, 2.36, g, false);
+      box(2.0, 0.07, 0.34, M.woodDark, wi * 3.9, 2.72, -2.36, g, false);
+      box(2.0, 0.07, 0.34, M.woodDark, wi * 3.9, 2.72, 2.36, g, false);
     }
 
     // wheels: two bogies of two, both sides
     for (const bx of [-4.3, 4.3]) {
       for (const wx of [-1.1, 1.1]) {
         for (const wz of [-1.95, 1.95]) {
-          const mat = new THREE.MeshStandardMaterial({ color: 0x4a4440, roughness: 0.55, metalness: 0.4 });
-          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.32, 14), mat);
-          wheel.geometry.rotateX(Math.PI / 2);
+          const wheel = new THREE.Mesh(this.geometry.wheel, M.wheel);
           wheel.position.set(bx + wx, 0.78, wz);
           wheel.castShadow = true;
           g.add(wheel);
           this.wheels.push(wheel);
-          this.wheelMats.push(mat);
-          const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.42, 8), M.brass);
-          hub.geometry.rotateX(Math.PI / 2);
+          const hub = new THREE.Mesh(this.geometry.wheelHub, M.iron);
           hub.position.copy(wheel.position);
           g.add(hub);
         }
@@ -291,6 +368,7 @@ export class Train {
     if (isCab) this.#buildFrontCar(g);
     if (isEngine) this.#buildEngine(g);
     if (ci === 2) this.#buildLiving(g);
+    if (ci === 2) this.#buildExteriorPrototype(g);
 
     // ladders attached to whichever car owns that column
     for (const l of LADDERS) {
@@ -333,22 +411,22 @@ export class Train {
   // Front car: cargo vestibule at deck level, raised driver's cab perched
   // on the rooftop — its floor IS the roof storey, walked straight into.
   #buildFrontCar(g) {
+    const M = this.materials;
     // nose + headlamp
     const nose = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.45, 1.9, 10), M.hullDark);
     nose.rotation.z = Math.PI / 2;
     nose.position.set(CAR_LEN / 2 + 1.8, 2.5, 0);
     nose.castShadow = true;
     g.add(nose);
-    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffe9b0, emissive: 0xffc868, emissiveIntensity: 2.4 });
-    const headlamp = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), lampMat);
+    const headlamp = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), M.headlamp);
     headlamp.position.set(CAR_LEN / 2 + 2.8, 2.5, 0);
     g.add(headlamp);
 
     // deck-level quarters beneath the cab: a bunk to rest in, plus stores
     box(3.0, 0.5, 1.6, M.woodDark, 3.5, 2.05, -1.4, g); // bunk frame
     box(2.8, 0.25, 1.4, M.cream, 3.5, 2.42, -1.4, g); // mattress
-    box(0.7, 0.2, 1.1, new THREE.MeshStandardMaterial({ color: 0xc9913e, roughness: 0.95 }), 4.5, 2.62, -1.4, g, false); // pillow
-    box(1.9, 0.12, 1.2, new THREE.MeshStandardMaterial({ color: 0x8a9a6b, roughness: 0.95 }), 2.9, 2.56, -1.35, g, false); // blanket
+    box(0.7, 0.2, 1.1, M.pillow, 4.5, 2.62, -1.4, g, false); // pillow
+    box(1.9, 0.12, 1.2, M.sage, 2.9, 2.56, -1.35, g, false); // blanket
     box(0.9, 0.9, 0.9, M.woodDark, -3.4, 2.25, -1.6, g);
     box(0.85, 0.85, 0.85, M.wood, -4.4, 2.22, -1.3, g);
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.0, 10), M.wood);
@@ -408,12 +486,10 @@ export class Train {
   }
 
   #buildEngine(g) {
-    const blockMat = new THREE.MeshStandardMaterial({ color: 0x6e5e54, roughness: 0.7, metalness: 0.3 });
-    box(4.6, 2.3, 2.6, blockMat, 0.6, 2.95, -0.8, g);
+    const M = this.materials;
+    box(4.6, 2.3, 2.6, M.engine, 0.6, 2.95, -0.8, g);
     box(4.0, 0.25, 2.2, M.brass, 0.6, 4.2, -0.8, g, false);
-    this.fireboxMat = new THREE.MeshStandardMaterial({
-      color: 0x6b2f1a, emissive: 0xff6a2a, emissiveIntensity: 1.2, roughness: 0.6,
-    });
+    this.fireboxMat = M.firebox;
     const firebox = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.3, 0.15), this.fireboxMat);
     firebox.position.set(0.6, 2.7, 0.56);
     g.add(firebox);
@@ -430,6 +506,9 @@ export class Train {
     stack.position.set(1.4, 6.0, -1.3);
     stack.castShadow = true;
     g.add(stack);
+    const sootCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.24, 10), M.sootGrime);
+    sootCollar.position.set(1.4, 7.02, -1.3);
+    g.add(sootCollar);
     this.stackLocal = new THREE.Vector3(1.4, 7.2, -1.3);
 
     this.fireLight = new THREE.PointLight(0xff7a30, 26, 14, 2);
@@ -438,9 +517,10 @@ export class Train {
   }
 
   #buildLiving(g) {
+    const M = this.materials;
     const chair = new THREE.Group();
     chair.position.set(-3.6, 1.78, -0.7);
-    const seatMat = new THREE.MeshStandardMaterial({ color: 0xb5573c, roughness: 0.95 });
+    const seatMat = M.upholstery;
     const seat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 1.4), seatMat);
     seat.position.y = 0.45;
     const back = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.3, 0.4), seatMat);
@@ -456,7 +536,7 @@ export class Train {
     this.chairX = CAR_CENTERS[2] - 3.6;
 
     box(0.7, 0.75, 0.7, M.wood, -2.2, 2.15, -0.8, g);
-    const book = box(0.5, 0.1, 0.36, new THREE.MeshStandardMaterial({ color: 0x5c7aa8, roughness: 0.8 }), -2.2, 2.58, -0.8, g, false);
+    const book = box(0.5, 0.1, 0.36, M.book, -2.2, 2.58, -0.8, g, false);
     book.rotation.y = 0.4;
 
     box(2.6, 0.5, 1.6, M.woodDark, -5.4, 2.05, -1.4, g);
@@ -469,9 +549,9 @@ export class Train {
     }
 
     this.plantPots = [
-      new Plant(g, 4.2, -1.7, 1.1),
-      new Plant(g, 5.0, -1.5, 0.85),
-      new Plant(g, 3.4, -1.5, 0.9),
+      new Plant(g, M, this.geometry, 4.2, -1.7, 1.1),
+      new Plant(g, M, this.geometry, 5.0, -1.5, 0.85),
+      new Plant(g, M, this.geometry, 3.4, -1.5, 0.9),
     ];
 
     const lampShade = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.4, 10), M.brass);
@@ -483,6 +563,27 @@ export class Train {
     const light = new THREE.PointLight(0xffb066, 28, 17, 2);
     light.position.set(-1, 4.0, -0.3);
     g.add(light);
+  }
+
+  #buildExteriorPrototype(g) {
+    const M = this.materials;
+    const structure = [
+      [-5.85, 3.3, -2.54, 0.22, 2.3, 0.12],
+      [-1.95, 3.3, -2.54, 0.22, 2.3, 0.12],
+      [1.95, 3.3, -2.54, 0.22, 2.3, 0.12],
+      [5.85, 3.3, -2.54, 0.22, 2.3, 0.12],
+      [0, 2.7, -2.54, CAR_LEN - 0.35, 0.1, 0.12],
+      [-7.72, 1.22, -2.34, 0.38, 0.5, 0.12],
+      [7.72, 1.22, -2.34, 0.38, 0.5, 0.12],
+    ];
+    instancedDetails(structure, new THREE.BoxGeometry(1, 1, 1), M.hullDark, g);
+
+    const rivets = [];
+    for (const x of [-5.85, -1.95, 1.95, 5.85]) {
+      rivets.push([x, 2.95, -2.63], [x, 3.65, -2.63]);
+    }
+    instancedDetails(rivets, new THREE.SphereGeometry(0.14, 8, 6), M.iron, g);
+    box(CAR_LEN - 1.0, 0.2, 0.08, M.sootGrime, 0, 1.02, -2.34, g, false);
   }
 
   // ---------------------------------------------------- route display (map)
@@ -637,9 +738,11 @@ export class Train {
     for (const w of this.wheels) w.rotation.z -= spin;
 
     const rust = this.wear / 100;
-    for (const m of this.wheelMats) {
-      m.color.setRGB(lerp(0.29, 0.54, rust), lerp(0.27, 0.31, rust), lerp(0.25, 0.18, rust));
-    }
+    this.materials.wheel.color.setRGB(
+      lerp(0.29, 0.54, rust),
+      lerp(0.27, 0.31, rust),
+      lerp(0.25, 0.18, rust)
+    );
 
     const eff01 = this.eff / 100;
     if (this.fireboxMat) {
@@ -756,5 +859,29 @@ export class Train {
     this.beacon.position.copy(this.beaconPos);
     this.beacon.scale.setScalar(55 * (1 + Math.sin(time * 1.7) * 0.1));
     this.beacon.material.opacity = mapBlend * 0.9;
+  }
+
+  dispose() {
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
+    const roots = [...this.cars.map((car) => car.group), this.routeGroup, ...this.smoke.map((puff) => puff.sprite)];
+    for (const root of roots) {
+      root.traverse((obj) => {
+        if (obj.geometry) geometries.add(obj.geometry);
+        if (!obj.material) return;
+        const owned = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const material of owned) {
+          materials.add(material);
+          for (const value of Object.values(material)) {
+            if (value?.isTexture) textures.add(value);
+          }
+        }
+      });
+      this.scene.remove(root);
+    }
+    for (const texture of textures) texture.dispose();
+    for (const material of materials) material.dispose();
+    for (const geometry of geometries) geometry.dispose();
   }
 }
