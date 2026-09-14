@@ -1,7 +1,7 @@
 # AES-000 - Baseline and Art Bible
 
-**Status:** ready
-**Owner:** unassigned
+**Status:** in_progress
+**Owner:** Kilo (openai/gpt-5.6-sol-discounted)
 **Depends on:** none
 **Blocks:** AES-001 through AES-016
 **Exclusive scope:** visual evidence files created by this task
@@ -39,14 +39,14 @@ Create reproducible visual and performance baselines, then record concrete palet
 
 ## Handoff
 
-**Last updated:** 2026-09-14
-**Branch:** unassigned
-**Worktree:** unassigned
+**Last updated:** 2026-09-14T20:00:36Z
+**Branch:** aesthetic/aes-000
+**Worktree:** /Users/joshuajosai-levin/Code/landtrain-aes-000
 **Implementation commit:** not started
 **Merge commit:** not merged
 **Completed:** none
 **Remaining:** all work
-**Decisions/deviations:** none
+**Decisions/deviations:** Task claimed in the dedicated worktree; no runtime files will be changed.
 **Risks/blockers:** Physical mobile hardware may not be available; document emulation honestly.
 **Verification results:** not run
 **Evidence:** none
