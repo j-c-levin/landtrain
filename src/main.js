@@ -12,6 +12,7 @@ import { AudioFX } from './audio.js';
 import { TUNING, WORLD, CAB_FROM_X, clamp } from './constants.js';
 import { edgePlacement } from './markers.js';
 import { registerServiceWorker } from './sw-register.js';
+import { QUALITY_TIERS, createQualityMonitor, selectInitialQuality } from './quality.js';
 
 registerServiceWorker();
 
@@ -36,9 +37,20 @@ window.addEventListener('blur', () => keys.clear());
 
 // ----------------------------------------------------------------- setup
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const params = new URLSearchParams(location.search);
+const forcedQuality = params.get('quality');
+let qualityTier = selectInitialQuality({
+  forcedTier: forcedQuality,
+  deviceMemory: navigator.deviceMemory,
+  hardwareConcurrency: navigator.hardwareConcurrency,
+  devicePixelRatio: window.devicePixelRatio,
+  viewportWidth: window.innerWidth,
+  viewportHeight: window.innerHeight,
+});
+let qualityPolicy = QUALITY_TIERS[qualityTier];
+const qualityMonitor = createQualityMonitor(qualityTier);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: qualityPolicy.antialias });
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
@@ -56,6 +68,26 @@ const rig = new CameraRig(camera, train, player);
 const ui = new UI();
 const audio = new AudioFX();
 const interactions = new Interactions({ train, player, rig, ui, audio });
+
+function applyQualityTier(tier) {
+  if (!QUALITY_TIERS[tier]) return false;
+  qualityTier = tier;
+  qualityPolicy = QUALITY_TIERS[tier];
+  renderer.shadowMap.type = qualityPolicy.shadowType === 'pcf-soft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  scene.traverse((object) => {
+    if (!object.isLight || !object.castShadow || !object.shadow) return;
+    object.shadow.mapSize.setScalar(qualityPolicy.shadowMapSize);
+    if (object.shadow.map) {
+      object.shadow.map.dispose();
+      object.shadow.map = null;
+    }
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, qualityPolicy.dpr));
+  qualityMonitor.setTier(tier);
+  return true;
+}
+
+applyQualityTier(qualityTier);
 
 // --- seamless world streaming state ---
 // The grassland is built lazily when the prairie tree is reached; until then
@@ -123,7 +155,6 @@ function revealAhead() {
 }
 
 // time scale for tuning/testing: ?ts=4
-const params = new URLSearchParams(location.search);
 const timeScale = clamp(parseFloat(params.get('ts') || '1') || 1, 0.1, 20);
 
 // first reveal at the spawn point — a forward cone along the train's facing,
@@ -148,7 +179,9 @@ let pinchGap = 0;
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function pinchGapNow() {
-  const [a, b] = [...scenePointers.values()];
+  const values = scenePointers.values();
+  const a = values.next().value;
+  const b = values.next().value;
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
@@ -239,7 +272,10 @@ function releaseTouch(e) {
   if (code === undefined) return;
   touchHolds.delete(e.pointerId);
   // lift the key only when no other finger is holding the same zone
-  if (![...touchHolds.values()].includes(code)) keys.delete(code);
+  for (const heldCode of touchHolds.values()) {
+    if (heldCode === code) return;
+  }
+  keys.delete(code);
 }
 window.addEventListener('pointerup', releaseTouch);
 window.addEventListener('pointercancel', releaseTouch);
@@ -328,7 +364,7 @@ ui.intro(() => {
 // transitions, browser zoom, and moving between displays with different
 // pixel ratios — all cases where a one-shot 'resize' listener misses.
 function syncRendererSize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, qualityPolicy.dpr);
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   if (w === 0 || h === 0) return;
@@ -346,6 +382,11 @@ syncRendererSize();
 // ------------------------------------------------------------------- loop
 const clock = new THREE.Clock();
 let elapsed = 0;
+let animationFrame = null;
+let previousFrameTime = 0;
+let slowUpdateElapsed = Infinity;
+let audioSuspendedForVisibility = false;
+let audioVisibilityTransition = Promise.resolve();
 
 // Project a world point (ground height) and decide its edge-marker placement.
 function placeMarker(tx, tz) {
@@ -354,11 +395,18 @@ function placeMarker(tx, tz) {
   return edgePlacement(markerVec.x, markerVec.y, behind, 0.9); // 0.9 = ride 5% in from each edge
 }
 
-function tick() {
-  requestAnimationFrame(tick);
+function tick(frameTime) {
+  animationFrame = requestAnimationFrame(tick);
   syncRendererSize();
-  const dt = Math.min(clock.getDelta(), 0.05) * timeScale;
+  if (previousFrameTime && !QUALITY_TIERS[forcedQuality]) {
+    const nextTier = qualityMonitor.sample(frameTime - previousFrameTime);
+    if (nextTier) applyQualityTier(nextTier);
+  }
+  previousFrameTime = frameTime;
+  const rawDt = Math.min(clock.getDelta(), 0.05);
+  const dt = rawDt * timeScale;
   elapsed += dt;
+  slowUpdateElapsed += rawDt;
 
   if (state.started) {
     // global keys
@@ -436,18 +484,21 @@ function tick() {
   train.setFocus(zone, rig.mode === 'book' || rig.transitionTarget === 'book', dt);
 
   train.updateRouteDisplay(rig.mapBlend, elapsed);
-  ui.setGauges(train.eff, train.wear);
-  ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
-  ui.setOrbitActive(rig.autoOrbit);
-  // Edge markers are a map-view aid only — point to the tree (and back to the
-  // train) along the map's borders, hidden in the inhabit and book views.
-  if (state.started && rig.mapEngaged) {
-    const W = canvas.clientWidth;
-    const H = canvas.clientHeight;
-    ui.setEdgeMarker('tree', placeMarker(goalPos.x, goalPos.z), W, H);
-    ui.setEdgeMarker('train', placeMarker(train.pos.x, train.pos.z), W, H);
-  } else {
-    ui.hideEdgeMarkers();
+  if (slowUpdateElapsed >= 1 / qualityPolicy.slowUpdateHz) {
+    slowUpdateElapsed = 0;
+    ui.setGauges(train.eff, train.wear);
+    ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
+    ui.setOrbitActive(rig.autoOrbit);
+    // Edge markers are a map-view aid only — point to the tree (and back to the
+    // train) along the map's borders, hidden in the inhabit and book views.
+    if (state.started && rig.mapEngaged) {
+      const W = canvas.clientWidth;
+      const H = canvas.clientHeight;
+      ui.setEdgeMarker('tree', placeMarker(goalPos.x, goalPos.z), W, H);
+      ui.setEdgeMarker('train', placeMarker(train.pos.x, train.pos.z), W, H);
+    } else {
+      ui.hideEdgeMarkers();
+    }
   }
   world.update(dt, elapsed, train.pos, camera.position);
   if (grassland) grassland.update(dt, elapsed, train.pos, camera.position);
@@ -458,12 +509,57 @@ function tick() {
   renderer.render(scene, camera);
 }
 
-tick();
+animationFrame = requestAnimationFrame(tick);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+    previousFrameTime = 0;
+    clock.stop();
+    qualityMonitor.resetTiming();
+    if (audio.ctx?.state === 'running') {
+      audioSuspendedForVisibility = true;
+      const ctx = audio.ctx;
+      audioVisibilityTransition = audioVisibilityTransition.then(() => ctx.suspend()).catch(() => {});
+    }
+    return;
+  }
+
+  clock.start();
+  if (audioSuspendedForVisibility && audio.ctx) {
+    const ctx = audio.ctx;
+    audioSuspendedForVisibility = false;
+    audioVisibilityTransition = audioVisibilityTransition
+      .then(() => (ctx.state === 'suspended' ? ctx.resume() : undefined))
+      .catch(() => {});
+  }
+  if (animationFrame === null) animationFrame = requestAnimationFrame(tick);
+});
 
 // debug / verification handle. grassland/obstacles/goalPos are getters so they
 // always reflect the live progression state.
 window.__game = {
   train, player, rig, fog, state, sky, camera, WORLD,
+  quality: {
+    tiers: QUALITY_TIERS,
+    forced: QUALITY_TIERS[forcedQuality] ? forcedQuality : null,
+    setTier: applyQualityTier,
+    get tier() { return qualityTier; },
+    get policy() { return qualityPolicy; },
+    get metrics() {
+      return {
+        ...qualityMonitor.metrics,
+        frame: renderer.info.render.frame,
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+        drawingBufferWidth: renderer.domElement.width,
+        drawingBufferHeight: renderer.domElement.height,
+        antialias: renderer.getContext().getContextAttributes().antialias,
+        hidden: document.hidden,
+      };
+    },
+  },
   get grassland() { return grassland; },
   get obstacles() { return obstacles; },
   get goalPos() { return goalPos; },

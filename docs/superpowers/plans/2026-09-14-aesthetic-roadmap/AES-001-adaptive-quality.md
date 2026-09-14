@@ -1,7 +1,7 @@
 # AES-001 - Adaptive Quality Foundation
 
-**Status:** proposed
-**Owner:** unassigned
+**Status:** in_progress
+**Owner:** Kilo (openai/gpt-5.6-sol-discounted)
 **Depends on:** AES-000
 **Blocks:** AES-003, AES-006, AES-007, AES-011, AES-012, AES-014, AES-015
 **Exclusive scope:** `src/main.js`, quality-focused tests or modules introduced by this task
@@ -39,9 +39,9 @@ Establish low, medium, and high rendering tiers before increasing visual complex
 
 ## Handoff
 
-**Last updated:** 2026-09-14
-**Branch:** unassigned
-**Worktree:** unassigned
+**Last updated:** 2026-09-14T20:30:11Z
+**Branch:** aesthetic/aes-001
+**Worktree:** /Users/joshuajosai-levin/Code/landtrain-aes-001
 **Implementation commit:** not started
 **Merge commit:** not merged
 **Completed:** none
