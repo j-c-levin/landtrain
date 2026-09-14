@@ -32,6 +32,16 @@ The existing identity remains authoritative:
 - Existing speed-responsive train movement audio already works. Audio work must preserve it and refine its character, spatial placement, and surface-specific layers rather than reimplementing the same feature.
 - Use almost no source comments. Add a one-line comment only for a non-obvious trap.
 
+## Creative Ownership
+
+The primary orchestration model owns all player-facing aesthetic implementation and final visual/audio judgment. Do not delegate creative construction to a lower-capability subagent.
+
+- Primary-model required: AES-003, AES-004, AES-005, AES-006, AES-008, AES-009, AES-010, AES-011, AES-012, AES-013, AES-014, and AES-015.
+- Delegation allowed: repository exploration, baseline capture, profiling, pure tests, implementation review, and narrowly mechanical refactors such as AES-001 and AES-007.
+- A subagent may research or verify a primary-owned task, but must not author its final models, composition, palette, motion, sound design, or presentation behavior.
+- The primary model must inspect comparison captures at every required viewport before a player-facing task reaches `review`.
+- AES-002 is a prototype foundation, not approved final art. The primary model must reassess and revise its output at the start of AES-003 before extending it across the train.
+
 ## Performance Budgets
 
 Task `AES-001` establishes measured baselines and final tier values. Until then, agents must observe these provisional limits:
