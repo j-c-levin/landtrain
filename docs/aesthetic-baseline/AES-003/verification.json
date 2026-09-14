@@ -1,0 +1,115 @@
+{
+  "wallFadeInhabit": {
+    "car0": {
+      "opacity": 0.9999889639160559,
+      "depthWrite": true
+    },
+    "cab": {
+      "opacity": 1,
+      "depthWrite": true
+    },
+    "car1": {
+      "opacity": 1,
+      "depthWrite": true
+    },
+    "car2": {
+      "opacity": 0.060011475738990454,
+      "depthWrite": false
+    }
+  },
+  "wallFadeBook": {
+    "car0": {
+      "opacity": 0.999999999387603,
+      "depthWrite": true
+    },
+    "cab": {
+      "opacity": 1,
+      "depthWrite": true
+    },
+    "car1": {
+      "opacity": 1,
+      "depthWrite": true
+    },
+    "car2": {
+      "opacity": 0.9999478396333927,
+      "depthWrite": true
+    }
+  },
+  "traversal": {
+    "underToDeck": {
+      "level": "deck",
+      "y": 1.78
+    },
+    "deckToRoof": {
+      "level": "roof",
+      "y": 5.05
+    },
+    "roofWalk": {
+      "x": -21.696320000219345,
+      "level": "roof"
+    },
+    "cabEntry": {
+      "x": 14.974520000219353,
+      "level": "roof",
+      "mode": "cabin"
+    }
+  },
+  "engineInteraction": {
+    "efficiency": 99.52199999868868,
+    "playerX": -0.8,
+    "level": "deck"
+  },
+  "articulation": {
+    "yaws": [
+      -0.779261038771701,
+      -0.6071418388881512,
+      0
+    ],
+    "positions": [
+      {
+        "x": 23.12189444464172,
+        "z": 13.754783072330083
+      },
+      {
+        "x": 11.189278541662276,
+        "z": 2.2287411486495627
+      },
+      {
+        "x": -4.953407654348567,
+        "z": 0
+      }
+    ],
+    "rootsSceneAttached": true,
+    "allExteriorAttached": true
+  },
+  "routeOverlay": {
+    "visible": true,
+    "lineY": [
+      0,
+      0,
+      0
+    ],
+    "dotY": [
+      0,
+      0
+    ],
+    "ringY": 0,
+    "orders": [
+      59,
+      60,
+      61
+    ]
+  },
+  "cabin": {
+    "mode": "cabin",
+    "playerX": 20.5,
+    "level": "roof"
+  },
+  "dispose": {
+    "allDetached": true,
+    "carRoots": 3,
+    "smokePool": 36,
+    "instanceBuffersDisposed": 24,
+    "instanceBufferCount": 24
+  }
+}
