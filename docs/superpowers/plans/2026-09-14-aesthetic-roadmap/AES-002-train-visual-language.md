@@ -1,7 +1,7 @@
 # AES-002 - Train Visual Language
 
-**Status:** proposed
-**Owner:** unassigned
+**Status:** in_progress
+**Owner:** Kilo (sonnet)
 **Depends on:** AES-000
 **Blocks:** AES-003
 **Exclusive scope:** `src/train.js`, optional train-focused material/geometry module introduced here
@@ -36,9 +36,9 @@ Turn the approved art direction into reusable train geometry and material idioms
 
 ## Handoff
 
-**Last updated:** 2026-09-14
-**Branch:** unassigned
-**Worktree:** unassigned
+**Last updated:** 2026-09-14T20:30:11Z
+**Branch:** aesthetic/aes-002
+**Worktree:** /Users/joshuajosai-levin/Code/landtrain-aes-002
 **Implementation commit:** not started
 **Merge commit:** not merged
 **Completed:** none

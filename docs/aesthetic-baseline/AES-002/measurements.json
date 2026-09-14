@@ -1,0 +1,33 @@
+{
+  "viewport": {
+    "width": 844,
+    "height": 390,
+    "dpr": 1
+  },
+  "trainMaterials": 28,
+  "wheelMaterialCount": 1,
+  "wheelWearColor": "#c29776",
+  "render": {
+    "calls": 210,
+    "triangles": 58910,
+    "geometries": 616
+  },
+  "nearWallOpacity": 0.0886450276504937,
+  "mapOverlayRouteY": [
+    0,
+    0
+  ],
+  "carGroupCount": 3,
+  "wheelCount": 24,
+  "dispose": {
+    "carsDetached": true,
+    "routeDetached": true,
+    "smokeDetached": true
+  },
+  "desktopComparison": {
+    "trainMaterials": 28,
+    "calls": 197,
+    "triangles": 57718,
+    "geometries": 205
+  }
+}
