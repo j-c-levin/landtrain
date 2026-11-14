@@ -756,7 +756,7 @@ export const MAP_LOOK = {
   markInk: 0x2b2018,
   trail: 0x4a3524,
   trailNight: 0xf3e3bd,
-  lampRadius: 190,
+  lampRadius: 150,
   beaconGlow: [1.0, 0.72, 0.3],
 };
 

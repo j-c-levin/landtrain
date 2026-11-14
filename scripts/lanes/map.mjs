@@ -67,7 +67,7 @@ async function lock() {
     } catch {
       const age = await stat(LOCK).then((s) => Date.now() - s.mtimeMs, () => 0);
       if (age > 20 * 60000) await rmdir(LOCK).catch(() => {});
-      else await new Promise((r) => setTimeout(r, 5000));
+      else await new Promise((r) => setTimeout(r, 2000));
     }
   }
 }

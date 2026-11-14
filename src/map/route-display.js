@@ -130,7 +130,8 @@ export function createRouteDisplay(scene) {
   routeGroup.add(beacon);
 
   const trail = quadStrip(TRAIL_MAX, mapMaterials.trail(), 56);
-  routeGroup.add(trail);
+  const trailCasing = quadStrip(TRAIL_MAX, mapMaterials.routeCasing(), 55);
+  routeGroup.add(trail, trailCasing);
 
   const heading = new THREE.Mesh(
     arrowGeometry([[6.0, 0, casing], [4.9, 0, markInk], [3.3, -0.15, route]]),
@@ -165,7 +166,7 @@ export function createRouteDisplay(scene) {
     routeGroup, linePositions, routeLine, routeCasing, routeDashes, dotGeo, dotMat, dots: [], trainRing, beacon,
     beaconPos: new THREE.Vector3(2450, 80, 0),
     routeMarks: {
-      trail, heading, ghostLeg, ghostDot, blocks,
+      trail, trailCasing, heading, ghostLeg, ghostDot, blocks,
       blockCount: 0, blockKey: NaN, obstacles: null, fog: null,
       scale: 1, night: 0,
       ghostOn: false, ghostX: 0, ghostZ: 0,
@@ -206,6 +207,11 @@ function recordTrail(m, x, z) {
     m.trail.userData.positions, m.crumbs % TRAIL_MAX,
     m.lastX + ux * dist * 0.2, m.lastZ + uz * dist * 0.2, m.lastX + ux * dist * 0.8, m.lastZ + uz * dist * 0.8,
     -uz, ux, 0.85
+  );
+  writeQuad(
+    m.trailCasing.userData.positions, m.crumbs % TRAIL_MAX,
+    m.lastX + ux * dist * 0.12, m.lastZ + uz * dist * 0.12, m.lastX + ux * dist * 0.88, m.lastZ + uz * dist * 0.88,
+    -uz, ux, 1.9
   );
   m.crumbs++;
   m.dirty = true;
@@ -330,11 +336,14 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
 
   if (m.dirty) {
     m.dirty = false;
-    m.trail.geometry.attributes.position.needsUpdate = true;
-    m.trail.geometry.setDrawRange(0, Math.min(m.crumbs, TRAIL_MAX) * 6);
+    for (const strip of [m.trail, m.trailCasing]) {
+      strip.geometry.attributes.position.needsUpdate = true;
+      strip.geometry.setDrawRange(0, Math.min(m.crumbs, TRAIL_MAX) * 6);
+    }
   }
-  m.trail.material.color.lerpColors(m.trailDay, m.trailNight, m.night);
-  m.trail.material.opacity = mapBlend * (0.72 - 0.14 * m.night);
+  m.trail.material.opacity = mapBlend * 0.72;
+  m.trailCasing.visible = m.night > 0.01;
+  m.trailCasing.material.opacity = mapBlend * m.night * 0.6;
 
   CHART.uChartLamp.value.set(pos.x, pos.z, 1 / MAP_LOOK.lampRadius);
 

@@ -7,8 +7,6 @@ import { setChartView, setRouteGhost } from './route-display.js';
 
 const HOME_HEIGHT = 330;
 
-// Everything about the chart that is neither the sheet nor the route marks:
-// the pen pass for tiers without the lens, the furniture, the hover leg.
 export function createChart({ renderer, canvas, train, fog }) {
   const furniture = createChartFurniture();
   let pen = null;
