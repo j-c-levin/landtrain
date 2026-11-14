@@ -2,10 +2,14 @@ import * as THREE from 'three';
 import { LEVELS, LADDERS, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from '../constants.js';
 import { figureShadow } from '../look.js';
 import { Figure, STRIDE_TIME } from './figure.js';
+import { Pour } from './pour.js';
 
 const LEVEL_ORDER = ['under', 'deck', 'roof'];
-const WHEEL_X = CAR_CENTERS[0] + 2.5;
-const WHEEL_Z = -1.02;
+const WHEEL_X = CAR_CENTERS[0] + 1.98;
+const WHEEL_Z = -1.13;
+const POTS = [[3.05, 3.0, -1.44], [4.33, 3.0, -1.62]];
+const POT_REACH = 1.3;
+const _v = new THREE.Vector3();
 const WALK_Z = 0.35;
 const CLIMB_Z = 1.85;
 const REACH_Z = { plants: -0.5, engine: 0.15, tread: 1.0, tread2: 1.0 };
@@ -34,6 +38,9 @@ export class Player {
     this.walkPhase = 0;
     this.moving = false;
     this.settle = 0;
+    this.camera = null;
+    this.pot = POTS[0];
+    this.watering = false;
     this.motionQuery = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
 
     this.group = new THREE.Group();
@@ -51,6 +58,7 @@ export class Player {
     this.shadow.position.y = 0.03;
     this.shadow.scale.set(0.5, 0.36, 1);
     this.group.add(this.shadow);
+    this.pour = new Pour(this.scene, this.figure.materials.water);
   }
 
   nearestLadder() {
@@ -70,9 +78,20 @@ export class Player {
     this.#move(dt, input);
     this.#sync();
     const f = this.figure;
-    f.update(dt, time, this.#pose(), this.facing, this.walkPhase, this.motionQuery?.matches ? 0 : 1, this.level === 'under' && !this.climbing);
+    let view = -this.facing * 1.57;
+    if (this.camera) {
+      this.group.worldToLocal(_v.copy(this.camera.position));
+      view = Math.atan2(-_v.z, _v.x);
+    }
+    f.update(dt, time, this.#pose(), this.facing, this.walkPhase, this.motionQuery?.matches ? 0 : 1, this.level === 'under' && !this.climbing, view);
     if (this.train.wateringCan) this.train.wateringCan.visible = !f.holdingCan;
-    this.shadow.visible = !this.sitting && !this.climbing;
+    this.shadow.visible = !this.sitting && !this.climbing && !this.atWheel;
+    if (f.pouring) {
+      this.group.updateWorldMatrix(true, true);
+      f.rose.getWorldPosition(this.pour.from);
+      this.pour.to.set(this.pot[0], this.pot[1], this.pot[2]).applyMatrix4(this.train.cars[2].group.matrixWorld);
+    }
+    this.pour.update(dt, f.pouring);
   }
 
   #pose() {
@@ -149,6 +168,16 @@ export class Player {
       this.walkPhase += dt * STRIDE_RATE;
     }
     this.z = damp(this.z, (move === 0 && REACH_Z[this.action]) || WALK_Z, 6, dt);
+    if (move === 0 && this.action === 'plants') {
+      if (!this.watering) {
+        const ahead = this.x - CAR_CENTERS[2] + this.facing * POT_REACH;
+        let pot = POTS[0];
+        for (const p of POTS) if (Math.abs(p[0] - ahead) < Math.abs(pot[0] - ahead)) pot = p;
+        this.pot = pot;
+      }
+      this.x = damp(this.x, CAR_CENTERS[2] + this.pot[0] - this.facing * POT_REACH, 5, dt);
+    }
+    this.watering = move === 0 && this.action === 'plants';
   }
 
   #sync() {

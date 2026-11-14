@@ -21,7 +21,8 @@ export class Interactions {
     this.holdChimed = false;
     this.restExit = 'set the book down';
     this.toldCabinView = false;
-    this.affordances = new Affordances(train, player.figure.materials.brass);
+    player.camera = rig.camera;
+    this.affordances = new Affordances(train, rig.camera);
   }
 
   #findStation() {
@@ -35,8 +36,9 @@ export class Interactions {
   update(dt, input) {
     this.#act(dt, input);
     const { rig, player } = this;
-    const walking = rig.mode === 'inhabit' && !rig.busy && !rig.soft;
-    this.affordances.update(dt, walking, walking ? this.activeStation : null, player.level);
+    const walking = (rig.mode === 'inhabit' || rig.mode === 'cabin') && !rig.busy && !rig.soft;
+    const active = rig.mode === 'cabin' ? STATIONS[0] : this.activeStation;
+    this.affordances.update(dt, walking, walking ? active : null, player);
   }
 
   #ladderHint() {
