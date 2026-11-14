@@ -461,7 +461,7 @@ export const GRASSLAND_LOOK = {
     glow: ['rgba(255,196,110,0.5)', 'rgba(255,196,110,0)'],
   },
   moatGlow: ['rgba(140,190,255,0.5)', 'rgba(140,190,255,0)'],
-  stonework: { h: [0.11, 0.05, 'mid'], s: [0.1, 0.06, 'mid'], l: [0.56, 0.16, 'mid'] },
+  stonework: { h: [0.1, 0.05, 'mid'], s: [0.15, 0.08, 'mid'], l: [0.5, 0.16, 'mid'] },
   brass: 0xb88a3c,
   iron: 0x3a342e,
   pathEarth: 0x9a8258,
