@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LEVELS, TRAIN_HALF, clamp, lerp, smootherstep, damp } from './constants.js';
+import { LEVELS, TRAIN_HALF, clamp, lerp, smootherstep, damp } from '../constants.js';
 
 const _pos = new THREE.Vector3();
 const _look = new THREE.Vector3();
@@ -20,6 +20,12 @@ const CABIN_EYE_UP = 1.5; // above the roof storey floor → window-centre heigh
 // window), not a far-forward point — otherwise the cabin swings out of frame.
 const CABIN_LOOK_AHEAD = 8; // how far past the nose the gaze reaches
 const CABIN_LOOK_UP = 0.5; // look height, around the front-window sill
+
+const FOV = 42;
+
+export function createCamera() {
+  return new THREE.PerspectiveCamera(FOV, window.innerWidth / window.innerHeight, 0.5, 9000);
+}
 
 // One camera, three framings of the same world. Transitions are a single
 // continuous tween of position + orientation — never a cut. The target
@@ -337,16 +343,13 @@ export class CameraRig {
   }
 
   panMap(dxPixels, dyPixels, viewportHeight) {
-    const worldPerPixel = (2 * this.mapHeight * Math.tan((42 * Math.PI) / 360)) / viewportHeight;
+    const worldPerPixel = (2 * this.mapHeight * Math.tan((FOV * Math.PI) / 360)) / viewportHeight;
     this.pan.x -= dxPixels * worldPerPixel;
     this.pan.y -= dyPixels * worldPerPixel;
   }
 
-  // The cutaway's distance haze must stay closed until the fog-of-war
-  // shroud is fully opaque, or the transition flashes undiscovered land.
-  applySceneFog(fog) {
-    const open = smootherstep((this.mapBlend - 0.45) / 0.55);
-    fog.near = lerp(130, 1400, open);
-    fog.far = lerp(560, 5200, open);
+  setAspect(aspect) {
+    this.camera.aspect = aspect;
+    this.camera.updateProjectionMatrix();
   }
 }

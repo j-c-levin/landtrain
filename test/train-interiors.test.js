@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { WebGLObjects } from 'three/src/renderers/webgl/WebGLObjects.js';
-import { Train } from '../src/train.js';
-import { Player } from '../src/player.js';
-import { CameraRig } from '../src/camera.js';
-import { Interactions } from '../src/interactions.js';
+import { Train } from '../src/train/train.js';
+import { Player } from '../src/character/player.js';
+import { CameraRig } from '../src/camera/camera.js';
+import { Interactions } from '../src/character/interactions.js';
 import { CAB_FROM_X, CAR_CENTERS, LEVELS, TRAIN_HALF, TUNING } from '../src/constants.js';
 
 const input = (held = [], pressed = []) => ({

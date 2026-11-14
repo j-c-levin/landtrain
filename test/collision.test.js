@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockedAt } from '../src/world.js';
+import { blockedAt } from '../src/collision.js';
 
 // A horizontal seg from (0,0) to (100,0), width 10, no padding.
 const seg = (gaps) => [{ type: 'seg', x1: 0, z1: 0, x2: 100, z2: 0, w: 10, ...(gaps ? { gaps } : {}) }];

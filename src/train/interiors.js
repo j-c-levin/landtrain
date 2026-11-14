@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { interiorKit } from './train-interior-kit.js';
+import { TRAIN_LOOK } from '../look.js';
+import { interiorKit } from './interior-kit.js';
 
 export function buildLivingInterior(g, M, { createPlant }) {
   const k = interiorKit(g, 'living-interior');
@@ -72,7 +73,7 @@ export function buildLivingInterior(g, M, { createPlant }) {
   for (const [r, y] of [[0.49, 3.6], [0.23, 4.04]]) ring(r, 0.022, M.brass, -1.65, y, -1.4).rotation.x = Math.PI / 2;
   round(0.23, 0.015, 0.23, M.glow, -1.65, 3.61, -1.4);
   round(0.56, 0.004, 0.47, M.lightPool, -1.7, 2.731, -1.03);
-  const readingLight = new THREE.PointLight(0xffd6a1, 13, 6.5, 2);
+  const readingLight = new THREE.PointLight(TRAIN_LOOK.readingLight, 13, 6.5, 2);
   readingLight.position.set(-1.7, 3.53, -0.35);
   k.root.add(readingLight);
 
@@ -150,7 +151,7 @@ export function buildBunkInterior(g, M) {
   k.pipe([[5.62, 3.98, -1.75], [5.62, 3.65, -1.75], [5.9, 3.65, -1.66]], 0.025, M.brass);
   k.mesh(new THREE.CylinderGeometry(0.12, 0.27, 0.2, 24, 1, true), M.teal, 5.9, 3.6, -1.65);
   round(0.13, 0.03, 0.13, M.glow, 5.9, 3.5, -1.65);
-  const light = new THREE.PointLight(0xffd3a3, 5, 5.5, 2);
+  const light = new THREE.PointLight(TRAIN_LOOK.bunkLight, 5, 5.5, 2);
   light.position.set(5.35, 3.53, -0.75);
   k.root.add(light);
   k.finish();

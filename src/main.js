@@ -1,39 +1,28 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js';
-import { createGrassland } from './grassland.js';
-import { SkyCycle } from './sky.js';
-import { Train } from './train.js';
-import { Player } from './player.js';
-import { CameraRig } from './camera.js';
-import { FogOfWar } from './fog.js';
-import { Interactions } from './interactions.js';
-import { UI } from './ui.js';
-import { AudioFX } from './audio.js';
-import { TUNING, WORLD, CAB_FROM_X, clamp } from './constants.js';
-import { edgePlacement } from './markers.js';
-import { registerServiceWorker } from './sw-register.js';
+import { TUNING, clamp } from './constants.js';
 import { QUALITY_TIERS, createQualityMonitor, selectInitialQuality } from './quality.js';
+import { registerServiceWorker } from './sw-register.js';
+import { installDebugHandle, bindSecretWarp } from './debug.js';
+import { createRenderer, applyRenderQuality, syncRendererSize } from './atmosphere/renderer.js';
+import { createHaze, updateHaze, createSunLight, followShadowBox } from './atmosphere/lighting.js';
+import { SkyCycle } from './atmosphere/sky.js';
+import { createPrairie } from './prairie/prairie.js';
+import { Train, focusZone } from './train/train.js';
+import { Player } from './character/player.js';
+import { Interactions } from './character/interactions.js';
+import { CameraRig, createCamera } from './camera/camera.js';
+import { FogOfWar } from './map/fog-of-war.js';
+import { placeMarker, revealAhead } from './map/map-view.js';
+import { UI } from './ui/ui.js';
+import { createInput, NEUTRAL_INPUT } from './ui/input.js';
+import { bindTouchZones } from './ui/touch-zones.js';
+import { bindViewControls } from './ui/view-controls.js';
+import { createJourney } from './ui/journey.js';
+import { AudioFX } from './audio/audio.js';
 
 registerServiceWorker();
 
-// ----------------------------------------------------------------- input
-const keys = new Set();
-const pressedThisFrame = new Set();
-const input = {
-  down: (code) => keys.has(code),
-  pressed: (code) => pressedThisFrame.has(code),
-};
-// fed to the player while it shouldn't be driving (mid-transition, map, book)
-// so its rig still re-syncs onto the train each frame without taking input
-const NEUTRAL_INPUT = { down: () => false, pressed: () => false };
-
-window.addEventListener('keydown', (e) => {
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
-  if (!keys.has(e.code)) pressedThisFrame.add(e.code);
-  keys.add(e.code);
-});
-window.addEventListener('keyup', (e) => keys.delete(e.code));
-window.addEventListener('blur', () => keys.clear());
+const input = createInput();
 
 // ----------------------------------------------------------------- setup
 const canvas = document.getElementById('scene');
@@ -49,18 +38,15 @@ let qualityTier = selectInitialQuality({
 });
 let qualityPolicy = QUALITY_TIERS[qualityTier];
 const qualityMonitor = createQualityMonitor(qualityTier);
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: qualityPolicy.antialias });
-renderer.shadowMap.enabled = true;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+const renderer = createRenderer(canvas, qualityPolicy);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 9000);
-const markerVec = new THREE.Vector3();
-const fwdDir = new THREE.Vector3();
+const camera = createCamera();
 
-const world = createWorld(scene);
-const sky = new SkyCycle(scene, renderer, world.sunLight);
+createHaze(scene);
+const sunLight = createSunLight(scene);
+const world = createPrairie(scene);
+const sky = new SkyCycle(scene, renderer, sunLight);
 const fog = new FogOfWar(scene);
 const train = new Train(scene);
 const player = new Player(train, scene);
@@ -73,311 +59,42 @@ function applyQualityTier(tier) {
   if (!QUALITY_TIERS[tier]) return false;
   qualityTier = tier;
   qualityPolicy = QUALITY_TIERS[tier];
-  renderer.shadowMap.type = qualityPolicy.shadowType === 'pcf-soft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
-  scene.traverse((object) => {
-    if (!object.isLight || !object.castShadow || !object.shadow) return;
-    object.shadow.mapSize.setScalar(qualityPolicy.shadowMapSize);
-    if (object.shadow.map) {
-      object.shadow.map.dispose();
-      object.shadow.map = null;
-    }
-  });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, qualityPolicy.dpr));
+  applyRenderQuality(renderer, scene, qualityPolicy);
   qualityMonitor.setTier(tier);
   return true;
 }
 
 applyQualityTier(qualityTier);
 
-// --- seamless world streaming state ---
-// The grassland is built lazily when the prairie tree is reached; until then
-// it's null and only the prairie exists.
-let grassland = null;
-// The LIVE obstacle list the train routes against. Starts as the prairie's;
-// becomes (kept prairie) + grassland once the grassland streams in.
-let obstacles = world.obstacles;
-// The current objective — the prairie tree first, then the grassland tree.
-let goalPos = world.landmarkPos;
-// Progression: 'prairie' (driving to the first tree) → 'grassland' (driving to
-// the second) → 'done' (end beat shown). Each goal arrival fires exactly once.
-let stage = 'prairie';
-
-// Build the grassland (the second "level") behind the arrival card. By the time
-// this runs the card is already painted over the whole screen, so the one-frame
-// hitch from generating a biome's worth of geometry — and freeing the western
-// prairie — is hidden: it lands on the text the player is reading, not on live
-// gameplay. Two rAFs so the browser has actually painted the card before the
-// main thread blocks; the card locks its own dismiss for 600ms, well past this.
-function streamGrassland() {
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      grassland = createGrassland(scene);
-      world.disposeBefore(); // unload the western prairie (prunes obstacles in place)
-      obstacles = world.obstacles.concat(grassland.obstacles); // kept prairie + grassland
-      goalPos = grassland.landmarkPos; // now carry the journey on to the new tree
-      stage = 'grassland';
-    })
-  );
-}
-
-train.onEvent = (name) => {
-  if (name === 'blocked') {
-    audio.chime('soft');
-    ui.toast('The way ahead is blocked — head to the cab and plot a way around.');
-  } else if (name === 'route-finished' && stage !== 'done') {
-    ui.toast('End of the plotted route. The train rests — extend it from the cab.');
-  }
-};
+const journey = createJourney({ scene, world, train, fog, ui, audio });
 
 const state = {
   started: false,
-  // distance travelled at the last fog reveal, so the travel loop fires on
-  // distance rather than time.
+  // distance travelled at the last fog reveal
   lastRevealAt: 0,
 };
-
-// Reveal a forward-fanning cone at the train, aimed along where it FACES (not
-// where it has been) — so the cone is there from the first frame at spawn, even
-// before the train moves, and always points the way the cab view looks.
-function revealAhead() {
-  train.forwardDir(fwdDir);
-  fog.revealCone(
-    train.pos.x,
-    train.pos.z,
-    fwdDir.x,
-    fwdDir.z,
-    TUNING.revealRadius,
-    TUNING.revealRadius * TUNING.revealForwardMult,
-    TUNING.revealConeEndRadius,
-    TUNING.revealConeNearRadius,
-    TUNING.revealConeSteps
-  );
-}
 
 // time scale for tuning/testing: ?ts=4
 const timeScale = clamp(parseFloat(params.get('ts') || '1') || 1, 0.1, 20);
 
-// first reveal at the spawn point — a forward cone along the train's facing,
-// so the way ahead is already partly lit before you drive a single unit.
-revealAhead();
+revealAhead(fog, train);
 
-// ------------------------------------------------------------- map input
-const raycaster = new THREE.Raycaster();
-// Map clicks land on this plane (y=0). The route overlay in train.js must be
-// drawn at the same height (ROUTE_Y) or the tilted map camera shows parallax.
-const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-const ndc = new THREE.Vector2();
-const hit = new THREE.Vector3();
+// ----------------------------------------------------------------- input
+const walking = () => (rig.mode === 'inhabit' || rig.mode === 'cabin') && !rig.busy;
+const views = bindViewControls({ canvas, camera, rig, train, player, ui, audio });
+bindTouchZones(canvas, input, walking);
+bindSecretWarp({ rig, player, train, ui, journey });
 
-// One finger (or the mouse) pans the map / orbits the book view; two
-// fingers pinch-zoom. Pointers are tracked per-id so a second finger
-// can't double-feed the drag.
-const scenePointers = new Map(); // pointerId -> last position
-let dragMoved = 0;
-let pinchGap = 0;
-
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-function pinchGapNow() {
-  const values = scenePointers.values();
-  const a = values.next().value;
-  const b = values.next().value;
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-canvas.addEventListener('pointerdown', (e) => {
-  if ((rig.mode !== 'map' && rig.mode !== 'book') || rig.busy) return;
-  if (scenePointers.size === 0) dragMoved = 0;
-  scenePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (scenePointers.size === 2) {
-    pinchGap = pinchGapNow();
-    dragMoved += 999; // a pinch is never a waypoint tap
-  }
-});
-
-canvas.addEventListener('pointermove', (e) => {
-  const prev = scenePointers.get(e.pointerId);
-  if (!prev) return;
-  const dx = e.clientX - prev.x;
-  const dy = e.clientY - prev.y;
-  prev.x = e.clientX;
-  prev.y = e.clientY;
-  dragMoved += Math.abs(dx) + Math.abs(dy);
-
-  if (scenePointers.size >= 2) {
-    // pinch — fingers apart pulls the view closer
-    const gap = pinchGapNow();
-    if (pinchGap > 0 && gap > 0) {
-      const factor = pinchGap / gap;
-      if (rig.mode === 'map') rig.zoomMap(factor);
-      else rig.orbitZoom(factor);
-    }
-    pinchGap = gap;
-  } else if (rig.mode === 'map' && dragMoved > 6) {
-    rig.panMap(dx, dy, window.innerHeight);
-  } else if (rig.mode === 'book') {
-    rig.orbitDrag(dx, dy);
-  }
-});
-
-window.addEventListener('pointerup', (e) => {
-  const wasTracked = scenePointers.delete(e.pointerId);
-  if (scenePointers.size < 2) pinchGap = 0;
-  if (!wasTracked) return;
-  if (scenePointers.size > 0) return; // other fingers still down
-  if (rig.mode !== 'map' || rig.busy) return;
-  if (dragMoved > 6 || e.button === 2) return; // it was a pan/pinch, not a click
-
-  ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
-  raycaster.setFromCamera(ndc, camera);
-  if (raycaster.ray.intersectPlane(groundPlane, hit)) {
-    if (train.addWaypoint(hit.x, hit.z)) audio.chime('waypoint');
-  }
-});
-window.addEventListener('pointercancel', (e) => {
-  scenePointers.delete(e.pointerId);
-  if (scenePointers.size < 2) pinchGap = 0;
-});
-
-// ----------------------------------------------------------- touch zones
-// Phone/tablet controls, synthesized into the same virtual key set the
-// keyboard feeds — player & interaction logic stay unchanged. Left/right
-// thirds walk; the middle column climbs (top) or descends (bottom) at
-// ladders; the centre is E — tap to interact, keep a finger down to tend.
-// Walk modes only (inhabit + cabin): map taps lay waypoints and book drags
-// orbit, so zone-keys would fight them there.
-const touchHolds = new Map(); // pointerId -> synthesized key code
-
-function zoneCode(x, y) {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  if (x < w / 3) return 'ArrowLeft';
-  if (x > (2 * w) / 3) return 'ArrowRight';
-  if (y < h / 3) return 'ArrowUp';
-  if (y > (2 * h) / 3) return 'ArrowDown';
-  return 'KeyE';
-}
-
-canvas.addEventListener('pointerdown', (e) => {
-  if (e.pointerType !== 'touch') return;
-  if ((rig.mode !== 'inhabit' && rig.mode !== 'cabin') || rig.busy) return;
-  const code = zoneCode(e.clientX, e.clientY);
-  touchHolds.set(e.pointerId, code);
-  if (!keys.has(code)) pressedThisFrame.add(code);
-  keys.add(code);
-});
-
-function releaseTouch(e) {
-  const code = touchHolds.get(e.pointerId);
-  if (code === undefined) return;
-  touchHolds.delete(e.pointerId);
-  // lift the key only when no other finger is holding the same zone
-  for (const heldCode of touchHolds.values()) {
-    if (heldCode === code) return;
-  }
-  keys.delete(code);
-}
-window.addEventListener('pointerup', releaseTouch);
-window.addEventListener('pointercancel', releaseTouch);
-
-// -------------------------------------------------------- secret debug tap
-// Three centre-screen taps within one second while standing on the undercarriage
-// at the rear of the train warps the train to just short of the current goal.
-const _debugTapTimes = [];
-
-function _isCentreZone(x, y) {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  return x > w / 3 && x < (2 * w) / 3 && y > h / 3 && y < (2 * h) / 3;
-}
-
-window.addEventListener('pointerup', (e) => {
-  if ((rig.mode !== 'inhabit' && rig.mode !== 'cabin') || rig.busy) return;
-  if (!_isCentreZone(e.clientX, e.clientY)) return;
-  // must be on the underside at the rear (rear ladder is at x=-24.0)
-  if (player.level !== 'under' || player.x > -21) return;
-
-  const now = performance.now();
-  _debugTapTimes.push(now);
-  // keep only the taps that fall within the last second
-  while (_debugTapTimes.length && now - _debugTapTimes[0] > 1000) _debugTapTimes.shift();
-
-  if (_debugTapTimes.length >= 3) {
-    _debugTapTimes.length = 0;
-    train.reset({ x: goalPos.x - 150, z: goalPos.z, heading: 0 });
-    ui.toast('warped to tree');
-  }
-});
-
-// ----------------------------------------------------------- view buttons
-// Clear hit targets for the views a phone can't E/Escape out of.
-function toggleOrbitView() {
-  if (rig.mode !== 'book' || rig.busy) return;
-  const on = rig.toggleAutoOrbit();
-  ui.toast(on ? 'gentle orbit' : 'view held', 1600);
-}
-
-ui.bindViewButtons({
-  onOrbit: toggleOrbitView,
-  onUndo: () => {
-    if (rig.mode === 'map' && !rig.busy) train.undoWaypoint();
-  },
-  onClear: () => {
-    if (rig.mode === 'map' && !rig.busy) train.clearRoute();
-  },
-  onExit: () => {
-    if (rig.busy) return;
-    if (rig.mode === 'book') {
-      player.stand();
-      rig.exitBook();
-    } else if (rig.mode === 'map') {
-      rig.exitMap();
-      audio.chime('soft');
-    }
-  },
-});
-
-canvas.addEventListener(
-  'wheel',
-  (e) => {
-    if (rig.mode === 'map') {
-      e.preventDefault();
-      rig.zoomMap(Math.exp(e.deltaY * 0.0011));
-    } else if (rig.mode === 'book') {
-      e.preventDefault();
-      rig.orbitZoom(Math.exp(e.deltaY * 0.0011));
-    }
-  },
-  { passive: false }
-);
-
-// ------------------------------------------------------------- intro card
 ui.intro(() => {
   audio.start();
   state.started = true;
 });
 
-// ----------------------------------------------------------------- resize
-// Reconciled every frame instead of trusting resize events: CSS keeps the
-// canvas at 100% of the viewport, and we match the drawing buffer to its
-// actual on-screen size × devicePixelRatio. This survives fullscreen
-// transitions, browser zoom, and moving between displays with different
-// pixel ratios — all cases where a one-shot 'resize' listener misses.
-function syncRendererSize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, qualityPolicy.dpr);
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  if (w === 0 || h === 0) return;
-  const bw = Math.floor(w * dpr);
-  const bh = Math.floor(h * dpr);
-  if (canvas.width !== bw || canvas.height !== bh) {
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(w, h, false); // false: leave CSS sizing alone
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-  }
+function syncSize() {
+  const aspect = syncRendererSize(renderer, canvas, qualityPolicy);
+  if (aspect !== null) rig.setAspect(aspect);
 }
-syncRendererSize();
+syncSize();
 
 // ------------------------------------------------------------------- loop
 const clock = new THREE.Clock();
@@ -385,19 +102,10 @@ let elapsed = 0;
 let animationFrame = null;
 let previousFrameTime = 0;
 let slowUpdateElapsed = Infinity;
-let audioSuspendedForVisibility = false;
-let audioVisibilityTransition = Promise.resolve();
-
-// Project a world point (ground height) and decide its edge-marker placement.
-function placeMarker(tx, tz) {
-  markerVec.set(tx, 0, tz).project(camera);
-  const behind = markerVec.z > 1; // point is behind the camera
-  return edgePlacement(markerVec.x, markerVec.y, behind, 0.9); // 0.9 = ride 5% in from each edge
-}
 
 function tick(frameTime) {
   animationFrame = requestAnimationFrame(tick);
-  syncRendererSize();
+  syncSize();
   if (previousFrameTime && !QUALITY_TIERS[forcedQuality]) {
     const nextTier = qualityMonitor.sample(frameTime - previousFrameTime);
     if (nextTier) applyQualityTier(nextTier);
@@ -409,79 +117,31 @@ function tick(frameTime) {
   slowUpdateElapsed += rawDt;
 
   if (state.started) {
-    // global keys
-    if (pressedThisFrame.has('KeyM')) ui.setMuted(audio.toggleMute());
-    if (rig.mode === 'map' && !rig.busy) {
-      if (pressedThisFrame.has('KeyZ') || pressedThisFrame.has('Backspace')) train.undoWaypoint();
-      if (pressedThisFrame.has('KeyC')) train.clearRoute();
-    }
-    if (pressedThisFrame.has('KeyO')) toggleOrbitView();
-
+    views.updateHotkeys(input);
     interactions.update(dt, input);
 
     // Always update so the player rig re-syncs onto the (still-moving) train
-    // every frame — otherwise it goes stale in world space during camera
-    // transitions, e.g. standing from a rest leaves it behind the train for
-    // the length of the tween. Only feed real input when it's drivable.
-    const controllable = (rig.mode === 'inhabit' || rig.mode === 'cabin') && !rig.busy;
-    player.update(dt, controllable ? input : NEUTRAL_INPUT, elapsed);
-    // Bolt the player rigidly into the car it occupies while the camera is locked
-    // close (cab + seated views) so it rides the car's sway instead of hanging
-    // static above a wobbling floor. Self-healing: derives dock state from the
-    // current camera mode every frame, so every path into the cab is covered.
+    // every frame; only feed real input when it's drivable.
+    player.update(dt, walking() ? input : NEUTRAL_INPUT, elapsed);
     player.syncDock(rig.mode);
 
     train.paused = rig.mapEngaged;
-    train.update(dt, elapsed, obstacles);
+    train.update(dt, elapsed, journey.obstacles);
 
-    // fog peels back as the train travels — re-stamp the forward cone every
-    // few units so it reveals as far ahead as the cutaway view can see.
     if (train.distanceTraveled - state.lastRevealAt >= TUNING.revealEvery) {
       state.lastRevealAt = train.distanceTraveled;
-      revealAhead();
+      revealAhead(fog, train);
     }
 
-    // arrival at the current goal — gentle, fires once per goal via the stage
-    // machine (each branch advances `stage` so the test can never re-fire).
-    // 'streaming' is the brief gap while the grassland builds behind the card.
-    if (stage !== 'done' && stage !== 'streaming') {
-      const d = Math.hypot(train.pos.x - goalPos.x, train.pos.z - goalPos.z);
-      if (d < world.arriveRadius) {
-        if (stage === 'prairie') {
-          // reached the first tree. Pull up here: clearing the route empties the
-          // waypoint queue and coasts the train to a stop (update() damps speed
-          // to 0 with no route), so you rest at the tree rather than rolling on.
-          train.clearRoute();
-          // Put the full-screen card up FIRST, then build the grassland a paint
-          // later (streamGrassland) so its hitch is hidden behind the card while
-          // the player reads — never mid-gameplay.
-          audio.chime('arrive');
-          audio.setBiome('grassland'); // water/birds as you enter the wetland
-          ui.arrival(); // the big "you've arrived" card — rest here, or roll on
-          stage = 'streaming'; // freeze arrival logic until the build lands
-          streamGrassland();
-        } else {
-          // reached the grassland tree — the end beat
-          train.clearRoute();
-          audio.chime('arrive');
-          fog.reveal(goalPos.x, goalPos.z, 220);
-          setTimeout(() => ui.endBeat(), 1400);
-          stage = 'done';
-        }
-      }
-    }
+    journey.update();
   }
 
   rig.update(dt, elapsed);
-  rig.applySceneFog(scene.fog);
+  updateHaze(scene.fog, rig.mapBlend);
   fog.setBlend(rig.mapBlend);
 
   // see-through walls follow the player; book mode seals the whole train
-  const zone =
-    player.level === 'roof' && player.x > CAB_FROM_X
-      ? 'cab'
-      : 'car' + (player.x > 8.3 ? 0 : player.x < -8.3 ? 2 : 1);
-  train.setFocus(zone, rig.mode === 'book' || rig.transitionTarget === 'book', dt);
+  train.setFocus(focusZone(player.level, player.x), rig.mode === 'book' || rig.transitionTarget === 'book', dt);
 
   train.updateRouteDisplay(rig.mapBlend, elapsed);
   if (slowUpdateElapsed >= 1 / qualityPolicy.slowUpdateHz) {
@@ -489,23 +149,24 @@ function tick(frameTime) {
     ui.setGauges(train.eff, train.wear);
     ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
     ui.setOrbitActive(rig.autoOrbit);
-    // Edge markers are a map-view aid only — point to the tree (and back to the
-    // train) along the map's borders, hidden in the inhabit and book views.
+    // Edge markers are a map-view aid only.
     if (state.started && rig.mapEngaged) {
       const W = canvas.clientWidth;
       const H = canvas.clientHeight;
-      ui.setEdgeMarker('tree', placeMarker(goalPos.x, goalPos.z), W, H);
-      ui.setEdgeMarker('train', placeMarker(train.pos.x, train.pos.z), W, H);
+      const goal = journey.goalPos;
+      ui.setEdgeMarker('tree', placeMarker(camera, goal.x, goal.z), W, H);
+      ui.setEdgeMarker('train', placeMarker(camera, train.pos.x, train.pos.z), W, H);
     } else {
       ui.hideEdgeMarkers();
     }
   }
+  followShadowBox(sunLight, train.pos);
   world.update(dt, elapsed, train.pos, camera.position);
-  if (grassland) grassland.update(dt, elapsed, train.pos, camera.position);
+  if (journey.grassland) journey.grassland.update(dt, elapsed, train.pos, camera.position);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
   audio.update(dt, train.speed / TUNING.baseSpeed);
 
-  pressedThisFrame.clear();
+  input.endFrame();
   renderer.render(scene, camera);
 }
 
@@ -518,29 +179,17 @@ document.addEventListener('visibilitychange', () => {
     previousFrameTime = 0;
     clock.stop();
     qualityMonitor.resetTiming();
-    if (audio.ctx?.state === 'running') {
-      audioSuspendedForVisibility = true;
-      const ctx = audio.ctx;
-      audioVisibilityTransition = audioVisibilityTransition.then(() => ctx.suspend()).catch(() => {});
-    }
+    audio.suspendForVisibility();
     return;
   }
 
   clock.start();
-  if (audioSuspendedForVisibility && audio.ctx) {
-    const ctx = audio.ctx;
-    audioSuspendedForVisibility = false;
-    audioVisibilityTransition = audioVisibilityTransition
-      .then(() => (ctx.state === 'suspended' ? ctx.resume() : undefined))
-      .catch(() => {});
-  }
+  audio.resumeFromVisibility();
   if (animationFrame === null) animationFrame = requestAnimationFrame(tick);
 });
 
-// debug / verification handle. grassland/obstacles/goalPos are getters so they
-// always reflect the live progression state.
-window.__game = {
-  train, player, rig, fog, state, sky, camera, WORLD,
+installDebugHandle({
+  train, player, rig, fog, state, sky, camera, journey,
   quality: {
     tiers: QUALITY_TIERS,
     forced: QUALITY_TIERS[forcedQuality] ? forcedQuality : null,
@@ -560,20 +209,4 @@ window.__game = {
       };
     },
   },
-  get grassland() { return grassland; },
-  get obstacles() { return obstacles; },
-  get goalPos() { return goalPos; },
-  // warp the train ~150u SHORT of the active goal so you can drive into it and
-  // watch the streaming / end beat happen. Returns a status line (reset itself
-  // returns nothing) — then drive in from the cab, or use driveToTree().
-  warpToTree: () => {
-    train.reset({ x: goalPos.x - 150, z: goalPos.z, heading: 0 });
-    return `warped to (${Math.round(train.pos.x)}, ${Math.round(train.pos.z)}); goal at (${goalPos.x}, ${goalPos.z}). Route cleared — drive in from the cab, or run __game.driveToTree().`;
-  },
-  // warp short AND auto-route into the goal so it drives in on its own.
-  driveToTree: () => {
-    train.reset({ x: goalPos.x - 150, z: goalPos.z, heading: 0 });
-    train.addWaypoint(goalPos.x, goalPos.z);
-    return `driving into goal at (${goalPos.x}, ${goalPos.z})…`;
-  },
-};
+});

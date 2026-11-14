@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { edgePlacement } from '../src/markers.js';
+import { edgePlacement } from '../src/map/markers.js';
 
 test('target centered in front is on-screen', () => {
   const p = edgePlacement(0, 0, false, 0.9);

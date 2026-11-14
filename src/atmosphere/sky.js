@@ -1,6 +1,10 @@
 import * as THREE from 'three';
-import { WORLD, BIOME_FADE, clamp, lerp, smootherstep, damp } from './constants.js';
-import { softDiscTexture } from './world.js';
+import { WORLD, BIOME_FADE, clamp, lerp, smootherstep, damp } from '../constants.js';
+import {
+  SKY_KEYS_PRAIRIE as KEYS, SKY_KEYS_GRASSLAND as KEYS_GRASSLAND, SKY_LOOK, skyMaterials, softDiscTexture, jitterHSL,
+} from '../look.js';
+import { lcg } from '../prng.js';
+import { STAR_VERT, STAR_FRAG, FIREFLY_VERT, FIREFLY_FRAG } from './sky-shaders.js';
 
 // One full day every two minutes. The whole pass is a keyframed colour
 // timeline sampled by phase — twilight gets its own palette instead of a
@@ -12,139 +16,13 @@ const SUNSET = 0.47;
 const SUNRISE = 0.885;
 const DAY_SPAN = SUNSET - SUNRISE + 1;
 
-function key(t, sky, fog, hemiSky, hemiGround, hemiI, dirCol, dirI, cloud, cloudOp, stars, exp) {
-  return {
-    t,
-    sky: sky.map((c) => new THREE.Color(c)),
-    fog: new THREE.Color(fog),
-    hemiSky: new THREE.Color(hemiSky),
-    hemiGround: new THREE.Color(hemiGround),
-    hemiI,
-    dirCol: new THREE.Color(dirCol),
-    dirI,
-    cloud: new THREE.Color(cloud),
-    cloudOp,
-    stars,
-    exp,
-  };
-}
-
-// t, [zenith, upper, lower, horizon], fog, hemiSky, hemiGround, hemiI,
-// sunCol, sunI, cloudTint, cloudOp, starAlpha, exposure
-const KEYS = [
-  key(0.000, ['#1d5cb8', '#3f88d6', '#93c4ec', '#dcebd8'], '#d4e4d4', '#eaf4ff', '#8e9a70', 1.0, '#fff1d6', 2.25, '#ffffff', 1.0, 0.0, 1.06),
-  key(0.360, ['#33639e', '#7da2c4', '#e3c79a', '#f4c27e'], '#ecca96', '#ffe2b8', '#7c7e58', 0.95, '#ffd9a0', 2.05, '#ffe7c4', 1.0, 0.0, 1.07),
-  key(0.440, ['#2c4a82', '#6a6fa0', '#e08f6e', '#ff9e54'], '#e89a66', '#ffb98a', '#5e5448', 0.78, '#ff9e58', 1.5, '#ffb287', 0.95, 0.05, 1.08),
-  key(0.500, ['#16204a', '#2c3164', '#5d4470', '#b06a58'], '#6e4e58', '#6a6a96', '#343246', 0.5, '#7a86c0', 0.7, '#3c3a58', 0.4, 0.55, 1.02),
-  key(0.565, ['#060b1c', '#0b1530', '#122044', '#1b2c52'], '#1b2c52', '#2c3c64', '#131826', 0.4, '#a8c4ee', 0.55, '#141d36', 0.15, 1.0, 0.98),
-  key(0.800, ['#060b1c', '#0b1530', '#122044', '#1b2c52'], '#1b2c52', '#2c3c64', '#131826', 0.4, '#a8c4ee', 0.55, '#141d36', 0.15, 1.0, 0.98),
-  key(0.860, ['#0a1230', '#1a2348', '#3a3060', '#7e4e62'], '#5e4458', '#4a4a78', '#1e2236', 0.45, '#8a90c8', 0.6, '#46395a', 0.3, 0.7, 1.0),
-  key(0.905, ['#1e3c74', '#4a5e9e', '#e8889a', '#ffc274'], '#f0a878', '#ffc8a0', '#5a5450', 0.8, '#ffb070', 1.7, '#ffb8a0', 0.9, 0.08, 1.2),
-  key(0.950, ['#2a62b2', '#5e96cc', '#bcd8d4', '#f0d8ac'], '#e4d8b4', '#f4ecd8', '#86926a', 0.95, '#ffe9c0', 2.1, '#fff0dc', 1.0, 0.0, 1.1),
-  key(1.000, ['#1d5cb8', '#3f88d6', '#93c4ec', '#dcebd8'], '#d4e4d4', '#eaf4ff', '#8e9a70', 1.0, '#fff1d6', 2.25, '#ffffff', 1.0, 0.0, 1.06),
-];
-
-// Grassland palette: same t keyframes as KEYS, dialled cool and watery for a
-// "fresh, misty wetland morning" mood. Blue-green fog, a gentler/cooler sun,
-// cooler hemisphere and dome gradients. Same day→dusk→night→dawn structure.
-// #sample blends this against KEYS positionally as the train crosses into
-// the grassland — see biomeBlend.
-const KEYS_GRASSLAND = [
-  key(0.000, ['#1c64a8', '#4a98c4', '#a6dcd4', '#d4eede'], '#bfe3da', '#dcf2f0', '#6f8a78', 0.95, '#eaf6e6', 2.0, '#f2fbf4', 1.0, 0.0, 1.05),
-  key(0.360, ['#2c6e9e', '#74b0c0', '#bfe0c4', '#d6ecc4'], '#cfe6cc', '#dcf2e0', '#62805e', 0.9, '#dceed0', 1.85, '#e6f4e4', 1.0, 0.0, 1.06),
-  key(0.440, ['#285a86', '#5c84a4', '#9cc8b0', '#c6dcaa'], '#c2dcb2', '#cfe6c0', '#506650', 0.74, '#cfe2c0', 1.35, '#c6e0c2', 0.95, 0.05, 1.07),
-  key(0.500, ['#142242', '#283460', '#46506e', '#86808e'], '#5a6e6e', '#566f86', '#2c3640', 0.48, '#86a0bc', 0.62, '#363e54', 0.4, 0.55, 1.02),
-  key(0.565, ['#050c1a', '#0a162c', '#10243e', '#173050'], '#173050', '#26404e', '#101c22', 0.4, '#9cc0e6', 0.5, '#121f30', 0.15, 1.0, 0.98),
-  key(0.800, ['#050c1a', '#0a162c', '#10243e', '#173050'], '#173050', '#26404e', '#101c22', 0.4, '#9cc0e6', 0.5, '#121f30', 0.15, 1.0, 0.98),
-  key(0.860, ['#091230', '#16284a', '#2a3a5a', '#4a566a'], '#3a4e58', '#3c4e60', '#1a2230', 0.45, '#90b0d4', 0.55, '#3a4858', 0.3, 0.7, 1.0),
-  key(0.905, ['#1c4470', '#4870a0', '#9cc4c4', '#d2dcb0'], '#c0dcc8', '#cfe6cc', '#56685a', 0.78, '#d0e6cc', 1.5, '#c4dcc8', 0.9, 0.08, 1.16),
-  key(0.950, ['#2670b2', '#5ea6cc', '#aeded4', '#d4eecc'], '#cfe6d4', '#dcf2e2', '#74906e', 0.92, '#e2f2d8', 1.9, '#eef8e8', 1.0, 0.0, 1.08),
-  key(1.000, ['#1c64a8', '#4a98c4', '#a6dcd4', '#d4eede'], '#bfe3da', '#dcf2f0', '#6f8a78', 0.95, '#eaf6e6', 2.0, '#f2fbf4', 1.0, 0.0, 1.05),
-];
-
-const STAR_VERT = /* glsl */ `
-  attribute float aSize;
-  attribute float aPhase;
-  attribute float aSpark;
-  attribute vec3 aColor;
-  uniform float uTime;
-  uniform float uAlpha;
-  uniform float uPR;
-  varying float vA;
-  varying vec3 vC;
-  varying float vSpark;
-  void main() {
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    float tw = 0.55 + 0.45 * sin(uTime * (1.2 + fract(aPhase * 0.731) * 2.8) + aPhase);
-    // stars dissolve toward the horizon line of the dome
-    vA = uAlpha * mix(0.35, 1.0, tw) * smoothstep(40.0, 420.0, position.y);
-    vC = aColor;
-    vSpark = aSpark;
-    gl_PointSize = aSize * uPR * mix(0.8, 1.25, tw);
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-
-const STAR_FRAG = /* glsl */ `
-  varying float vA;
-  varying vec3 vC;
-  varying float vSpark;
-  void main() {
-    vec2 p = gl_PointCoord * 2.0 - 1.0;
-    float d = length(p);
-    float core = smoothstep(1.0, 0.1, d);
-    float flare = 0.0;
-    if (vSpark > 0.5) {
-      flare = max(
-        (1.0 - smoothstep(0.0, 0.16, abs(p.y))) * (1.0 - abs(p.x)),
-        (1.0 - smoothstep(0.0, 0.16, abs(p.x))) * (1.0 - abs(p.y))
-      );
-    }
-    float a = vA * max(core, flare * 0.85);
-    if (a < 0.012) discard;
-    gl_FragColor = vec4(vC, a);
-  }
-`;
-
-const FIREFLY_VERT = /* glsl */ `
-  attribute float aPhase;
-  uniform float uTime;
-  uniform float uAlpha;
-  uniform float uPR;
-  varying float vA;
-  void main() {
-    vec3 p = position;
-    p.x += sin(uTime * 0.31 + aPhase * 13.0) * 7.0;
-    p.z += cos(uTime * 0.27 + aPhase * 17.0) * 7.0;
-    p.y += sin(uTime * 0.50 + aPhase * 29.0) * 1.2;
-    vec4 mv = modelViewMatrix * vec4(p, 1.0);
-    float fl = smoothstep(0.15, 0.85, 0.5 + 0.5 * sin(uTime * 1.8 + aPhase * 40.0));
-    vA = uAlpha * fl;
-    gl_PointSize = clamp(190.0 / -mv.z, 1.5, 16.0) * uPR;
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-
-const FIREFLY_FRAG = /* glsl */ `
-  varying float vA;
-  void main() {
-    float d = length(gl_PointCoord * 2.0 - 1.0);
-    float a = vA * smoothstep(1.0, 0.0, d);
-    if (a < 0.01) discard;
-    gl_FragColor = vec4(1.0, 0.85, 0.45, a);
-  }
-`;
-
 function meteorTexture() {
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 16;
   const ctx = c.getContext('2d');
   const g = ctx.createLinearGradient(0, 0, 128, 0);
-  g.addColorStop(0.0, 'rgba(180,200,255,0)');
-  g.addColorStop(0.75, 'rgba(220,230,255,0.55)');
-  g.addColorStop(0.95, 'rgba(255,255,255,1)');
-  g.addColorStop(1.0, 'rgba(255,255,255,0)');
+  for (const [stop, color] of SKY_LOOK.meteor) g.addColorStop(stop, color);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 16);
   const tex = new THREE.CanvasTexture(c);
@@ -169,8 +47,7 @@ export class SkyCycle {
     this._kB = {}; // scratch: KEYS_GRASSLAND sampled at the current day-phase
 
     // deterministic, separate stream from the world's
-    let s = 977331;
-    const rand = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    const rand = lcg(977331);
     this.rand = rand;
 
     // everything that lives "at infinity" rides along with the camera
@@ -184,31 +61,21 @@ export class SkyCycle {
     this.domeCtx = this.domeCanvas.getContext('2d');
     this.domeTex = new THREE.CanvasTexture(this.domeCanvas);
     this.domeTex.colorSpace = THREE.SRGBColorSpace;
-    const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(4200, 24, 16),
-      new THREE.MeshBasicMaterial({ map: this.domeTex, side: THREE.BackSide, fog: false, depthWrite: false })
-    );
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(4200, 24, 16), skyMaterials.dome(this.domeTex));
     dome.renderOrder = -10;
     this.rig.add(dome);
 
     // --- sun + moon -------------------------------------------------------
-    const sprite = (inner, outer, scale) => {
-      const sp = new THREE.Sprite(
-        new THREE.SpriteMaterial({
-          map: softDiscTexture(inner, outer),
-          transparent: true,
-          depthWrite: false,
-          fog: false,
-        })
-      );
+    const sprite = (gradient, scale) => {
+      const sp = new THREE.Sprite(skyMaterials.disc(gradient));
       sp.scale.setScalar(scale);
       this.rig.add(sp);
       return sp;
     };
-    this.sunCore = sprite('rgba(255,244,214,1)', 'rgba(255,214,150,0)', 620);
-    this.sunHalo = sprite('rgba(255,206,140,0.8)', 'rgba(255,190,120,0)', 1100);
-    this.moonCore = sprite('rgba(236,242,255,1)', 'rgba(214,226,255,0)', 230);
-    this.moonGlow = sprite('rgba(190,210,255,0.5)', 'rgba(170,195,255,0)', 560);
+    this.sunCore = sprite(SKY_LOOK.sunCore, 620);
+    this.sunHalo = sprite(SKY_LOOK.sunHalo, 1100);
+    this.moonCore = sprite(SKY_LOOK.moonCore, 230);
+    this.moonGlow = sprite(SKY_LOOK.moonGlow, 560);
 
     // --- stars + milky way --------------------------------------------------
     this.starMat = new THREE.ShaderMaterial({
@@ -227,16 +94,7 @@ export class SkyCycle {
     this.meteors = [];
     const mTex = meteorTexture();
     for (let i = 0; i < 3; i++) {
-      const sp = new THREE.Sprite(
-        new THREE.SpriteMaterial({
-          map: mTex,
-          transparent: true,
-          opacity: 0,
-          depthWrite: false,
-          fog: false,
-          blending: THREE.AdditiveBlending,
-        })
-      );
+      const sp = new THREE.Sprite(skyMaterials.meteor(mTex));
       sp.scale.set(320, 9, 1);
       sp.visible = false;
       this.rig.add(sp);
@@ -273,12 +131,10 @@ export class SkyCycle {
     }
 
     // --- clouds (world-anchored, tinted by the timeline) ----------------------
-    const cloudTex = softDiscTexture('rgba(255,250,240,0.85)', 'rgba(255,250,240,0)');
+    const cloudTex = softDiscTexture(...SKY_LOOK.cloud);
     this.clouds = [];
     for (let i = 0; i < 10; i++) {
-      const cl = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false })
-      );
+      const cl = new THREE.Sprite(skyMaterials.cloud(cloudTex));
       cl.scale.set(220 + rand() * 260, 60 + rand() * 60, 1);
       cl.position.set(
         WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
@@ -290,7 +146,7 @@ export class SkyCycle {
     }
 
     // hemisphere light lives here — it IS the sky's contribution to the ground
-    this.hemi = new THREE.HemisphereLight(0xeaf4ff, 0x8e9a70, 1.0);
+    this.hemi = new THREE.HemisphereLight(SKY_LOOK.hemiSky, SKY_LOOK.hemiGround, SKY_LOOK.hemiIntensity);
     scene.add(this.hemi);
   }
 
@@ -326,15 +182,15 @@ export class SkyCycle {
       if (milkyWay) {
         size[i] = 0.8 + rand() * 1.4;
         spark[i] = 0;
-        _c1.setHSL(0.6 + rand() * 0.06, 0.25, 0.55 + rand() * 0.2).multiplyScalar(0.4);
+        jitterHSL(_c1, rand, SKY_LOOK.milkyWay).multiplyScalar(SKY_LOOK.milkyWayDim);
       } else {
         const hero = rand() > 0.965;
         size[i] = hero ? 5 + rand() * 3 : 1 + rand() * 2.4;
         spark[i] = hero ? 1 : 0;
         const warm = rand();
-        if (warm > 0.85) _c1.set('#ffe2b8');
-        else if (warm > 0.7) _c1.set('#cfe0ff');
-        else _c1.set('#ffffff');
+        if (warm > 0.85) _c1.set(SKY_LOOK.starWarm);
+        else if (warm > 0.7) _c1.set(SKY_LOOK.starCool);
+        else _c1.set(SKY_LOOK.starWhite);
       }
       color[i * 3] = _c1.r;
       color[i * 3 + 1] = _c1.g;
@@ -456,8 +312,8 @@ export class SkyCycle {
     this.sunHalo.material.opacity = sunVis * (0.45 + 0.4 * lowness);
     this.sunCore.scale.setScalar(620 + lowness * 330);
     this.sunHalo.scale.setScalar(900 + lowness * 950);
-    _c1.set('#fff7e6');
-    _c2.set('#ff9c4a');
+    _c1.set(SKY_LOOK.sunHigh);
+    _c2.set(SKY_LOOK.sunLow);
     this.sunCore.material.color.lerpColors(_c1, _c2, lowness * 0.85);
     this.sunHalo.material.color.lerpColors(_c1, _c2, lowness);
 

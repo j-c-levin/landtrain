@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { WORLD, TUNING } from './constants.js';
+import { WORLD, TUNING } from '../constants.js';
+import { MAP_LOOK, mapMaterials } from '../look.js';
+import { lcg } from '../prng.js';
 
 // Fog of war: an opaque dark canvas stretched over the whole world on a
 // plane at y=60 (between the overhead camera and the ground). Travel
@@ -21,13 +23,7 @@ export class FogOfWar {
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
 
-    this.material = new THREE.MeshBasicMaterial({
-      map: this.texture,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-      fog: false,
-    });
+    this.material = mapMaterials.shroud(this.texture);
 
     // y=75 clears the tallest undiscovered ridge rocks (~55) so nothing
     // pokes up through the shroud; only the Great Tree (the destination,
@@ -44,11 +40,10 @@ export class FogOfWar {
   // blotches so the unknown has texture. The fresh, fully-shrouded state.
   #shroud() {
     this.ctx.globalCompositeOperation = 'source-over';
-    this.ctx.fillStyle = '#221a30';
+    this.ctx.fillStyle = MAP_LOOK.shroud;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = 'rgba(58,44,72,0.35)';
-    let sx = 12345;
-    const rnd = () => ((sx = (sx * 16807) % 2147483647) / 2147483647);
+    this.ctx.fillStyle = MAP_LOOK.shroudBlotch;
+    const rnd = lcg(12345);
     for (let i = 0; i < 130; i++) {
       this.ctx.beginPath();
       this.ctx.ellipse(

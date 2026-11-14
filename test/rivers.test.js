@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockedAt } from '../src/world.js';
-import { chainRiverSegs } from '../src/grassland.js';
+import { blockedAt } from '../src/collision.js';
+import { chainRiverSegs } from '../src/grassland/rivers.js';
 
 // chainRiverSegs turns one meandering river into a chain of `nSegs` collision
 // segs sampled off a centerline, remapping each river-global gap window

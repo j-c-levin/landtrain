@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { LEVELS, LADDERS, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from './constants.js';
+import { LEVELS, LADDERS, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from '../constants.js';
+import { createCharacterMaterials } from '../look.js';
 
 const LEVEL_ORDER = ['under', 'deck', 'roof'];
 
@@ -29,10 +30,7 @@ export class Player {
   }
 
   #buildMesh() {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.9 });
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf0c8a0, roughness: 0.9 });
-    const scarfMat = new THREE.MeshStandardMaterial({ color: 0xb5483a, roughness: 0.95 });
-    const bootMat = new THREE.MeshStandardMaterial({ color: 0x5c4332, roughness: 0.95 });
+    const { body: bodyMat, skin: skinMat, scarf: scarfMat, boot: bootMat } = createCharacterMaterials();
 
     this.body = new THREE.Group();
 

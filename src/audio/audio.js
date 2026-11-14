@@ -8,6 +8,24 @@ export class AudioFX {
     this.tickCooldown = 0;
     this.biome = 'prairie';
     this.chirpTimer = 0;
+    this.suspendedForVisibility = false;
+    this.visibilityTransition = Promise.resolve();
+  }
+
+  suspendForVisibility() {
+    if (this.ctx?.state !== 'running') return;
+    this.suspendedForVisibility = true;
+    const ctx = this.ctx;
+    this.visibilityTransition = this.visibilityTransition.then(() => ctx.suspend()).catch(() => {});
+  }
+
+  resumeFromVisibility() {
+    if (!this.suspendedForVisibility || !this.ctx) return;
+    const ctx = this.ctx;
+    this.suspendedForVisibility = false;
+    this.visibilityTransition = this.visibilityTransition
+      .then(() => (ctx.state === 'suspended' ? ctx.resume() : undefined))
+      .catch(() => {});
   }
 
   start() {

@@ -39,14 +39,14 @@ droop — they never die.
 ## Dev notes
 
 - One shared 3D world; the cutaway view and the overhead map are two
-  framings of a single camera, tweened continuously (`src/camera.js`).
+  framings of a single camera, tweened continuously (`src/camera/camera.js`).
 - Cars are articulated: the lead tractor point records its travelled
   trail and each car samples it at its arc-length offset, so every car
-  turns where the car ahead turned (`TrailPath` in `src/train.js`).
+  turns where the car ahead turned (`TrailPath` in `src/train/trail.js`).
 - Walls are see-through per zone: the car you occupy fades out; the
   others stay opaque except their window openings. Book mode seals
   everything and hands you a free orbit camera.
 - Fog of war is a canvas texture with soft holes punched along the
-  travelled path (`src/fog.js`).
+  travelled path (`src/map/fog-of-war.js`).
 - Append `?ts=4` to the URL to speed up time for tuning/testing.
 - `window.__game` exposes live state in the console.
