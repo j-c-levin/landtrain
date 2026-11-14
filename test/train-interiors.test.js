@@ -272,11 +272,12 @@ for (const spot of [
 test('focus fades only the occupied zone and book transitions restore opacity and depth writes', (t) => {
   const { train, rig } = fixture(t);
   const entries = [...Object.entries(train.zoneMats).map(([zone, mat]) => ({ zone, mat })), ...train.fadeMats];
+  const ghost = (entry) => (train.fadeMats.includes(entry) ? 0 : 0.03);
   for (const zone of ['car0', 'car1', 'car2', 'cab']) {
     assert.ok(entries.some((entry) => entry.zone === zone), `${zone} has focus materials`);
     train.setFocus(zone, false, 3);
     for (const entry of entries) {
-      near(entry.mat.opacity, entry.zone === zone ? 0.06 : 1, `${zone}/${entry.zone} opacity`);
+      near(entry.mat.opacity, entry.zone === zone ? ghost(entry) : 1, `${zone}/${entry.zone} opacity`);
       assert.equal(entry.mat.depthWrite, entry.zone !== zone);
       assert.equal(entry.mat.transparent, true);
     }
@@ -293,9 +294,9 @@ test('focus fades only the occupied zone and book transitions restore opacity an
   for (const { mat } of entries) near(mat.opacity, 1, 'opaque throughout book exit');
   rig.update(2, 5);
   train.setFocus('car2', rig.mode === 'book' || rig.transitionTarget === 'book', 3);
-  for (const { zone, mat } of entries) {
-    near(mat.opacity, zone === 'car2' ? 0.06 : 1, 'inhabit focus restored');
-    assert.equal(mat.depthWrite, zone !== 'car2');
+  for (const entry of entries) {
+    near(entry.mat.opacity, entry.zone === 'car2' ? ghost(entry) : 1, 'inhabit focus restored');
+    assert.equal(entry.mat.depthWrite, entry.zone !== 'car2');
   }
   for (const { source } of train.fadeMats) assert.equal(source.opacity, 1, 'shared source stays opaque');
 });

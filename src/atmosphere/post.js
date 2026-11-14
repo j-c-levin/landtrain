@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import { CHART } from '../look.js';
 
 // High tier only: the scene renders to a float target, then one pass applies a
 // depth-keyed tilt-shift blur (sharp around the focus distance, soft in front
 // and behind, like a macro lens over a model), a vignette, and the tone map.
+// Over the map the blur gives way to a pen: ink wherever the depth breaks.
 const VERT = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -23,7 +25,27 @@ const FRAG = /* glsl */ `
   uniform float uStrength;
   uniform float uMaxRadius;
   uniform float uVignette;
+  uniform float uChart;
+  uniform float uPxAngle;
+  uniform vec3 uInk;
   varying vec2 vUv;
+
+  float linearZ(vec2 uv) {
+    float d = texture2D(tDepth, uv).x;
+    return (uNear * uFar) / (uFar - d * (uFar - uNear));
+  }
+  float inkHash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+  }
+  float inkNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(inkHash(i), inkHash(i + vec2(1.0, 0.0)), f.x),
+               mix(inkHash(i + vec2(0.0, 1.0)), inkHash(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
 
   float coc(vec2 uv) {
     float d = texture2D(tDepth, uv).x;
@@ -52,6 +74,21 @@ const FRAG = /* glsl */ `
       }
       col /= total;
     }
+    if (uChart > 0.0) {
+      vec2 px = gl_FragCoord.xy;
+      vec2 o = uTexel * 1.5;
+      float zc = linearZ(vUv);
+      float lap = abs(linearZ(vUv - vec2(o.x, 0.0)) + linearZ(vUv + vec2(o.x, 0.0)) - 2.0 * zc)
+                + abs(linearZ(vUv - vec2(0.0, o.y)) + linearZ(vUv + vec2(0.0, o.y)) - 2.0 * zc);
+      float m = lap / (zc * uPxAngle * 1.5);
+      float line = smoothstep(0.6, 2.4, m) * (0.72 + 0.28 * inkNoise(px * 0.03 + 11.0));
+      float pool = inkNoise(px * 0.012) * 0.6 + inkNoise(px * 0.05 + 5.0) * 0.4;
+      vec3 drawn = col * (1.0 + (pool - 0.5) * 0.08);
+      drawn = mix(drawn, uInk, line * 0.9);
+      float fibre = inkNoise(px * vec2(0.9, 0.35)) * 0.5 + inkNoise(px * 1.7) * 0.5;
+      drawn *= 1.0 - (fibre - 0.5) * 0.06;
+      col = mix(col, drawn, uChart);
+    }
     vec2 q = vUv - 0.5;
     col *= 1.0 - uVignette * smoothstep(0.25, 0.95, dot(q, q) * 2.2);
     gl_FragColor = vec4(col, 1.0);
@@ -76,6 +113,9 @@ export function createPost(renderer) {
       uStrength: { value: 1 },
       uMaxRadius: { value: 9 },
       uVignette: { value: 0.22 },
+      uChart: CHART.uChart,
+      uPxAngle: { value: 0.001 },
+      uInk: CHART.uChartInk,
     },
     vertexShader: VERT,
     fragmentShader: FRAG,
@@ -107,6 +147,7 @@ export function createPost(renderer) {
       u.uFocus.value = focus;
       u.uStrength.value = strength;
       u.uMaxRadius.value = height * 0.0062;
+      u.uPxAngle.value = (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) / height;
       renderer.setRenderTarget(target);
       renderer.render(scene, camera);
       const stats = renderer.info.render;

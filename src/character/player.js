@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { LEVELS, LADDERS, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from '../constants.js';
+import { figureShadow } from '../look.js';
 import { Figure } from './figure.js';
 
 const LEVEL_ORDER = ['under', 'deck', 'roof'];
@@ -43,6 +44,11 @@ export class Player {
     this.figure = new Figure();
     this.body = this.figure.root;
     this.group.add(this.body);
+    this.shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 20), figureShadow(this.train.practicals.contactMat.map));
+    this.shadow.rotation.x = -Math.PI / 2;
+    this.shadow.position.y = 0.03;
+    this.shadow.scale.set(0.5, 0.36, 1);
+    this.group.add(this.shadow);
   }
 
   nearestLadder() {
@@ -63,6 +69,7 @@ export class Player {
     const f = this.figure;
     f.update(dt, time, this.#pose(), this.facing, this.walkPhase, this.motionQuery?.matches ? 0 : 1, this.level === 'under' && !this.climbing);
     if (this.train.wateringCan) this.train.wateringCan.visible = !f.holdingCan;
+    this.shadow.visible = !this.sitting && !this.climbing;
   }
 
   #pose() {

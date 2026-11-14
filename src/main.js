@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { TUNING, clamp, damp } from './constants.js';
 import { QUALITY_TIERS, createQualityMonitor, selectInitialQuality } from './quality.js';
-import { setLookTier, setPaintLight } from './look.js';
+import { CHART, setChart, setLookTier, setPaintLight } from './look.js';
 import { setCoverViewport } from './groundcover.js';
 import { registerServiceWorker } from './sw-register.js';
 import { installDebugHandle, bindSecretWarp } from './debug.js';
 import { createRenderer, applyRenderQuality, syncRendererSize } from './atmosphere/renderer.js';
 import {
-  createHaze, updateHaze, createSunLight, followShadowBox, createBounceLight, followBounceLight,
+  createHaze, updateHaze, createSunLight, followShadowBox, createBounceLight, followBounceLight, applyChartLight,
 } from './atmosphere/lighting.js';
 import { createEnvironment } from './atmosphere/environment.js';
 import { createPost } from './atmosphere/post.js';
@@ -186,8 +186,10 @@ function tick(frameTime) {
   world.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
   if (journey.grassland) journey.grassland.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
+  setChart(rig.mapBlend, sky.nightness);
+  applyChartLight(sunLight, sky.hemi, scene, CHART.uChart.value);
   followShadowBox(sunLight, train.pos, sky.keyDir, rig.mapBlend);
-  followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity, sunLight.color);
+  followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity, sunLight.color, sky.duskness);
   setPaintLight(sky.nightness, sky.duskness);
   train.setNight(sky.nightness, sky.duskness);
   fog.setNight(sky.nightness);

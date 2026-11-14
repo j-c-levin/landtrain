@@ -164,7 +164,7 @@ export class Figure {
       mesh(foreGeo, M.coat, 0, -0.09, 0, elbow);
       mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.035, 10), M.trim, 0, -0.155, 0, elbow, false);
       const hand = pivot(0, -0.215, 0, elbow);
-      blob(M.skin, 0.068, 0, 0, 0, hand, true);
+      blob(M.hand, 0.068, 0, 0, 0, hand, true);
       this.shoulders.push(shoulder);
       this.elbows.push(elbow);
       this.hands.push(hand);

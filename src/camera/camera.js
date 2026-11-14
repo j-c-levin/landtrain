@@ -20,6 +20,10 @@ const CABIN_EYE_UP = 1.5; // above the roof storey floor → window-centre heigh
 // window), not a far-forward point — otherwise the cabin swings out of frame.
 const CABIN_LOOK_AHEAD = 8; // how far past the nose the gaze reaches
 const CABIN_LOOK_UP = 0.5; // look height, around the front-window sill
+// a tall, narrow screen cannot hold cab and country both: the gaze swings back onto the driver's console
+const CABIN_LOOK_NARROW = -4.4;
+const BOOK_DIST = 42;
+const BOOK_MAX = 130;
 
 const FOV = 42;
 
@@ -44,6 +48,7 @@ export class CameraRig {
     // keeps rolling, the camera just slides into place.
     this.soft = null;
     this.mapBlend = 0;
+    this.aspect = camera.aspect;
 
     // map framing state
     this.mapCenter = new THREE.Vector2();
@@ -145,10 +150,11 @@ export class CameraRig {
       LEVELS.roof + CABIN_EYE_UP,
       head.z + sin * back + cos * CABIN_CAM_SIDE
     );
+    const ahead = lerp(CABIN_LOOK_AHEAD, CABIN_LOOK_NARROW, clamp((1.1 - this.aspect) / 0.6, 0, 1));
     _look.set(
-      head.x + cos * CABIN_LOOK_AHEAD,
+      head.x + cos * ahead,
       LEVELS.roof + CABIN_LOOK_UP,
-      head.z - sin * CABIN_LOOK_AHEAD
+      head.z - sin * ahead
     );
     this.#frameFromLook(outPos, outQuat, _pos, _look);
   }
@@ -198,7 +204,7 @@ export class CameraRig {
     const h = this.train.frameAt(0).theta;
     this.orbit.theta = h + Math.PI + Math.PI / 4;
     this.orbit.phi = 0.26;
-    this.orbit.dist = 42;
+    this.orbit.dist = this.bookDist;
     this.bookHeading = h;
     this.autoOrbit = true;
     this.recentering = false;
@@ -253,7 +259,7 @@ export class CameraRig {
   orbitZoom(factor) {
     // min 1.6 lets the camera push through the car wall and settle inside,
     // right beside the reader
-    this.orbit.dist = clamp(this.orbit.dist * factor, 1.6, 130);
+    this.orbit.dist = clamp(this.orbit.dist * factor, 1.6, this.maxOrbit);
     this.autoOrbit = false;
     this.recentering = false;
   }
@@ -282,8 +288,8 @@ export class CameraRig {
           while (dTh < -Math.PI) dTh += Math.PI * 2;
           o.theta += dTh * (1 - Math.exp(-2.5 * dt));
           o.phi = damp(o.phi, 0.26, 2.5, dt);
-          o.dist = damp(o.dist, 42, 2.5, dt);
-          if (Math.abs(dTh) < 0.03 && Math.abs(o.phi - 0.26) < 0.02 && Math.abs(o.dist - 42) < 1) {
+          o.dist = damp(o.dist, this.bookDist, 2.5, dt);
+          if (Math.abs(dTh) < 0.03 && Math.abs(o.phi - 0.26) < 0.02 && Math.abs(o.dist - this.bookDist) < 1) {
             this.recentering = false;
           }
         } else {
@@ -348,7 +354,17 @@ export class CameraRig {
     this.pan.y -= dyPixels * worldPerPixel;
   }
 
+  // On a tall screen the orbit stands further off, so the whole train still fits across it.
+  get bookDist() {
+    return BOOK_DIST / Math.min(1, this.aspect) ** 0.6;
+  }
+
+  get maxOrbit() {
+    return BOOK_MAX / Math.min(1, this.aspect);
+  }
+
   setAspect(aspect) {
+    this.aspect = aspect;
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
   }

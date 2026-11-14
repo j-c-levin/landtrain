@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CAR_LEN, CAR_CENTERS, LADDERS } from '../constants.js';
-import { painted } from '../look.js';
+import { painted, shaded } from '../look.js';
 import { box, profiledBox, curvedRoof, instancedDetails } from './parts.js';
 
 export const CAR_WINDOWS = [
@@ -77,7 +77,7 @@ export function buildCarShell(train, g, ci) {
   cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, wall, CAR_WINDOWS[ci]);
   const front = isCab ? 8.15 : 6.9;
   for (const x of [-6.9, front]) {
-    box(0.22, eave - 1.78, 1.65, painted(M.innerWall), x, (eave + 1.78) / 2, -1.5, g);
+    box(0.22, eave - 1.78, 1.65, shaded(M.endWall), x, (eave + 1.78) / 2, -1.5, g);
     box(0.22, eave - 1.78, 0.95, train.fadingMat(zone, wall), x, (eave + 1.78) / 2, 1.9, g);
     box(0.22, 0.35, 2.1, painted(M.woodDark), x, eave - 0.175, 0.35, g);
   }
@@ -93,11 +93,11 @@ export function buildCarShell(train, g, ci) {
         wheel.castShadow = true;
         g.add(wheel);
         train.wheels.push(wheel);
-        const hub = new THREE.Mesh(train.geometry.wheelHub, M.wheelBoss);
+        const hub = new THREE.Mesh(train.geometry.wheelHub, M.brass);
         wheel.add(hub);
         const spokes = [];
         for (let a = 0; a < Math.PI - 0.01; a += Math.PI / 4) spokes.push([0, 0, Math.sign(wz) * 0.24, 1.5, 0.09, 0.06, 0, 0, a]);
-        instancedDetails(spokes, train.geometry.detail, M.spoke, wheel);
+        instancedDetails(spokes, train.geometry.detail, M.cream, wheel);
       }
     }
   }

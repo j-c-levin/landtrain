@@ -33,6 +33,13 @@ export class FogOfWar {
     this.mesh.renderOrder = 50;
     this.mesh.visible = false;
     scene.add(this.mesh);
+
+    this.depthMesh = new THREE.Mesh(this.mesh.geometry, mapMaterials.sheetDepth(this.texture, this.material.uniforms.uRect.value));
+    this.depthMesh.rotation.copy(this.mesh.rotation);
+    this.depthMesh.position.copy(this.mesh.position);
+    this.depthMesh.renderOrder = 49;
+    this.depthMesh.visible = false;
+    scene.add(this.depthMesh);
   }
 
   // Fill the canvas fully opaque; the shroud shader reads only its alpha.
@@ -99,6 +106,7 @@ export class FogOfWar {
   setBlend(blend) {
     this.material.uniforms.uOpacity.value = Math.min(1, blend / 0.35) * TUNING.fogOpacity;
     this.mesh.visible = blend > 0.01;
+    this.depthMesh.visible = blend > 0.25;
   }
 
   setNight(night) {

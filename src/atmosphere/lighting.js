@@ -75,11 +75,23 @@ export function createBounceLight(scene) {
 
 const _side = new THREE.Vector3();
 
-export function followBounceLight(light, trainPos, heading, intensity, color) {
+const _cool = new THREE.Color(SKY_LOOK.bounceDusk);
+
+export function followBounceLight(light, trainPos, heading, intensity, color, dusk = 0) {
   _side.set(Math.sin(heading) * 0.9 + Math.cos(heading) * 0.2, -0.32, Math.cos(heading) * 0.9 - Math.sin(heading) * 0.2);
   light.position.copy(trainPos).addScaledVector(_side, 80);
   light.target.position.copy(trainPos);
   light.target.updateMatrixWorld();
   light.intensity = intensity;
-  light.color.copy(color);
+  light.color.copy(color).lerp(_cool, 0.42 * dusk);
+}
+
+// The chart is drawn, not lit: the key light and its shadows give way to an
+// even top light so everything standing on the map reads as a flat symbol.
+export function applyChartLight(sunLight, hemi, scene, chart) {
+  if (chart <= 0 && sunLight.shadow.intensity === 1) return;
+  sunLight.intensity *= 1 - 0.85 * chart;
+  sunLight.shadow.intensity = 1 - chart;
+  hemi.intensity *= 1 + 2.6 * chart;
+  scene.environmentIntensity *= 1 - 0.8 * chart;
 }

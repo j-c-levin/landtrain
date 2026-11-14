@@ -15,8 +15,28 @@ const enamel = (params, coat = 0.55) =>
     ? new THREE.MeshPhysicalMaterial({ ...params, clearcoat: coat, clearcoatRoughness: 0.28 })
     : std(params);
 
+// The overhead map is a drawn chart: uChart takes the model over to flat washes
+// and ink, uChartNight lays the night's indigo over them.
+export const CHART = {
+  uChart: { value: 0 },
+  uChartNight: { value: 0 },
+  uChartInk: { value: new THREE.Color(0x3a2a1c) },
+  uChartIndigo: { value: new THREE.Color(0x4a4e74) },
+};
+
+export function setChart(mapBlend, night) {
+  const t = Math.min(1, Math.max(0, (mapBlend - 0.25) / 0.5));
+  CHART.uChart.value = t * t * (3 - 2 * t);
+  CHART.uChartNight.value = night;
+}
+
 const FLOCK_PARS = /* glsl */ `
   varying vec3 vFlockPos;
+  uniform float uChart;
+  uniform float uChartNight;
+  uniform vec3 uChartInk;
+  uniform vec3 uChartIndigo;
+  vec3 fChart;
   uniform vec3 uFlockA;
   uniform vec3 uFlockB;
   uniform vec3 uFlockC;
@@ -66,6 +86,41 @@ const FLOCK_FRAG = /* glsl */ `
       fc = mix(fc, uFlockMud, vShore.x);
     #endif
     diffuseColor.rgb *= fc;
+
+    // chart: three flat washes glazed over each other, pooling darker at their edges
+    float cA = fFbm(fp * 0.0046 + 11.0);
+    float cB = fFbm(fp * 0.0063 + 57.0);
+    float cC = fFbm(fp * 0.0115 + 23.0);
+    float wA = fwidth(cA) * 1.2 + 0.003;
+    float wB = fwidth(cB) * 1.2 + 0.003;
+    float wC = fwidth(cC) * 1.2 + 0.003;
+    float mA = smoothstep(0.5 - wA, 0.5 + wA, cA);
+    float mB = smoothstep(0.55 - wB, 0.55 + wB, cB);
+    float mC = smoothstep(0.66 - wC, 0.66 + wC, cC);
+    float rimA = mA * (1.0 - smoothstep(0.5, 0.5 + wA * 7.0, cA));
+    float rimB = mB * (1.0 - smoothstep(0.55, 0.55 + wB * 7.0, cB));
+    float rimC = mC * (1.0 - smoothstep(0.66, 0.66 + wC * 7.0, cC));
+    vec3 wash = mix(uFlockB, vec3(1.0), 0.14);
+    wash *= mix(vec3(1.0), uFlockD / uFlockB, mA * 0.6) * (1.0 - rimA * 0.16);
+    wash *= mix(vec3(1.0), uFlockC / uFlockB, mB * 0.62) * (1.0 - rimB * 0.16);
+    wash *= mix(vec3(1.0), uFlockA / uFlockB, mC * 0.6) * (1.0 - rimC * 0.14);
+    #ifdef FLOCK_SHORE
+      wash = mix(wash, uFlockSand, vShore.y * 0.85);
+      wash = mix(wash, uFlockMud, vShore.x * 0.85);
+    #endif
+    wash *= 1.0 - 0.07 * (fNoise(fp * 0.9) - 0.5) - 0.08 * (fNoise(fp * 0.016) - 0.5);
+    wash = mix(wash, uChartIndigo * (0.55 + 0.9 * dot(wash, vec3(0.3, 0.59, 0.11))), uChartNight);
+    // pen stipple: a short dry stroke in the odd cell
+    vec2 sc = fp / 19.0;
+    vec2 si = floor(sc);
+    float sr = fHash(si);
+    float sa = fHash(si + 7.3) * 3.14159;
+    vec2 sp = (fract(sc) - 0.5 - (vec2(fHash(si + 2.1), fHash(si + 4.7)) - 0.5) * 0.5) * 19.0;
+    vec2 sq = vec2(cos(sa) * sp.x + sin(sa) * sp.y, cos(sa) * sp.y - sin(sa) * sp.x);
+    float sw = fwidth(fp.x);
+    float dash = (1.0 - smoothstep(0.16, 0.16 + sw, abs(sq.y))) * (1.0 - smoothstep(1.5, 1.5 + sw, abs(sq.x)));
+    wash = mix(wash, uChartInk, dash * step(0.72, sr) * 0.8 * (1.0 - 0.6 * uChartNight));
+    fChart = wash;
   }
 `;
 
@@ -80,6 +135,7 @@ export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = 
     uFlockD: { value: new THREE.Color(tints[3]) },
     uFlockMud: { value: new THREE.Color(mud) },
     uFlockSand: { value: new THREE.Color(sand) },
+    ...CHART,
   };
   mat.defines = { FLOCK_OCTAVES: lookTier === 'low' ? 2 : 4 };
   if (shore) mat.defines.FLOCK_SHORE = '';
@@ -99,7 +155,8 @@ export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = 
         #endif`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${FLOCK_PARS}`)
-      .replace('#include <color_fragment>', `#include <color_fragment>\n${FLOCK_FRAG}`);
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${FLOCK_FRAG}`)
+      .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, fChart, uChart);\n#include <opaque_fragment>');
   };
   mat.customProgramCacheKey = () => `flock-${shore}-${mat.defines.FLOCK_OCTAVES}`;
   return mat;
@@ -191,10 +248,10 @@ function skyKey(t, sky, fog, hemiSky, hemiGround, hemiI, dirCol, dirI, cloud, cl
 export const SKY_KEYS_PRAIRIE = [
   skyKey(0.000, ['#2f7fd0', '#62a6e2', '#b4d8ee', '#f3ead2'], '#e9e2c8', '#cfe4ff', '#b89a62', 0.55, '#fff0d2', 3.1, '#ffffff', 1.0, 0.0, 1.0, 0.5),
   skyKey(0.360, ['#3c74b4', '#86aed0', '#ecd2a2', '#fbc987'], '#f1cf9c', '#ffe4bc', '#a8824e', 0.5, '#ffd492', 3.0, '#ffe9c8', 1.0, 0.0, 1.0, 0.46),
-  skyKey(0.440, ['#3a3c8c', '#9a64a0', '#f58a70', '#ffc680'], '#eea088', '#5236ff', '#a85a78', 1.05, '#ffa24e', 6.8, '#ffb090', 0.95, 0.05, 1.0, 0.16),
+  skyKey(0.440, ['#3a3c8c', '#9a64a0', '#f58a70', '#ffc680'], '#eea088', '#5a3aff', '#8a5a9a', 1.6, '#ffa24e', 6.8, '#ffb090', 0.95, 0.05, 1.0, 0.16),
   skyKey(0.500, ['#1a2656', '#353a74', '#70507e', '#c47a62'], '#6c5270', '#6f73ac', '#3c3450', 0.4, '#8f9ad8', 0.5, '#4a4468', 0.45, 0.55, 1.06, 0.2),
-  skyKey(0.565, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6276d0', '#22244a', 0.5, '#93a8ff', 1.5, '#1c2a52', 0.2, 1.0, 1.12, 0.1),
-  skyKey(0.800, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6276d0', '#22244a', 0.5, '#93a8ff', 1.5, '#1c2a52', 0.2, 1.0, 1.12, 0.1),
+  skyKey(0.565, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6276d0', '#22244a', 0.3, '#93a8ff', 0.62, '#1c2a52', 0.2, 1.0, 1.12, 0.04),
+  skyKey(0.800, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6276d0', '#22244a', 0.3, '#93a8ff', 0.62, '#1c2a52', 0.2, 1.0, 1.12, 0.04),
   skyKey(0.860, ['#0e1838', '#1f2a56', '#44386c', '#8e586c'], '#5c4864', '#56589a', '#262a42', 0.42, '#98a0e0', 0.6, '#50426a', 0.35, 0.7, 1.06, 0.16),
   skyKey(0.905, ['#24447e', '#5468a8', '#f092a2', '#ffc87c'], '#f2ae82', '#e0b4c0', '#8a6248', 0.44, '#ffa868', 2.8, '#ffbea8', 0.9, 0.08, 1.04, 0.34),
   skyKey(0.950, ['#3276c4', '#6aa4d8', '#c4e0da', '#f6e0b4'], '#ecdfbc', '#e2ecf4', '#b0965e', 0.52, '#ffe6b8', 3.0, '#fff2e0', 1.0, 0.0, 1.0, 0.48),
@@ -204,10 +261,10 @@ export const SKY_KEYS_PRAIRIE = [
 export const SKY_KEYS_GRASSLAND = [
   skyKey(0.000, ['#2a78c4', '#5aa6dc', '#b2e0e2', '#e8f2dc'], '#dcecd8', '#d0ecff', '#7a9a58', 0.55, '#fff4dc', 3.0, '#ffffff', 1.0, 0.0, 1.0, 0.5),
   skyKey(0.360, ['#3878aa', '#7cb6c8', '#cce6c8', '#eef0c4'], '#e2eccc', '#e2f4e4', '#6e9050', 0.5, '#fbe8b8', 2.9, '#f2f8e8', 1.0, 0.0, 1.0, 0.46),
-  skyKey(0.440, ['#34508e', '#8a78a8', '#eaa888', '#f8d898'], '#e0bc98', '#4a44f0', '#7c6a80', 1.0, '#ffb060', 6.2, '#f4c8a8', 0.95, 0.05, 1.0, 0.16),
+  skyKey(0.440, ['#34508e', '#8a78a8', '#eaa888', '#f8d898'], '#e0bc98', '#4a44f0', '#70688c', 1.4, '#ffb060', 6.2, '#f4c8a8', 0.95, 0.05, 1.0, 0.16),
   skyKey(0.500, ['#16264a', '#2c3a68', '#506078', '#948a8e'], '#5c7078', '#5e7a9a', '#2e3c48', 0.4, '#8cacd0', 0.5, '#3e4860', 0.45, 0.55, 1.06, 0.2),
-  skyKey(0.565, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.5, '#a4ccff', 1.2, '#18304a', 0.2, 1.0, 1.12, 0.12),
-  skyKey(0.800, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.5, '#a4ccff', 1.2, '#18304a', 0.2, 1.0, 1.12, 0.12),
+  skyKey(0.565, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.3, '#a4ccff', 0.58, '#18304a', 0.2, 1.0, 1.12, 0.05),
+  skyKey(0.800, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.3, '#a4ccff', 0.58, '#18304a', 0.2, 1.0, 1.12, 0.05),
   skyKey(0.860, ['#0c1836', '#1a2e54', '#324664', '#566474'], '#405864', '#46607a', '#1e2c3a', 0.42, '#98bce0', 0.6, '#405262', 0.35, 0.7, 1.06, 0.16),
   skyKey(0.905, ['#224a7a', '#5078aa', '#a8ccc8', '#f0e0b0'], '#d4e2c4', '#d4e8d4', '#5e7654', 0.44, '#ffd89c', 2.6, '#e2ecd8', 0.9, 0.08, 1.04, 0.34),
   skyKey(0.950, ['#2e7cc0', '#66aed6', '#b8e4dc', '#e4f2d0'], '#dcecd4', '#dcf2ec', '#789a60', 0.52, '#fdf0cc', 2.9, '#f6fbf0', 1.0, 0.0, 1.0, 0.48),
@@ -249,6 +306,8 @@ export const SKY_LOOK = {
   // ground bounce onto the lens side of the train: [day, low sun] intensity
   bounce: 0xffd9a8,
   bounceI: [0.35, 1.7],
+  // at dusk the bounce cools toward the sky behind the lens, so shaded paint keeps its hue
+  bounceDusk: 0xb4a4ff,
 };
 
 export const skyMaterials = {
@@ -479,6 +538,8 @@ export const TRAIN_LOOK = {
   hullDark: 0x6e3528,
   cream: 0xf4e4bd,
   innerWall: 0xecd6aa,
+  endWall: 0xd9bf94,
+  sootWall: 0xcda677,
   wood: 0xa8703f,
   woodDark: 0x74482a,
   iron: 0x26312f,
@@ -490,13 +551,11 @@ export const TRAIN_LOOK = {
   leafWatered: 0x6fa54f,
   leafGlow: 0x3b583c,
   cabLight: 0xffd5a4,
-  fireLight: 0xffb273,
+  fireLight: 0xff9c58,
   readingLight: 0xffd6a1,
   bunkLight: 0xffd3a3,
-  wheelClean: [0.115, 0.036, 0.03],
-  wheelRusted: [0.2, 0.125, 0.085],
-  spoke: 0x8f8266,
-  wheelBoss: 0x7d6a3c,
+  wheelClean: [0.3, 0.05, 0.035],
+  wheelRusted: [0.4, 0.24, 0.15],
   // night practicals: warm pools the windows and lamps throw on the ground
   spill: ['rgba(255,186,104,0.7)', 'rgba(255,160,80,0)'],
   spillLight: 0xffb870,
@@ -512,19 +571,19 @@ export function createTrainMaterials() {
     hullDark: enamel({ color: C.hullDark, roughness: 0.55 }),
     cream: enamel({ color: C.cream, roughness: 0.55 }),
     innerWall: std({ color: C.innerWall, roughness: 0.95 }),
+    endWall: std({ color: C.endWall, roughness: 0.95 }),
+    sootWall: std({ color: C.sootWall, roughness: 0.95 }),
     wood: std({ color: C.wood, roughness: 0.72 }),
     woodDark: std({ color: C.woodDark, roughness: 0.7 }),
     iron: std({ color: C.iron, roughness: 0.48, metalness: 0.55 }),
     brass: std({ color: C.brass, roughness: 0.24, metalness: 1.0 }),
     glow: std({ color: 0xffd9a0, emissive: 0xffb35c, emissiveIntensity: 1.6, roughness: 0.5 }),
     headlamp: std({ color: 0xffe9b0, emissive: 0xffc868, emissiveIntensity: 2.4 }),
-    wheel: enamel({ color: 0x4a1a14, roughness: 0.62, vertexColors: true }, 0.2),
-    spoke: std({ color: C.spoke, roughness: 0.7 }),
-    wheelBoss: std({ color: C.wheelBoss, roughness: 0.45, metalness: 0.7 }),
+    wheel: enamel({ color: 0x6b1c12, roughness: 0.5, vertexColors: true }, 0.35),
     tyre: std({ color: 0x1f2624, roughness: 0.42, metalness: 0.7 }),
     foliage: std({ color: 0x6fa046, roughness: 0.85 }),
     pillow: std({ color: 0xd9a84e, roughness: 1 }),
-    sage: enamel({ color: C.sage, roughness: 0.6 }, 0.4),
+    sage: enamel({ color: C.sage, roughness: 0.6, emissive: C.sage, emissiveIntensity: 0 }, 0.4),
     engine: enamel({ color: 0x2c5e58, roughness: 0.42, metalness: 0.2 }),
     copper: std({ color: 0xc0704a, roughness: 0.34, metalness: 0.85 }),
     roofGreen: enamel({ color: 0x2f5a48, roughness: 0.55 }, 0.4),
@@ -562,6 +621,37 @@ export const trainFx = {
     }),
 };
 
+// On the chart each car lies on a hatched shadow, as a draughtsman would ground a plan.
+trainFx.chartShadow = () =>
+  new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
+    uniforms: { uChart: CHART.uChart, uChartInk: CHART.uChartInk, uSize: { value: new THREE.Vector2(1, 1) } },
+    vertexShader: /* glsl */ `
+      uniform vec2 uSize;
+      varying vec2 vPlan;
+      void main() {
+        vPlan = uv * uSize;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uChart;
+      uniform vec3 uChartInk;
+      varying vec2 vPlan;
+      void main() {
+        float w = fwidth(vPlan.x);
+        float stripe = abs(fract((vPlan.x + vPlan.y) / 1.3) - 0.5) * 1.3;
+        float ink = 1.0 - smoothstep(0.2, 0.2 + w, stripe);
+        gl_FragColor = vec4(uChartInk, ink * 0.8 * uChart);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+
 // drawn over the train without depth testing: a cheap stand-in for bloom
 trainFx.windowGlow = () =>
   new THREE.SpriteMaterial({
@@ -571,20 +661,27 @@ trainFx.windowGlow = () =>
 
 // ------------------------------------------------------- painted interiors
 
-// Rooms are hand-painted inside the enamel model: flat stepped shading, with
-// a coloured fill wherever the lamps and the sun leave a surface dim.
-// fill: [day, dusk, night]; lift: light level under which the fill takes over.
+// Rooms are hand-painted inside the enamel model: flat stepped shading, a
+// violet fill wherever the lamps and the sun leave a surface dim, and by night
+// every cool light swapped for cobalt so the lamps are the only warm thing.
+// Each list is [day, dusk, night].
 export const PAINT_LOOK = {
-  fill: [0x6c6ea6, 0x86649c, 0x2c3a78],
-  fillGain: [0.6, 0.95, 0.5],
+  fill: [0x6c64b0, 0x5c4a96, 0x2a3c96],
+  fillGain: [0.62, 0.55, 0.6],
   lift: [0.9, 0.8, 0.7],
-  ambient: [0.86, 0.92, 1],
-  warm: [0.1, 0.2, 0.34],
-  saturation: 1.04,
-  figureGlow: [0.04, 0.1, 0.24],
+  ambient: [0.5, 0.4, 0.4],
+  warm: [0.2, 0.3, 0.42],
+  tint: [0xffffff, 0x7e6cb4, 0x3c58e0],
+  tintGain: [1, 0.75, 0.7],
+  mood: [0, 0.75, 1],
+  band: [0.3, 0.34, 0.4],
+  rim: [0.05, 0.1, 0.16],
+  saturation: 1.06,
+  figureGlow: [0.03, 0.08, 0.2],
 };
 
 const paintFills = PAINT_LOOK.fill.map((hex, i) => new THREE.Color(hex).multiplyScalar(PAINT_LOOK.fillGain[i]));
+const paintTints = PAINT_LOOK.tint.map((hex, i) => new THREE.Color(hex).multiplyScalar(PAINT_LOOK.tintGain[i]));
 const paints = new WeakMap();
 
 // The painted twin of a train material. Lamps, glass and anything else that
@@ -604,6 +701,13 @@ export function painted(source) {
   return paint;
 }
 
+// Partition walls stand in the room's own shade: no sun, moon or sky key reaches them.
+export function shaded(source) {
+  const paint = painted(source).clone();
+  paint.shade = true;
+  return paint;
+}
+
 const tween = (v, dusk, night) => {
   const d = v[0] + (v[1] - v[0]) * dusk;
   return d + (v[2] - d) * night;
@@ -612,7 +716,9 @@ const tween = (v, dusk, night) => {
 export function setPaintLight(night, dusk) {
   PAINT.uPaintFill.value.copy(paintFills[0]).lerp(paintFills[1], dusk).lerp(paintFills[2], night);
   const L = PAINT_LOOK;
+  PAINT.uPaintTint.value.copy(paintTints[0]).lerp(paintTints[1], dusk).lerp(paintTints[2], night);
   PAINT.uPaintLift.value.set(tween(L.lift, dusk, night), L.saturation, tween(L.ambient, dusk, night), tween(L.warm, dusk, night));
+  PAINT.uPaintMood.value.set(tween(L.mood, dusk, night), tween(L.band, dusk, night), tween(L.rim, dusk, night), 0);
   const glow = tween(L.figureGlow, dusk, night);
   for (let i = 0; i < figurePaints.length; i++) figurePaints[i].emissiveIntensity = glow;
 }
@@ -635,7 +741,7 @@ export const plantMaterials = {
 export const MAP_LOOK = {
   shroud: '#221a30',
   paper: 0xf0e2c0,
-  paperNight: 0x7f8cb4,
+  paperNight: 0xe6dcc8,
   ink: 0x3a2a1c,
   rhumb: 0xa8482c,
   rose: [900, -260],
@@ -724,18 +830,9 @@ const SHROUD_VERT = /* glsl */ `
   }
 `;
 
-const SHROUD_FRAG = /* glsl */ `
+const SHEET_GLSL = /* glsl */ `
   uniform sampler2D map;
-  uniform sampler2D tLetters;
-  uniform float uOpacity;
-  uniform float uNight;
-  uniform vec3 uPaper;
-  uniform vec3 uPaperNight;
-  uniform vec3 uInk;
-  uniform vec3 uRhumb;
-  uniform vec2 uRose;
   uniform vec4 uRect;
-  varying vec2 vWorld;
   float inkHash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);
@@ -754,13 +851,37 @@ const SHROUD_FRAG = /* glsl */ `
     float n = inkNoise(w * 0.03) * 0.65 + inkNoise(w * 0.1) * 0.35;
     return a + (n - 0.5) * 0.34 - 0.6;
   }
+`;
+
+// Writes the sheet's own depth where the paper lies, so the pen that follows
+// depth edges never traces country hidden beneath it.
+const SHEET_DEPTH_FRAG = /* glsl */ `
+  varying vec2 vWorld;
+  ${SHEET_GLSL}
+  void main() {
+    if (sheet(vWorld) < 0.0) discard;
+    gl_FragColor = vec4(0.0);
+  }
+`;
+
+const SHROUD_FRAG = /* glsl */ `
+  uniform sampler2D tLetters;
+  uniform float uOpacity;
+  uniform float uNight;
+  uniform vec3 uPaper;
+  uniform vec3 uPaperNight;
+  uniform vec3 uInk;
+  uniform vec3 uRhumb;
+  uniform vec2 uRose;
+  varying vec2 vWorld;
+  ${SHEET_GLSL}
   void main() {
     float e = sheet(vWorld);
     float px = max(fwidth(vWorld.x), 1e-4);
     if (e < 0.0) {
       // the sheet stands a little proud of the model and shades it along the cut
       float lifted = sheet(vWorld - vec2(3.2, 3.6));
-      float shade = smoothstep(-0.05, 0.04, lifted) * 0.34 + smoothstep(-0.1, 0.0, e) * 0.2;
+      float shade = smoothstep(-0.05, 0.04, lifted) * 0.16 + smoothstep(-0.1, 0.0, e) * 0.14;
       gl_FragColor = vec4(vec3(0.07, 0.045, 0.06), shade * uOpacity);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
@@ -831,6 +952,15 @@ export const mapMaterials = {
         uRect: { value: rect },
       },
     }),
+  sheetDepth: (map, rect) =>
+    new THREE.ShaderMaterial({
+      vertexShader: SHROUD_VERT,
+      fragmentShader: SHEET_DEPTH_FRAG,
+      colorWrite: false,
+      depthFunc: THREE.AlwaysDepth,
+      fog: false,
+      uniforms: { map: { value: map }, uRect: { value: rect } },
+    }),
   routeLine: () =>
     new THREE.LineDashedMaterial({
       color: MAP_LOOK.markInk, dashSize: 9, gapSize: 6, transparent: true, opacity: 0.9, depthTest: false, fog: false,
@@ -852,18 +982,29 @@ const figurePaint = (color) => {
   const mat = new PaintMaterial({ color, emissive: color, emissiveIntensity: PAINT_LOOK.figureGlow[0] });
   mat.wash = 0.06;
   mat.stroke = 0.05;
+  mat.mood = 0.45;
+  mat.band = 0;
+  mat.rim = true;
   figurePaints.push(mat);
   return mat;
 };
 
+// map: the soft disc the cars' own contact shadows use
+export const figureShadow = (map) =>
+  new THREE.MeshBasicMaterial({
+    map, transparent: true, opacity: 0.8, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+  });
+
 export function createFigureMaterials() {
   return {
-    coat: figurePaint(0x3d50ad),
+    coat: figurePaint(0x566fd2),
     hat: figurePaint(0xd4472f),
     trim: figurePaint(0xf5e8c8),
     scarf: figurePaint(0xf2b736),
     legs: figurePaint(0xeee2c4),
     skin: figurePaint(0xf4c9a2),
+    hand: figurePaint(0xe2a67c),
     blush: figurePaint(0xe88f7c),
     hair: figurePaint(0x5b3221),
     boot: figurePaint(0x4a3024),

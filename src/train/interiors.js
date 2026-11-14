@@ -91,8 +91,8 @@ export function buildLivingInterior(g, M, { createPlant }) {
   block(0.82, 0.44, 0.73, M.woodDark, 5.43, 2.71, -1.63);
   block(0.92, 0.08, 0.83, M.wood, 5.43, 2.95, -1.63);
   const plantPots = [
-    createPlant(3.05, 2.5, -1.56, 0.92, 0),
-    createPlant(4.33, 2.5, -1.76, 1.13, 1),
+    createPlant(3.05, 2.5, -1.56, 1.0, 1),
+    createPlant(4.33, 2.5, -1.76, 1.04, 0),
     createPlant(5.43, 3.0, -1.64, 0.85, 2),
   ];
   const can = k.pivot('watering-can', 2.36, 2.9, -1.53);

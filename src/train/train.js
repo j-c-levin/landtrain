@@ -13,7 +13,7 @@ import { buildCarShell, buildCarFittings } from './shell.js';
 import { buildFrontCar } from './cab.js';
 import { buildEngine, animateEngine } from './engine.js';
 import { buildLiving } from './living.js';
-import { createPracticals, buildPracticals, setPracticalsNight } from './practicals.js';
+import { createPracticals, buildPracticals, setPracticalsNight, setPracticalsFocus } from './practicals.js';
 
 const FIT_OUT = [buildFrontCar, buildEngine, buildLiving];
 
@@ -278,15 +278,16 @@ export class Train {
   setFocus(zone, allOpaque, dt) {
     for (const key of Object.keys(this.zoneMats)) {
       const mat = this.zoneMats[key];
-      const target = allOpaque ? 1 : key === zone ? 0.06 : 1;
+      const target = allOpaque ? 1 : key === zone ? 0.03 : 1;
       mat.opacity = damp(mat.opacity, target, 7, dt);
       mat.depthWrite = mat.opacity > 0.5;
     }
     for (const { zone: key, mat } of this.fadeMats) {
-      const target = allOpaque ? 1 : key === zone ? 0.06 : 1;
+      const target = allOpaque ? 1 : key === zone ? 0 : 1;
       mat.opacity = damp(mat.opacity, target, 7, dt);
       mat.depthWrite = mat.opacity > 0.5;
     }
+    setPracticalsFocus(this);
   }
 
   setNight(night, dusk = 0) {

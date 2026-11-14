@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WORLD, BIOME_FADE, clamp, lerp, smootherstep, damp } from '../constants.js';
 import {
   SKY_KEYS_PRAIRIE as KEYS, SKY_KEYS_GRASSLAND as KEYS_GRASSLAND, SKY_LOOK, skyMaterials, cloudTexture, jitterHSL,
+  CHART,
 } from '../look.js';
 import { lcg } from '../prng.js';
 import { STAR_VERT, STAR_FRAG, FIREFLY_VERT, FIREFLY_FRAG } from './sky-shaders.js';
@@ -398,7 +399,7 @@ export class SkyCycle {
       c.sprite.position.x += c.speed * dt;
       if (c.sprite.position.x > WORLD.maxX + 500) c.sprite.position.x = WORLD.minX - 500;
       c.sprite.material.color.copy(k.cloud);
-      c.sprite.material.opacity = c.baseOp * k.cloudOp;
+      c.sprite.material.opacity = c.baseOp * k.cloudOp * (1 - CHART.uChart.value);
     }
 
     // the dome (and sun, moon, stars) follows the camera so it never ends

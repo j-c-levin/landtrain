@@ -70,11 +70,11 @@ function buildLining(k, M) {
   block(13.58, 0.07, 0.07, M.woodDark, 0, 2.63, z + 0.02);
   block(13.58, 0.12, 0.06, M.woodDark, 0, 1.84, z + 0.02);
   for (let x = -6.5; x < 6.8; x += 0.5) block(0.02, 0.72, 0.012, M.woodDark, x, 2.22, z + 0.018);
-  block(13.58, 0.6, 0.03, M.innerWall, 0, 4.37, z);
+  block(13.58, 0.6, 0.03, M.sootWall, 0, 4.37, z);
   let edge = -6.79;
   for (const [wx, width] of [...CAR_WINDOWS[1], [6.79 + 0.5, 1]]) {
     const left = wx - width / 2;
-    block(left - edge, 1.44, 0.03, M.innerWall, (edge + left) / 2, 3.35, z);
+    block(left - edge, 1.44, 0.03, M.sootWall, (edge + left) / 2, 3.35, z);
     edge = wx + width / 2;
   }
   for (const [wx, width] of CAR_WINDOWS[1]) {
@@ -287,7 +287,7 @@ export function buildEngine(train, g) {
   buildStores(k, M);
   buildMotion(train, k, M);
   k.finish();
-  train.fireLight = new THREE.PointLight(TRAIN_LOOK.fireLight, 8, 8.5, 2);
+  train.fireLight = new THREE.PointLight(TRAIN_LOOK.fireLight, 8, 7, 2);
   train.fireLight.position.set(BOILER.x, 3.0, 0.95);
   g.add(train.fireLight);
   animateEngine(train, 0, 0);

@@ -36,6 +36,8 @@ const PIN = { eff: 88, plants: 95, wear: 8 };
 const SPAWN = { x: 24.6, z: 0, heading: 0 };
 const RIVER = { x: 3100, z: 156, heading: 0 };
 const DESTINATION = { x: 5240, z: 0, heading: 0 };
+const APPROACH = { x: 2230, z: 60, heading: 0 };
+const ROUTE = { train: APPROACH, reveal: 420, zoom: 1.5, route: [[2280, 10], [2340, -50], [2410, -30]] };
 
 const PROFILES = {
   'desktop-1440x900': { width: 1440, height: 900, quality: 'high', touch: false },
@@ -77,6 +79,8 @@ const SHOTS = [
   shot(D, 'cab', 'night', { kind: 'cab' }),
   shot(D, 'map-prairie', 'day', { kind: 'map' }),
   shot(D, 'map-prairie', 'night', { kind: 'map' }),
+  shot(D, 'map-route', 'day', { kind: 'map', ...ROUTE }),
+  shot(D, 'map-route', 'night', { kind: 'map', ...ROUTE }),
   shot(D, 'book-side', 'day', { kind: 'book', view: 'side' }),
   shot(D, 'book-3quarter', 'dusk', { kind: 'book', view: 'threeQuarter' }),
   shot(D, 'book-3quarter', 'night', { kind: 'book', view: 'threeQuarter' }),
@@ -338,7 +342,7 @@ async function runShot(page, profile, spec) {
 
   const cabLike = spec.kind === 'cab' || spec.kind === 'map';
   const station = STATIONS[cabLike ? 'cab' : spec.kind === 'book' ? 'reading' : spec.station];
-  await resetStage(page, { train, station, time, reveal: spec.world === 'grassland' ? 300 : 0 });
+  await resetStage(page, { train, station, time, reveal: spec.reveal ?? (spec.world === 'grassland' ? 300 : 0) });
 
   if (cabLike) {
     await settle(page);
@@ -346,6 +350,10 @@ async function runShot(page, profile, spec) {
     if (spec.kind === 'map') {
       await page.evaluate(() => { __game.rig.enterMap(); });
       await page.waitForFunction(() => __game.rig.mode === 'map' && !__game.rig.busy, null, { timeout: 15000 });
+      await page.evaluate(({ zoom, route }) => {
+        __game.rig.mapHeight = 330 * (zoom ?? 1);
+        for (const [x, z] of route ?? []) __game.train.addWaypoint(x, z);
+      }, { zoom: spec.zoom, route: spec.route });
     }
   } else if (spec.kind === 'book') {
     await page.evaluate(() => { __cap.frozen = false; });
@@ -353,7 +361,7 @@ async function runShot(page, profile, spec) {
     await page.waitForFunction(() => __game.rig.mode === 'book' && !__game.rig.busy, null, { timeout: 15000 });
     await page.evaluate((view) => {
       const { rig, camera } = __game;
-      const fit = Math.min(130, Math.max(55, 28 / (Math.tan((21 * Math.PI) / 180) * camera.aspect)));
+      const fit = Math.min(rig.maxOrbit, Math.max(55, 28 / (Math.tan((21 * Math.PI) / 180) * camera.aspect)));
       rig.autoOrbit = false;
       rig.recentering = false;
       rig.orbit.phi = view.phi;
