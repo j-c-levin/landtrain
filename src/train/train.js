@@ -73,6 +73,8 @@ export class Train {
     this.carVisuals = this.cars.flatMap(({ group }) => group.children);
     Object.assign(this, createRouteDisplay(scene));
     Object.assign(this, createSmoke(scene));
+    this._stack = new THREE.Vector3();
+    this.stackWorld = () => this.cars[1].group.localToWorld(this._stack.copy(this.stackLocal));
     this.#placeCars();
   }
 
@@ -238,7 +240,7 @@ export class Train {
     if (this.fireboxMat) {
       this.fireboxMat.emissiveIntensity = (0.15 + eff01 * 0.65) * flicker;
     }
-    if (this.fireLight) this.fireLight.intensity = 4 + eff01 * 9;
+    this.fireLight.intensity = (3.5 + eff01 * 6.5) * (1 + 0.9 * Math.max(this.practicals.lamp, 0)) * flicker;
 
     const plant01 = (this.plants - TUNING.plantFloor) / (100 - TUNING.plantFloor);
     if (this.plantPots) for (const pl of this.plantPots) pl.setHappiness(plant01, time, motion);
@@ -246,7 +248,7 @@ export class Train {
     this.previousPlants = this.plants;
     this.wateringCan.rotation.z = -this.wateringPulse * 0.38;
 
-    updateSmoke(this, dt, this.speed, () => this.cars[1].group.localToWorld(this.stackLocal.clone()));
+    updateSmoke(this, dt, this.speed, this.stackWorld);
   }
 
   // Each car rides the trail at its own offset. The unevenness is keyed to

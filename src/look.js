@@ -581,6 +581,7 @@ export const PAINT_LOOK = {
   ambient: [0.86, 0.92, 1],
   warm: [0.1, 0.2, 0.34],
   saturation: 1.04,
+  figureGlow: [0.04, 0.1, 0.24],
 };
 
 const paintFills = PAINT_LOOK.fill.map((hex, i) => new THREE.Color(hex).multiplyScalar(PAINT_LOOK.fillGain[i]));
@@ -612,6 +613,8 @@ export function setPaintLight(night, dusk) {
   PAINT.uPaintFill.value.copy(paintFills[0]).lerp(paintFills[1], dusk).lerp(paintFills[2], night);
   const L = PAINT_LOOK;
   PAINT.uPaintLift.value.set(tween(L.lift, dusk, night), L.saturation, tween(L.ambient, dusk, night), tween(L.warm, dusk, night));
+  const glow = tween(L.figureGlow, dusk, night);
+  for (let i = 0; i < figurePaints.length; i++) figurePaints[i].emissiveIntensity = glow;
 }
 
 export const plantMaterials = {
@@ -624,19 +627,6 @@ export const plantMaterials = {
     return mat;
   },
 };
-
-// -------------------------------------------------------------- character
-
-export function createCharacterMaterials() {
-  return {
-    body: enamel({ color: 0xe2a22e, roughness: 0.6 }, 0.3),
-    skin: std({ color: 0xf2c9a0, roughness: 0.75 }),
-    scarf: std({ color: 0xc23f30, roughness: 0.95 }),
-    boot: std({ color: 0x4e3626, roughness: 0.6 }),
-    hat: std({ color: 0x3f6f6a, roughness: 0.9 }),
-    eye: std({ color: 0x2a1c14, roughness: 0.3 }),
-  };
-}
 
 // -------------------------------------------------------------------- map
 
@@ -855,24 +845,35 @@ export const mapMaterials = {
 
 // ----------------------------------------------------------------- figure
 
+// Painted like the rooms, but with a steadier wash and a little light of its
+// own, so the colour blocks never sink into a room's shadow.
+const figurePaints = [];
+const figurePaint = (color) => {
+  const mat = new PaintMaterial({ color, emissive: color, emissiveIntensity: PAINT_LOOK.figureGlow[0] });
+  mat.wash = 0.06;
+  mat.stroke = 0.05;
+  figurePaints.push(mat);
+  return mat;
+};
+
 export function createFigureMaterials() {
   return {
-    coat: enamel({ color: 0x3d50ad, roughness: 0.62 }, 0.25),
-    hat: enamel({ color: 0xd4472f, roughness: 0.6 }, 0.25),
-    trim: std({ color: 0xf5e8c8, roughness: 0.85 }),
-    scarf: std({ color: 0xf2b736, roughness: 0.9 }),
-    legs: std({ color: 0xeee2c4, roughness: 0.9 }),
-    skin: std({ color: 0xf4c9a2, roughness: 0.75 }),
-    blush: std({ color: 0xe88f7c, roughness: 0.9 }),
-    hair: std({ color: 0x5b3221, roughness: 0.85 }),
-    boot: enamel({ color: 0x4a3024, roughness: 0.55 }, 0.2),
+    coat: figurePaint(0x3d50ad),
+    hat: figurePaint(0xd4472f),
+    trim: figurePaint(0xf5e8c8),
+    scarf: figurePaint(0xf2b736),
+    legs: figurePaint(0xeee2c4),
+    skin: figurePaint(0xf4c9a2),
+    blush: figurePaint(0xe88f7c),
+    hair: figurePaint(0x5b3221),
+    boot: figurePaint(0x4a3024),
     eye: std({ color: 0x2a1c14, roughness: 0.3 }),
-    leather: std({ color: 0xa5682f, roughness: 0.8 }),
-    brass: std({ color: 0xd9a441, roughness: 0.35, metalness: 0.7 }),
-    iron: std({ color: 0x3a3f44, roughness: 0.5, metalness: 0.5 }),
-    copper: std({ color: 0xc47a45, roughness: 0.4, metalness: 0.6 }),
-    cover: std({ color: 0x8a3c44, roughness: 0.9 }),
-    pages: std({ color: 0xf6edd6, roughness: 1 }),
+    leather: figurePaint(0xa5682f),
+    brass: figurePaint(0xd9a441),
+    iron: figurePaint(0x3a3f44),
+    copper: figurePaint(0xc47a45),
+    cover: figurePaint(0x8a3c44),
+    pages: figurePaint(0xf6edd6),
     water: new THREE.MeshBasicMaterial({ color: 0xbfe6f2, transparent: true, opacity: 0.75 }),
   };
 }

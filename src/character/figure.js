@@ -85,6 +85,7 @@ export class Figure {
       const m = new THREE.Mesh(geo, mat);
       m.position.set(x, y, z);
       m.castShadow = shadow;
+      m.receiveShadow = true;
       parent.add(m);
       return m;
     };

@@ -21,7 +21,7 @@ export function createPracticals() {
 // [x, z, length, depth, strength] of each car's window spill, train-local
 const SPILL = [
   [[1.5, 4.6, 8.5, 4.2, 0.8], [1.5, -4.4, 7.5, 3.6, 0.5], [13.5, 0, 9, 6.5, 1]],
-  [[0.2, 4.2, 5.5, 4, 1], [0.2, -3.6, 4.5, 3, 0.6]],
+  [[0.2, 4.5, 9, 4.2, 0.9], [0.2, -4.3, 8.5, 3.6, 0.6]],
   [[0, 4.8, 9.5, 4.4, 0.9], [0, -4.6, 9, 3.8, 0.6], [-8, 3.2, 3.6, 3.2, 0.7]],
 ];
 // [x, y, z, width, height] bloom over each lit window group
