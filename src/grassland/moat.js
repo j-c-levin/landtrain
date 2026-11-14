@@ -14,7 +14,7 @@ const mirrored = (d) => [...d.slice(1).reverse().map((v) => -v), ...d];
 
 // Crossings as angles around the island: west (the way in), north and south.
 export const MOAT_CROSSINGS = [Math.PI, Math.PI / 2, -Math.PI / 2];
-const GAP_A = 0.16;
+export const MOAT_GAP = 0.16;
 const DECK_W = 30;
 
 // The sunken ring channel around the tree: banks, water, glow pools, collision
@@ -75,7 +75,7 @@ export function buildMoat({ root, rand, obstacles }, bridgeGlowMat) {
 
   obstacles.push({
     type: 'ring', x: cx, z: cz, rInner: ISLAND_R, rOuter: MOAT_R,
-    gaps: MOAT_CROSSINGS.map((a) => ({ a0: a - GAP_A, a1: a + GAP_A })),
+    gaps: MOAT_CROSSINGS.map((a) => ({ a0: a - MOAT_GAP, a1: a + MOAT_GAP })),
   });
 
   const span = MOAT_R - ISLAND_R;

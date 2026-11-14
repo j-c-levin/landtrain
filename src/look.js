@@ -481,6 +481,7 @@ export const GRASSLAND_LOOK = {
     leafShade: 0x94a6dc,
     leafLight: 0xf6f8ff,
     strand: [0xc4b8f0, 0xd9c8f4, 0xb7c6f2],
+    flower: [0xffffff, 0xffe2ee, 0xfff6dc, 0xe9e2ff],
     petal: 0xf2f0ff,
     stoneGlow: 0xa8d4ff,
   },

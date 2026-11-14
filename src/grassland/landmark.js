@@ -151,6 +151,23 @@ export function buildGrassLandmark(root) {
   group.add(new THREE.Mesh(mergeGeometries(buds), grasslandMaterials.treeBlossom()));
   for (const g of buds) g.dispose();
 
+  const FLOWERS = 170;
+  const flowers = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), grasslandMaterials.treeBlossom(), FLOWERS);
+  const dot = new THREE.Object3D();
+  for (let i = 0; i < FLOWERS; i++) {
+    const [x, y, z, r] = CROWN[i % CROWN.length];
+    const a = rand() * TAU;
+    const lift = -0.1 + rand() * 1.05;
+    const flat = Math.sqrt(Math.max(0, 1 - Math.min(1, lift) ** 2));
+    dot.position.set(x + Math.cos(a) * flat * r, y + lift * r * 0.78, z + Math.sin(a) * flat * r);
+    dot.scale.setScalar(1.1 + rand() * 1.3);
+    dot.rotation.set(rand() * 3, rand() * 3, 0);
+    dot.updateMatrix();
+    flowers.setMatrixAt(i, dot.matrix);
+    flowers.setColorAt(i, c1.set(S.flower[Math.floor(rand() * S.flower.length)]));
+  }
+  group.add(flowers);
+
   // strands of blossom trail from the crown's skirt; some end in a lantern
   const STRANDS = 72;
   const strandGeo = new THREE.LatheGeometry(
