@@ -20,8 +20,23 @@ export function isCentreZone(x, y) {
 
 // `canWalk` gates the zones to the walk modes: map taps lay waypoints and
 // book drags orbit, so zone-keys would fight them there.
+// The prompt is the E key you can press: tap it, or hold it to tend.
+function bindPromptButton(input) {
+  const el = document.getElementById('prompt');
+  if (!el) return;
+  const lift = () => input.release('KeyE');
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    input.press('KeyE');
+  });
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  window.addEventListener('pointerup', lift);
+  window.addEventListener('pointercancel', lift);
+}
+
 export function bindTouchZones(canvas, input, canWalk) {
   const holds = new Map();
+  bindPromptButton(input);
 
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;
