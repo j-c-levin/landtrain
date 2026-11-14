@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { WORLD, BIOME_FADE, clamp, lerp, smootherstep, damp } from '../constants.js';
 import {
   SKY_KEYS_PRAIRIE as KEYS, SKY_KEYS_GRASSLAND as KEYS_GRASSLAND, SKY_LOOK, skyMaterials, cloudTexture, jitterHSL,
-  CHART,
+  CHART, getLookTier,
 } from '../look.js';
 import { lcg } from '../prng.js';
-import { STAR_VERT, STAR_FRAG, FIREFLY_VERT, FIREFLY_FRAG } from './sky-shaders.js';
+import { STAR_VERT, STAR_FRAG, FIREFLY_VERT, FIREFLY_FRAG, DOME_VERT, DOME_FRAG } from './sky-shaders.js';
+import { cloudPanorama, mottleTexture } from './clouds.js';
+import { ATMOS } from './shared.js';
 
 // One full day every two minutes. The whole pass is a keyframed colour
 // timeline sampled by phase — twilight gets its own palette instead of a
@@ -36,6 +38,9 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _c1 = new THREE.Color();
 const _c2 = new THREE.Color();
+const COLOR_FIELDS = ['fog', 'hemiSky', 'hemiGround', 'dirCol', 'cloud', 'glow', 'belt'];
+const NUMBER_FIELDS = ['hemiI', 'dirI', 'cloudOp', 'stars', 'exp', 'env', 'glowI', 'beltI'];
+const GALAXY_U = new THREE.Vector3(0.8, 0.55, 0.24).normalize();
 
 export class SkyCycle {
   constructor(scene, renderer, sunLight) {
@@ -61,32 +66,38 @@ export class SkyCycle {
     this.rig = new THREE.Group();
     scene.add(this.rig);
 
-    // --- dome: a 4×256 gradient redrawn every frame from the timeline ----
-    this.domeCanvas = document.createElement('canvas');
-    this.domeCanvas.width = 4;
-    this.domeCanvas.height = 256;
-    this.domeCtx = this.domeCanvas.getContext('2d');
-    this.domeTex = new THREE.CanvasTexture(this.domeCanvas);
-    this.domeTex.colorSpace = THREE.SRGBColorSpace;
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(4200, 24, 16), skyMaterials.dome(this.domeTex));
+    // --- dome: gradient, sun, moon and the cloud panorama in one shader ----
+    this.cloudTex = cloudPanorama(lcg(40417), getLookTier() === 'low' ? 0.5 : 1);
+    const galaxyW = new THREE.Vector3().crossVectors(GALAXY_U, new THREE.Vector3(0, 0, 1)).normalize();
+    const color = () => ({ value: new THREE.Color() });
+    this.cloudUniforms = { uCloud: { value: this.cloudTex }, uDrift: { value: 0 }, uCloudOp: { value: 1 } };
+    this.domeMat = new THREE.ShaderMaterial({
+      uniforms: {
+        ...this.cloudUniforms,
+        uZenith: color(), uUpper: color(), uLower: color(), uHorizon: color(), uHaze: color(),
+        uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: color(), uSunVis: { value: 0 }, uSunSize: { value: 0.03 },
+        uGlow: color(), uGlowI: { value: 0 }, uBelt: color(), uBeltI: { value: 0 },
+        uMoonDir: { value: new THREE.Vector3(0, 1, 0) }, uMoonCol: { value: new THREE.Color(SKY_LOOK.moon) },
+        uMoonVis: { value: 0 }, uNight: { value: 0 },
+        uGalaxy: { value: new THREE.Vector3().crossVectors(GALAXY_U, galaxyW) },
+        uGalaxyCol: { value: new THREE.Color(SKY_LOOK.galaxy) },
+        uCloudLit: color(), uCloudShade: color(), uMottle: { value: (ATMOS.mottle = mottleTexture(lcg(77003))) },
+      },
+      vertexShader: DOME_VERT,
+      fragmentShader: DOME_FRAG,
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+    });
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(4200, 32, 20), this.domeMat);
     dome.renderOrder = -10;
+    dome.frustumCulled = false;
     this.rig.add(dome);
-
-    // --- sun + moon -------------------------------------------------------
-    const sprite = (gradient, scale) => {
-      const sp = new THREE.Sprite(skyMaterials.disc(gradient));
-      sp.scale.setScalar(scale);
-      this.rig.add(sp);
-      return sp;
-    };
-    this.sunCore = sprite(SKY_LOOK.sunCore, 620);
-    this.sunHalo = sprite(SKY_LOOK.sunHalo, 1100);
-    this.moonCore = sprite(SKY_LOOK.moonCore, 230);
-    this.moonGlow = sprite(SKY_LOOK.moonGlow, 560);
+    this.sunDir = new THREE.Vector3(0, 1, 0);
 
     // --- stars + milky way --------------------------------------------------
     this.starMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uAlpha: { value: 0 }, uPR: { value: 1 } },
+      uniforms: { ...this.cloudUniforms, uTime: { value: 0 }, uAlpha: { value: 0 }, uPR: { value: 1 } },
       vertexShader: STAR_VERT,
       fragmentShader: STAR_FRAG,
       transparent: true,
@@ -167,7 +178,7 @@ export class SkyCycle {
     const color = new Float32Array(count * 3);
 
     // milky way: a great-circle band tilted across the dome
-    const u = new THREE.Vector3(0.8, 0.55, 0.24).normalize();
+    const u = GALAXY_U;
     const w = new THREE.Vector3().crossVectors(u, new THREE.Vector3(0, 0, 1)).normalize();
     const n = new THREE.Vector3().crossVectors(u, w);
 
@@ -224,37 +235,24 @@ export class SkyCycle {
     this.sunLight = light;
   }
 
-  // Lerp every channel between the two bracketing keyframes of one table.
   #lerpKeyframe(keys, i, t, out) {
     const a = keys[i];
     const b = keys[i + 1];
     out.sky = out.sky || [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
     for (let j = 0; j < 4; j++) out.sky[j].lerpColors(a.sky[j], b.sky[j], t);
-    out.fog = (out.fog || new THREE.Color()).lerpColors(a.fog, b.fog, t);
-    out.hemiSky = (out.hemiSky || new THREE.Color()).lerpColors(a.hemiSky, b.hemiSky, t);
-    out.hemiGround = (out.hemiGround || new THREE.Color()).lerpColors(a.hemiGround, b.hemiGround, t);
-    out.dirCol = (out.dirCol || new THREE.Color()).lerpColors(a.dirCol, b.dirCol, t);
-    out.cloud = (out.cloud || new THREE.Color()).lerpColors(a.cloud, b.cloud, t);
-    out.hemiI = lerp(a.hemiI, b.hemiI, t);
-    out.dirI = lerp(a.dirI, b.dirI, t);
-    out.cloudOp = lerp(a.cloudOp, b.cloudOp, t);
-    out.stars = lerp(a.stars, b.stars, t);
-    out.exp = lerp(a.exp, b.exp, t);
-    out.env = lerp(a.env, b.env, t);
+    for (const f of COLOR_FIELDS) out[f] = (out[f] || new THREE.Color()).lerpColors(a[f], b[f], t);
+    for (const f of NUMBER_FIELDS) out[f] = lerp(a[f], b[f], t);
     return out;
   }
 
-  // Sample the day/night timeline, positionally crossfaded between the
-  // prairie (KEYS) and grassland (KEYS_GRASSLAND) palettes by biomeBlend.
-  // Both tables share identical t keyframes, so the bracketing index and
-  // interpolant found once against KEYS apply unchanged to KEYS_GRASSLAND.
+  // Both tables share identical t keyframes, so one bracketing index and
+  // interpolant serve both; biomeBlend crossfades the results.
   #sample(phase, out) {
     let i = 0;
     while (KEYS[i + 1].t < phase) i++;
     const t = (phase - KEYS[i].t) / (KEYS[i + 1].t - KEYS[i].t);
 
     const blend = this.biomeBlend;
-    // fast path at the biome extremes: skip sampling the other table entirely
     if (blend <= 0) return this.#lerpKeyframe(KEYS, i, t, out);
     if (blend >= 1) return this.#lerpKeyframe(KEYS_GRASSLAND, i, t, out);
 
@@ -262,17 +260,8 @@ export class SkyCycle {
     const b = this.#lerpKeyframe(KEYS_GRASSLAND, i, t, this._kB);
     out.sky = out.sky || [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
     for (let j = 0; j < 4; j++) out.sky[j].copy(a.sky[j]).lerp(b.sky[j], blend);
-    out.fog = (out.fog || new THREE.Color()).copy(a.fog).lerp(b.fog, blend);
-    out.hemiSky = (out.hemiSky || new THREE.Color()).copy(a.hemiSky).lerp(b.hemiSky, blend);
-    out.hemiGround = (out.hemiGround || new THREE.Color()).copy(a.hemiGround).lerp(b.hemiGround, blend);
-    out.dirCol = (out.dirCol || new THREE.Color()).copy(a.dirCol).lerp(b.dirCol, blend);
-    out.cloud = (out.cloud || new THREE.Color()).copy(a.cloud).lerp(b.cloud, blend);
-    out.hemiI = lerp(a.hemiI, b.hemiI, blend);
-    out.dirI = lerp(a.dirI, b.dirI, blend);
-    out.cloudOp = lerp(a.cloudOp, b.cloudOp, blend);
-    out.stars = lerp(a.stars, b.stars, blend);
-    out.exp = lerp(a.exp, b.exp, blend);
-    out.env = lerp(a.env, b.env, blend);
+    for (const f of COLOR_FIELDS) out[f] = (out[f] || new THREE.Color()).copy(a[f]).lerp(b[f], blend);
+    for (const f of NUMBER_FIELDS) out[f] = lerp(a[f], b[f], blend);
     return out;
   }
 
@@ -284,21 +273,21 @@ export class SkyCycle {
     const k = this.#sample(phase, (this._k = this._k || {}));
     this.nightness = k.stars;
 
-    // dome gradient — canvas y maps to the sphere's full V range, so the
-    // equator (true horizon) sits at stop 0.5; everything past it is
-    // underground. Keep the whole painted gradient inside [0, 0.52] so the
-    // horizon band actually shows above the terrain line.
-    const ctx = this.domeCtx;
-    const g = ctx.createLinearGradient(0, 0, 0, 256);
-    // stop ↔ elevation: (90° − e) / 180 — upper at ~30°, lower at ~10°
-    g.addColorStop(0.0, '#' + k.sky[0].getHexString());
-    g.addColorStop(0.33, '#' + k.sky[1].getHexString());
-    g.addColorStop(0.47, '#' + k.sky[2].getHexString());
-    g.addColorStop(0.52, '#' + k.sky[3].getHexString());
-    g.addColorStop(1.0, '#' + k.sky[3].getHexString());
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 4, 256);
-    this.domeTex.needsUpdate = true;
+    const du = this.domeMat.uniforms;
+    du.uZenith.value.copy(k.sky[0]);
+    du.uUpper.value.copy(k.sky[1]);
+    du.uLower.value.copy(k.sky[2]);
+    du.uHorizon.value.copy(k.sky[3]);
+    du.uHaze.value.copy(k.fog);
+    du.uGlow.value.copy(k.glow);
+    du.uGlowI.value = k.glowI;
+    du.uBelt.value.copy(k.belt);
+    du.uBeltI.value = k.beltI;
+    du.uNight.value = k.stars;
+    du.uDrift.value = time * SKY_LOOK.cloudDrift;
+    du.uCloudOp.value = lerp(k.cloudOp, 1, 0.6) * (1 - CHART.uChart.value);
+    du.uCloudLit.value.copy(k.cloud);
+    du.uCloudShade.value.copy(k.sky[1]).lerp(k.cloud, 0.5).multiplyScalar(0.92);
 
     // atmosphere + lights
     sceneFog.color.copy(k.fog);
@@ -315,41 +304,46 @@ export class SkyCycle {
     const alt = Math.sin(sa);
     const lowness = 1 - clamp(alt / 0.35, 0, 1); // 1 when kissing the horizon
     // high sun stands in front of the cutaway; it swings behind the train as it sets
-    const sunZ = lerp(0.5, -0.62, smootherstep((lowness - 0.2) / 0.3));
-    _v.set(Math.cos(sa), alt * 0.78 + 0.02, sunZ).normalize();
+    const swing = smootherstep((lowness - 0.2) / 0.3);
+    // a low sun stands behind the cutaway so it sets in the window of the side view
+    _v.set(Math.cos(sa), alt * SKY_LOOK.sunClimb + 0.02, lerp(0.5, SKY_LOOK.sunBehind, swing)).normalize();
     const sunUp = su <= 1;
     if (sunUp) this.keyDir.set(_v.x, Math.max(_v.y, 0.3), _v.z).normalize();
-    this.duskness = (sunUp ? smootherstep((lowness - 0.2) / 0.3) : 1) * (1 - smootherstep(k.stars / 0.6));
-    this.bounceIntensity = lerp(SKY_LOOK.bounceI[0], SKY_LOOK.bounceI[1], this.duskness) * (1 - k.stars);
-    _v.multiplyScalar(3850);
-    this.sunCore.position.copy(_v);
-    this.sunHalo.position.copy(_v);
-    const sunVis = su <= 1.04 ? clamp((alt + 0.06) / 0.12, 0, 1) : 0;
-    this.sunCore.material.opacity = sunVis;
-    this.sunHalo.material.opacity = sunVis * (0.45 + 0.4 * lowness);
-    this.sunCore.scale.setScalar(620 + lowness * 330);
-    this.sunHalo.scale.setScalar(900 + lowness * 950);
+    this.duskness = (sunUp ? swing : 1) * (1 - smootherstep(k.stars / 0.6));
+    this.bounceIntensity = lerp(lerp(SKY_LOOK.bounceI[0], SKY_LOOK.bounceI[1], this.duskness), SKY_LOOK.bounceI[2], k.stars);
+    this.sunDir.copy(_v);
+    du.uSunDir.value.copy(_v);
+    du.uSunVis.value = su <= 1.04 ? clamp((alt + 0.06) / 0.12, 0, 1) : 0;
+    du.uSunSize.value = lerp(SKY_LOOK.sunSize[0], SKY_LOOK.sunSize[1], lowness);
     _c1.set(SKY_LOOK.sunHigh);
     _c2.set(SKY_LOOK.sunLow);
-    this.sunCore.material.color.lerpColors(_c1, _c2, lowness * 0.85);
-    this.sunHalo.material.color.lerpColors(_c1, _c2, lowness);
+    du.uSunCol.value.lerpColors(_c1, _c2, lowness).multiplyScalar(lerp(SKY_LOOK.sunGain[0], SKY_LOOK.sunGain[1], lowness));
 
-    // --- moon: owns the night arc, opposite side of the dome ---------------
+    // --- moon: skims low behind the train all night, a lantern in the window ---
     const mu = (((phase - SUNSET - 0.005) % 1) + 1) % 1 / (1 - DAY_SPAN);
     const ma = mu * Math.PI;
     const malt = Math.sin(ma);
-    _v.set(Math.cos(ma), malt * 0.7 + 0.02, 0.42).normalize();
+    _v.set(Math.cos(ma) * 0.9, malt * 0.13 + 0.03, -0.8).normalize();
     if (!sunUp) this.keyDir.set(_v.x, Math.max(_v.y, 0.3), _v.z).normalize();
-    _v.multiplyScalar(3850);
-    this.moonCore.position.copy(_v);
-    this.moonGlow.position.copy(_v);
-    const moonVis = mu <= 1.02 ? clamp((malt + 0.04) / 0.1, 0, 1) * clamp(k.stars * 1.6, 0, 1) : 0;
-    this.moonCore.material.opacity = moonVis * 0.95;
-    this.moonGlow.material.opacity = moonVis * 0.4;
+    du.uMoonDir.value.copy(_v);
+    du.uMoonVis.value = mu <= 1.02 ? clamp((malt + 0.04) / 0.1, 0, 1) * clamp(k.stars * 1.6, 0, 1) : 0;
 
     // the key dips to nothing as sun hands over to moon, so the swap never pops
     const keyFade = sunUp ? clamp((alt + 0.02) / 0.1, 0, 1) : clamp((malt + 0.02) / 0.1, 0, 1);
     this.sunLight.intensity = k.dirI * keyFade;
+
+    ATMOS.keyDir.copy(this.keyDir);
+    ATMOS.sunDir.copy(this.sunDir);
+    ATMOS.time = time;
+    ATMOS.night = k.stars;
+    ATMOS.dusk = this.duskness;
+    ATMOS.glow.copy(k.glow);
+    ATMOS.glowI = k.glowI * du.uSunVis.value;
+    _c1.copy(k.dirCol).multiplyScalar(k.dirI * keyFade);
+    _c2.copy(k.hemiSky).multiplyScalar(k.hemiI);
+    ATMOS.lit.setRGB(_c1.r * 0.2 + _c2.r * 0.6, _c1.g * 0.2 + _c2.g * 0.6, _c1.b * 0.2 + _c2.b * 0.6);
+    ATMOS.shade.setRGB(_c1.r * 0.06 + _c2.r * 0.9, _c1.g * 0.06 + _c2.g * 0.9, _c1.b * 0.06 + _c2.b * 0.9);
+    ATMOS.ground.copy(k.hemiGround);
 
     // stars + fireflies
     this.starMat.uniforms.uTime.value = time;
