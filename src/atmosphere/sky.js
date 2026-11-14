@@ -306,7 +306,8 @@ export class SkyCycle {
     // high sun stands in front of the cutaway; it swings behind the train as it sets
     const swing = smootherstep((lowness - 0.2) / 0.3);
     // a low sun stands behind the cutaway so it sets in the window of the side view
-    _v.set(Math.cos(sa), alt * SKY_LOOK.sunClimb + 0.02, lerp(0.5, SKY_LOOK.sunBehind, swing)).normalize();
+    const lift = SKY_LOOK.sunLift * swing * clamp(alt / 0.15, 0, 1);
+    _v.set(Math.cos(sa), alt * SKY_LOOK.sunClimb + 0.02 + lift, lerp(SKY_LOOK.sunFront, SKY_LOOK.sunBehind, swing)).normalize();
     const sunUp = su <= 1;
     if (sunUp) this.keyDir.set(_v.x, Math.max(_v.y, 0.3), _v.z).normalize();
     this.duskness = (sunUp ? swing : 1) * (1 - smootherstep(k.stars / 0.6));

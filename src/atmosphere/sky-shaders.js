@@ -5,7 +5,7 @@ const CLOUD_BAND = /* glsl */ `
   uniform float uDrift;
   uniform float uCloudOp;
   vec2 cloudUv(vec3 d, float e) {
-    return vec2(atan(d.z, d.x) * 0.15915494 + 0.5 + uDrift, 1.0 - (e - 1.0) / 28.125);
+    return vec2(atan(d.z, d.x) * 0.15915494 + 0.5 + uDrift, (e - 1.0) / 28.125);
   }
   float cloudBand(float e) {
     float v = (e - 1.0) / 28.125;
@@ -102,7 +102,7 @@ export const DOME_FRAG = /* glsl */ `
 
     if (uCloudOp > 0.0) {
       float az = atan(d.z, d.x) * 0.15915494 + 0.5;
-      float wisp = texture2D(uCloud, vec2(az * 2.0 + uDrift * 1.7 + 0.37, 1.0 - (e - 14.0) / 44.0)).b;
+      float wisp = texture2D(uCloud, vec2(az * 2.0 + uDrift * 1.7 + 0.37, (e - 14.0) / 44.0)).b;
       wisp *= smoothstep(14.0, 22.0, e) * (1.0 - smoothstep(46.0, 58.0, e));
       vec3 warmLit = uCloudLit + uGlow * uGlowI * 0.5 * pow(toward, 2.0);
       col = mix(col, warmLit, min(1.0, wisp * 1.6) * 0.5 * uCloudOp);

@@ -4,7 +4,7 @@ import { CHART, SMOKE_LOOK } from '../look.js';
 import { lcg } from '../prng.js';
 import { ATMOS } from './shared.js';
 
-const POOL = 112;
+const POOL = 160;
 const SMOKE = 0;
 const STEAM = 1;
 const DUST = 2;
@@ -62,9 +62,9 @@ const FRAG = /* glsl */ `
     float ca = cos(seed * 6.283);
     float sa = sin(seed * 6.283);
     vec2 q = vec2(vP.x * ca - vP.y * sa, vP.x * sa + vP.y * ca);
-    float wob = pNoise(q * 2.1 + seed * 37.0 + age * 0.6) * 0.62 + pNoise(q * 4.6 + seed * 11.0) * 0.38;
-    float r = length(vP) + (wob - 0.5) * 0.62;
-    float a = (1.0 - smoothstep(0.5, 0.86, r)) * vMisc.y * uFade;
+    float wob = pNoise(q * 3.1 + seed * 37.0 + age * 0.6) * 0.55 + pNoise(q * 6.7 + seed * 11.0) * 0.45;
+    float r = length(vP) + (wob - 0.5) * 0.42;
+    float a = (1.0 - smoothstep(0.52, 0.9, r)) * vMisc.y * uFade;
     if (a < 0.004) discard;
     float z = sqrt(max(0.0, 1.0 - min(1.0, dot(vP, vP))));
     vec3 n = normalize(vec3(vP + (wob - 0.5) * 0.7, z + 0.3));
@@ -73,7 +73,7 @@ const FRAG = /* glsl */ `
     vec3 albedo = mix(uSoot, uAsh, smoothstep(0.0, 0.45, age));
     if (kind > 1.5) albedo = uGround;
     else if (kind > 0.5) albedo = uSteam;
-    gl_FragColor = vec4(albedo * mix(uShade, uLit, tone), a);
+    gl_FragColor = vec4(albedo * mix(uShade, uLit * 1.15, tone), a);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     #include <fog_fragment>
@@ -170,7 +170,7 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
       if (moving) {
         fx.stack = lerp(0.42, 0.11, speed01);
         spawn(fx, SMOKE, p.x + jit(0.2), p.y, p.z + jit(0.2), jit(0.5), 3.0 + rand() * 1.4, jit(0.5),
-          3.0 + rand() * 1.2, 0.62, 3.2 + rand() * 1.4, 0.62);
+          3.0 + rand() * 1.2, 0.62, 3.2 + rand() * 1.4, 0.5);
       } else {
         fx.stack = 0.55 + rand() * 0.3;
         spawn(fx, SMOKE, p.x + jit(0.15), p.y, p.z + jit(0.15), jit(0.2), 1.25 + rand() * 0.5, jit(0.2),
@@ -180,8 +180,8 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
 
     const engine = state.cars[1].group;
     fx.whistle -= dt;
-    if (fx.whistle <= 0) {
-      fx.whistle = moving ? 0.22 : 0.5 + rand() * 0.5;
+    if (fx.whistle <= 0 && !moving) {
+      fx.whistle = 0.5 + rand() * 0.5;
       engine.localToWorld(_v.set(-1.25, 5.74, -1.55));
       spawn(fx, STEAM, _v.x, _v.y, _v.z, jit(0.25), 1.5 + rand() * 0.6, jit(0.25), 1.1 + rand() * 0.5, 0.12, 0.7 + rand() * 0.3, 0.5);
     }
@@ -191,21 +191,21 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
       if (fx.chuff <= 0) {
         fx.chuff = lerp(0.9, 0.3, speed01);
         fx.side = -fx.side;
-        for (let n = 0; n < 3; n++) {
-          engine.localToWorld(_v.set(5.2 + jit(0.3), 0.75, fx.side * 2.75));
-          const out = (1.4 + rand() * 1.4) * fx.side;
+        for (let n = 0; n < 2; n++) {
+          engine.localToWorld(_v.set(5.2 + jit(0.3), 0.55, fx.side * 2.75));
+          const out = (0.9 + rand() * 0.9) * fx.side;
           const ry = engine.rotation.y;
           spawn(fx, STEAM, _v.x, _v.y, _v.z, Math.sin(ry) * out + jit(0.4), 0.5 + rand() * 0.7, Math.cos(ry) * out + jit(0.4),
-            1.0 + rand() * 0.6, 0.3, 1.5 + rand() * 0.8, 0.5);
+            0.6 + rand() * 0.4, 0.2, 0.8 + rand() * 0.4, 0.34);
         }
       }
       fx.dust -= dt * speed01;
       while (fx.dust <= 0) {
-        fx.dust += 0.045;
+        fx.dust += 0.03;
         const wheel = state.wheels[Math.floor(rand() * state.wheels.length)];
         const e = wheel.matrixWorld.elements;
-        spawn(fx, DUST, e[12] + jit(0.7), 0.18, e[14] + jit(0.4), jit(0.5), 0.35 + rand() * 0.55, jit(0.5),
-          1.1 + rand() * 0.8, 0.4, 1.5 + rand() * 1.1, 0.26 * speed01);
+        spawn(fx, DUST, e[12] + jit(0.7), 0.2, e[14] + jit(0.4), jit(0.5), 0.4 + rand() * 0.6, jit(0.5),
+          1.4 + rand() * 1.0, 0.45, 1.8 + rand() * 1.2, 0.4 * speed01);
       }
     }
 
@@ -245,7 +245,7 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
   u.uLit.value.lerp(_luma.setScalar(luma(ATMOS.lit)), grey);
   u.uShade.value.copy(ATMOS.shade);
   u.uShade.value.lerp(_luma.setScalar(luma(ATMOS.shade)), grey);
-  u.uGround.value.copy(ATMOS.ground).multiplyScalar(SMOKE_LOOK.dustGain);
+  u.uGround.value.copy(ATMOS.ground).lerp(_luma.setScalar(1), SMOKE_LOOK.dustPale);
   u.uFade.value = 1 - CHART.uChart.value;
 }
 

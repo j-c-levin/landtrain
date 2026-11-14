@@ -21,11 +21,11 @@ export function cloudPanorama(rand, scale = 1) {
   const pad = 80 * scale;
 
   const banks = [];
-  for (let b = 0; b < 30; b++) banks.push({ depth: Math.pow(rand(), 0.75), x: rand(), w: rand(), h: rand(), seed: rand() });
+  for (let b = 0; b < 22; b++) banks.push({ depth: Math.pow(rand(), 0.75), x: rand(), w: rand(), h: rand(), seed: rand() });
   banks.sort((p, q) => p.depth - q.depth);
   for (const bank of banks) {
-    const width = (46 + bank.w * 110) * (0.5 + bank.depth * 0.75) * scale;
-    const height = Math.min(width * (0.3 + bank.h * 0.22), 62 * scale);
+    const width = (40 + bank.w * 80) * (0.45 + bank.depth * 0.6) * scale;
+    const height = Math.min(width * (0.3 + bank.h * 0.2), 44 * scale);
     sc.globalCompositeOperation = 'source-over';
     sc.clearRect(0, 0, scratch.width, scratch.height);
     const puffs = 5 + Math.floor(rand() * 5);
@@ -42,10 +42,10 @@ export function cloudPanorama(rand, scale = 1) {
     }
     order.sort((p, q) => p.y - q.y);
     for (const { x, y, r } of order) {
-      const g = sc.createRadialGradient(x, y - r * 0.45, r * 0.15, x, y, r);
+      const g = sc.createLinearGradient(0, y - r, 0, y + r * 0.9);
       g.addColorStop(0, 'rgb(255,255,0)');
-      g.addColorStop(0.55, 'rgb(255,200,0)');
-      g.addColorStop(1, 'rgb(255,70,0)');
+      g.addColorStop(0.45, 'rgb(255,215,0)');
+      g.addColorStop(1, 'rgb(255,60,0)');
       sc.fillStyle = g;
       sc.beginPath();
       sc.arc(x, y, r, 0, Math.PI * 2);
@@ -61,7 +61,7 @@ export function cloudPanorama(rand, scale = 1) {
     sc.fillStyle = '#000';
     sc.fillRect(0, floor, scratch.width, scratch.height);
     const x = bank.x * W;
-    const y = H * (0.9 - bank.depth * 0.6) - floor;
+    const y = H * (0.93 - bank.depth * 0.5) - floor;
     ctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(scratch, x, y);
     ctx.drawImage(scratch, x - W, y);
