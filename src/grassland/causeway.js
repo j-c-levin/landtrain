@@ -121,12 +121,12 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
       for (let k = 0; k < 6; k++) {
         const inward = k * 2.05;
         const drop = Math.max(0, k - 1) * 0.42;
-        box(stones, uEnd - end * (inward - 0.6), 0.1 - drop, vCenter + side * (edge + 1.35 + (local() - 0.5) * 0.55),
+        box(tallStones, uEnd - end * (inward - 0.6), 0.1 - drop, vCenter + side * (edge + 1.35 + (local() - 0.5) * 0.55),
           1.7 + local() * 0.5, 1.15 + local() * 0.4, 1.3 + local() * 0.6, stone(), (local() - 0.5) * 0.22);
       }
       // the wing splays out onto the bank and ends in a lantern plinth, clear of the lens
       for (let k = 1; k <= 4; k++) {
-        box(stones, uEnd + end * k * 1.5, 0.22 + local() * 0.1, vCenter + side * (edge + 1.35 + k * 1.5),
+        box(tallStones, uEnd + end * k * 1.5, 0.22 + local() * 0.1, vCenter + side * (edge + 1.35 + k * 1.5),
           2.2 + local() * 0.2, 1.2 + local() * 0.25, 1.4 + local() * 0.3, stone(), -Math.atan2(side, end));
       }
       const pu = uEnd + end * 7.4, pv = vCenter + side * (edge + 8.75);
