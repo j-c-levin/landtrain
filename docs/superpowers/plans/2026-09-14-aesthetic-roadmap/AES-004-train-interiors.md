@@ -1,7 +1,7 @@
 # AES-004 - Train Interior Stations
 
-**Status:** proposed
-**Owner:** unassigned
+**Status:** in_progress
+**Owner:** Kilo (primary, visual implementation and judgment)
 **Depends on:** AES-003
 **Blocks:** AES-005
 **Exclusive scope:** `src/train.js` and train modules created by earlier train tasks
@@ -37,14 +37,14 @@ Make the cab, engine, plant area, reading chair, and bunk feel like distinct liv
 
 ## Handoff
 
-**Last updated:** 2026-09-14
-**Branch:** unassigned
-**Worktree:** unassigned
+**Last updated:** 2026-09-15T08:36:00Z
+**Branch:** aesthetic/aes-004
+**Worktree:** /Users/joshuajosai-levin/Code/landtrain-aes-004
 **Implementation commit:** not started
 **Merge commit:** not merged
-**Completed:** none
-**Remaining:** all work
-**Decisions/deviations:** none
-**Risks/blockers:** Station state interfaces may need minimal exports; defer broader interaction changes to AES-005.
+**Completed:** Claimed from local main `03c1c3f`, including redesign `4876a49`; AES-003 dependency is done. Existing furniture, flywheel and lighting are baseline work, not AES-004 completion.
+**Remaining:** Current-main runtime audit and matched evidence; interior redesign; verification, review and integration.
+**Decisions/deviations:** User requests a first-principles station redesign rather than additive detailing. Primary model owns visual construction. No interaction wiring changes.
+**Risks/blockers:** Remote fetch refused by SSH agent; proceeding from explicitly requested current local main. Git invoked with Command Line Tools to avoid unrelated Xcode license setup. Physical mobile hardware is not available.
 **Verification results:** not run
 **Evidence:** none

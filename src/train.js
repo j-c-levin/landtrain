@@ -4,7 +4,8 @@ import {
   effMult, treadMult, clamp, lerp, damp,
 } from './constants.js';
 import { blockedAt, softDiscTexture } from './world.js';
-import { buildLivingInterior } from './train-home.js';
+import { buildLivingInterior, buildBunkInterior } from './train-home.js';
+import { interiorKit, plantLeafGeometry } from './train-interior-kit.js';
 
 // Height of the map-view route overlay (line, dots, train ring). It MUST equal
 // the y of the plane that map clicks raycast against (main.js groundPlane = 0),
@@ -42,7 +43,16 @@ function createTrainMaterials() {
     engine: new THREE.MeshStandardMaterial({ color: 0x315d5b, roughness: 0.62, metalness: 0.35 }),
     copper: new THREE.MeshStandardMaterial({ color: 0x98634c, roughness: 0.62, metalness: 0.45 }),
     roofGreen: new THREE.MeshStandardMaterial({ color: 0x405f52, roughness: 0.85, metalness: 0.12 }),
+    teal: new THREE.MeshStandardMaterial({ color: 0x477b79, roughness: 0.86 }),
+    wine: new THREE.MeshStandardMaterial({ color: 0x824e55, roughness: 1, side: THREE.DoubleSide }),
+    linen: new THREE.MeshStandardMaterial({ color: 0xe3cfae, roughness: 1, side: THREE.DoubleSide }),
+    pages: new THREE.MeshStandardMaterial({ color: 0xf1ddb5, roughness: 1 }),
+    instrument: new THREE.MeshStandardMaterial({ color: 0xf4e7c7, roughness: 0.7, emissive: 0xf7b96c, emissiveIntensity: 0.16 }),
+    lampshade: new THREE.MeshStandardMaterial({ color: 0xe5c78c, roughness: 1, emissive: 0xffc879, emissiveIntensity: 0.32, side: THREE.DoubleSide }),
+    glass: new THREE.MeshStandardMaterial({ color: 0xabcac5, transparent: true, opacity: 0.12, depthWrite: false, roughness: 0.24, side: THREE.DoubleSide }),
+    lightPool: new THREE.MeshBasicMaterial({ color: 0xffd6a1, transparent: true, opacity: 0.12, depthWrite: false }),
     firebox: new THREE.MeshStandardMaterial({ color: 0x6b2f1a, emissive: 0xff6a2a, emissiveIntensity: 1.2, roughness: 0.6 }),
+    ember: new THREE.MeshStandardMaterial({ color: 0xffb04c, emissive: 0xffb33e, emissiveIntensity: 1.7, roughness: 1 }),
     upholstery: new THREE.MeshStandardMaterial({ color: TRAIN_COLOR.hull, roughness: 0.95 }),
     book: new THREE.MeshStandardMaterial({ color: 0x5c7aa8, roughness: 0.8 }),
     sootGrime: new THREE.MeshStandardMaterial({ color: 0x5a4035, roughness: 0.98 }),
@@ -59,6 +69,7 @@ function createTrainGeometry() {
     wheelHub,
     detail: new THREE.BoxGeometry(1, 1, 1),
     leaf: new THREE.SphereGeometry(0.22, 6, 5),
+    plantLeaf: plantLeafGeometry(),
   };
 }
 
@@ -140,36 +151,66 @@ function instancedDetails(items, geometry, material, parent, shadow = false) {
 }
 
 class Plant {
-  constructor(parent, materials, geometry, x, z, scale = 1) {
+  constructor(parent, materials, geometry, x, y, z, scale, kind) {
     this.group = new THREE.Group();
-    this.group.position.set(x, 1.78, z);
+    this.group.name = `plant-${kind}`;
+    this.group.position.set(x, y, z);
     this.group.scale.setScalar(scale);
-
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.42, 8), materials.woodDark);
-    pot.position.y = 0.21;
-    pot.castShadow = true;
-    this.group.add(pot);
-
-    this.leafMat = materials.foliage;
-    this.foliage = new THREE.Group();
-    this.foliage.position.y = 0.42;
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2;
-      const leaf = new THREE.Mesh(geometry.leaf, this.leafMat);
-      leaf.scale.set(0.55, 1.6, 0.55);
-      leaf.position.set(Math.cos(a) * 0.16, 0.32, Math.sin(a) * 0.16);
-      leaf.rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5);
-      this.foliage.add(leaf);
-    }
-    this.group.add(this.foliage);
     parent.add(this.group);
+    const k = interiorKit(this.group, `plant-pot-${kind}`);
+    const potMat = [materials.hull, materials.cream, materials.teal][kind];
+    k.mesh(new THREE.CylinderGeometry(0.34, 0.23, 0.43, 20), potMat, 0, 0.235, 0);
+    k.ring(0.329, 0.034, potMat, 0, 0.452, 0).rotation.x = Math.PI / 2;
+    k.round(0.38, 0.04, 0.38, potMat, 0, 0.022, 0);
+    this.soilMat = new THREE.MeshStandardMaterial({ color: 0x765238, roughness: 1 });
+    k.round(0.298, 0.026, 0.298, this.soilMat, 0, 0.443, 0);
+    this.leafMat = materials.foliage.clone();
+    this.leafMat.side = THREE.DoubleSide;
+    this.leafMat.emissive.setHex(0x3b583c);
+    this.leafMat.emissiveIntensity = 0.12;
+    this.drySoil = new THREE.Color(0x765238);
+    this.wetSoil = new THREE.Color(0x332d24);
+    this.thirstyGreen = new THREE.Color(0x659050);
+    this.wateredGreen = new THREE.Color(0x709d57);
+    this.leaves = [];
+    if (kind === 0) {
+      for (let i = 0; i < 11; i++) this.leaves.push({ x: 0, y: 0.43, z: -0.025 * (i % 3),
+        angle: -1.15 + i * 0.23, twist: (i % 3 - 1) * 0.5, w: 0.25, h: 0.89 + (i % 3) * 0.12 });
+    } else if (kind === 1) {
+      k.pipe([[0, 0.44, 0], [-0.05, 0.83, 0], [0.07, 1.37, -0.03]], 0.018, materials.woodDark);
+      for (let i = 0; i < 7; i++) this.leaves.push({ x: i % 2 ? -0.04 : 0.04, y: 0.61 + i * 0.117,
+        z: -0.06, angle: (i % 2 ? 1 : -1) * (0.65 + (i % 3) * 0.2), twist: (i % 3 - 1) * 0.3, w: 0.58, h: 0.66 });
+    } else {
+      for (let i = 0; i < 8; i++) this.leaves.push({ x: (i % 2 ? -1 : 1) * 0.12, y: 0.42 - Math.max(0, i - 4) * 0.14,
+        z: i > 4 ? 0.2 : -0.03, angle: (i % 2 ? 1 : -1) * (0.45 + i * 0.23), twist: (i % 3 - 1) * 0.25, w: 0.5, h: 0.59 });
+      for (const side of [-1, 1]) k.pipe([[0, 0.47, 0], [side * 0.24, 0.44, 0.14], [side * 0.29, -0.05, 0.2]], 0.015, materials.foliage);
+    }
+    this.leafMesh = new THREE.InstancedMesh(geometry.plantLeaf, this.leafMat, this.leaves.length);
+    this.leafMesh.castShadow = true;
+    this.leafMesh.receiveShadow = true;
+    this.leafMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.leafMesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.8, 0), 1.6);
+    this.group.add(this.leafMesh);
+    this.transform = new THREE.Object3D();
+    k.finish();
+    this.setHappiness(1);
   }
 
-  setHappiness(h01) {
-    const droop = 1 - h01;
-    this.foliage.scale.y = lerp(1, 0.62, droop);
-    this.foliage.rotation.z = droop * 0.35;
-    this.leafMat.color.setHSL(lerp(0.28, 0.16, droop), lerp(0.42, 0.28, droop), lerp(0.42, 0.36, droop));
+  setHappiness(h, time = 0, motion = 0) {
+    const t = clamp(h, 0, 1);
+    this.leafMat.color.lerpColors(this.thirstyGreen, this.wateredGreen, t);
+    this.soilMat.color.lerpColors(this.drySoil, this.wetSoil, t);
+    this.soilMat.roughness = lerp(1, 0.7, t);
+    for (let i = 0; i < this.leaves.length; i++) {
+      const leaf = this.leaves[i];
+      this.transform.position.set(leaf.x, leaf.y, leaf.z);
+      this.transform.scale.set(leaf.w, leaf.h * lerp(0.91, 1, t), 1);
+      this.transform.rotation.set(0.07 * Math.sin(time * 0.65 + i) * motion, leaf.twist,
+        leaf.angle + Math.sign(leaf.angle) * (1 - t) * 0.28 + Math.sin(time * 0.7 + i * 0.9) * 0.025 * motion);
+      this.transform.updateMatrix();
+      this.leafMesh.setMatrixAt(i, this.transform.matrix);
+    }
+    this.leafMesh.instanceMatrix.needsUpdate = true;
   }
 }
 
@@ -261,6 +302,9 @@ export class Train {
     this.wear = 8;
     this.plants = 95;
     this.onEvent = null;
+    this.motionQuery = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
+    this.previousPlants = this.plants;
+    this.wateringPulse = 0;
 
     this.headPos = new THREE.Vector3(TRAIN_HALF, 0, 0);
     this.path = new TrailPath();
@@ -281,6 +325,7 @@ export class Train {
     this.#buildCar(0);
     this.#buildCar(1);
     this.#buildCar(2);
+    this.carVisuals = this.cars.flatMap(({ group }) => group.children);
     this.#buildRouteDisplay();
     this.#buildSmoke();
     this.#placeCars();
@@ -301,6 +346,8 @@ export class Train {
     this.plants = 95;
 
     this.headPos.set(x, 0, z);
+    this.previousPlants = this.plants;
+    this.wateringPulse = 0;
     this.path.seed(this.headPos.x, this.headPos.z, this.heading, 100);
     this.#placeCars();
   }
@@ -462,24 +509,13 @@ export class Train {
     for (let z = -1.5; z <= 1.5; z += 0.5) grille.push([9.22, 2.83, z, 0.09, 0.72, 0.12, 0, 0, 0.12]);
     instancedDetails(grille, this.geometry.detail, M.iron, g);
 
-    profiledBox(3.4, 0.55, 1.65, 0.12, M.woodDark, 3.5, 2.055, -1.35, g);
-    profiledBox(3.2, 0.3, 1.5, 0.1, M.cream, 3.5, 2.48, -1.35, g);
-    profiledBox(0.8, 0.22, 1.22, 0.1, M.pillow, 4.55, 2.73, -1.35, g);
-    profiledBox(1.95, 0.14, 1.52, 0.06, M.sage, 2.95, 2.68, -1.35, g);
-    box(3.7, 0.14, 0.5, M.wood, 3.5, 3.83, -2.03, g);
-    instancedDetails([[1.82, 3.02, -2.0, 0.13, 1.65, 0.13], [5.18, 3.02, -2.0, 0.13, 1.65, 0.13]], this.geometry.detail, M.woodDark, g);
+    buildBunkInterior(g, M);
     profiledBox(2.6, 1.05, 1.3, 0.12, M.wood, -3.7, 2.305, -1.55, g);
     instancedDetails([[-4.45, 2.43, -0.88, 0.5, 0.06, 0.06], [-3, 2.43, -0.88, 0.5, 0.06, 0.06]], this.geometry.detail, M.iron, g);
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 1.15, 12), M.woodDark);
     barrel.position.set(-1.3, 2.355, -1.65);
     barrel.castShadow = true;
     g.add(barrel);
-    const bunkBulb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), M.glow);
-    bunkBulb.position.set(5.4, 3.4, -1.9);
-    g.add(bunkBulb);
-    const bunkLight = new THREE.PointLight(0xffd5a4, 4, 4.5, 2);
-    bunkLight.position.set(5.0, 3.3, -1.2);
-    g.add(bunkLight);
 
     box(12.0, 0.14, 1.275, M.wood, 2, 4.98, -1.5875, g);
     box(12.0, 0.14, 1.275, this.#fadingMat('car0', M.wood), 2, 4.98, 1.5875, g);
@@ -497,22 +533,68 @@ export class Train {
     for (const x of [-3.7, -1.2, 1.3, 3.8, 6.3]) seams.push([x, 7.935, 0, 0.045, 0.035, 1.85]);
     instancedDetails(seams, this.geometry.detail, M.hullDark, g);
 
-    profiledBox(1.8, 1.0, 1.6, 0.2, M.woodDark, 4.4, 5.55, -1.25, g);
-    const wheelMesh = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.07, 8, 18), M.brass);
-    wheelMesh.position.set(3.6, 6.35, -1.2);
-    wheelMesh.rotation.y = Math.PI / 2;
-    g.add(wheelMesh);
-    for (let i = 0; i < 3; i++) {
-      const lever = box(0.07, 0.6, 0.07, M.iron, 4.0 + i * 0.4, 6.3, -0.4, g, false);
-      lever.rotation.x = -0.3 + i * 0.3;
-    }
-    instancedDetails([[4.05, 6.08, -1.4, 0.23, 0.04, 0.23], [4.7, 6.08, -1.4, 0.32, 0.04, 0.32]], new THREE.CylinderGeometry(1, 1, 1, 12), M.cream, g);
-    profiledBox(1.1, 0.22, 1.0, 0.1, M.upholstery, 1.9, 5.83, -1.2, g);
-    box(0.16, 0.65, 0.16, M.iron, 1.9, 5.375, -1.2, g);
-    profiledBox(0.22, 0.8, 1.0, 0.08, M.upholstery, 1.4, 6.15, -1.2, g);
+    const k = interiorKit(g, 'cab-interior');
+    const { block, round, cushion, pipe, ring } = k;
+    cushion(4.2, 0.75, 1.43, M.teal, 4.71, 5.49, -1.27);
+    cushion(4.47, 0.15, 1.58, M.wood, 4.71, 5.93, -1.24);
+    for (const x of [2.96, 4.09, 5.32, 6.48]) block(0.055, 0.52, 0.035, M.wood, x, 5.51, -0.532);
+    block(4.0, 0.045, 0.04, M.brass, 4.71, 5.8, -0.51);
+    pipe([[2.88, 5.26, -0.39], [3.12, 5.27, -0.35], [6.25, 5.27, -0.35], [6.51, 5.44, -0.43]], 0.035, M.brass);
+    const dash = interiorKit(g, 'cab-instrument-cluster');
+    dash.root.position.set(5.57, 6.41, -1.05);
+    dash.root.rotation.y = -0.35;
+    dash.cushion(2.37, 1.05, 0.24, M.woodDark, 0, 0, 0);
+    dash.cushion(2.22, 0.9, 0.05, M.iron, 0, 0, 0.137);
+    this.headingNeedle = dash.dial(0.36, 0.14, 0.08, 0.18, M, 'heading-needle');
+    this.speedNeedle = dash.dial(0.22, -0.73, 0.03, 0.18, M, 'speed-needle');
+    dash.block(0.36, 0.08, 0.04, M.brass, 0.14, -0.39, 0.18);
+    for (let i = 0; i < 3; i++) dash.round(0.039, 0.036, 0.039, i === 0 ? M.glow : M.copper,
+      0.81, -0.17 + i * 0.18, 0.18).rotation.x = Math.PI / 2;
+    dash.finish();
 
-    const light = new THREE.PointLight(0xffd5a4, 7, 6, 2);
-    light.position.set(2.5, 7.1, 0);
+    this.cabWheel = k.pivot('cab-wheel', 3.11, 6.22, -1.02);
+    this.cabWheel.rotation.y = Math.PI / 2;
+    this.cabWheel.add(ring(0.49, 0.055, M.woodDark, 0, 0, 0, true));
+    this.cabWheel.add(ring(0.45, 0.018, M.brass, 0, 0, 0.024, true));
+    for (let i = 0; i < 3; i++) {
+      const spoke = block(0.88, 0.045, 0.04, M.brass, 0, 0, 0, true);
+      spoke.rotation.z = i * Math.PI / 3;
+      this.cabWheel.add(spoke);
+    }
+    pipe([[3.18, 6.22, -1.02], [3.6, 5.87, -1.02]], 0.075, M.iron);
+    this.cabLevers = [];
+    for (let i = 0; i < 2; i++) {
+      const x = 4.1 + i * 0.42;
+      cushion(0.25, 0.1, 0.45, M.iron, x, 6.035, -0.6);
+      const lever = k.pivot(`cab-lever-${i}`, x, 6.07, -0.65);
+      lever.add(block(0.048, 0.43, 0.048, M.brass, 0, 0.215, 0, true));
+      lever.add(k.mesh(new THREE.SphereGeometry(0.095, 12, 8), i ? M.wine : M.woodDark, 0, 0.46, 0, true));
+      this.cabLevers.push(lever);
+    }
+    round(0.27, 0.08, 0.27, M.iron, 1.73, 5.095, -1.13);
+    round(0.07, 0.62, 0.07, M.brass, 1.73, 5.4, -1.13);
+    cushion(1.16, 0.28, 1.1, M.wine, 1.73, 5.85, -1.13);
+    cushion(0.26, 0.92, 1.15, M.wine, 1.17, 6.17, -1.13).rotation.z = 0.12;
+    const chart = interiorKit(g, 'route-chart');
+    chart.root.position.set(0.04, 6.01, -1.59);
+    chart.root.rotation.x = 0.3;
+    chart.block(1.64, 0.1, 0.99, M.woodDark, 0, 0, 0);
+    chart.block(1.48, 0.017, 0.89, M.pages, 0, 0.065, 0);
+    for (let i = -2; i <= 2; i++) chart.block(1.39, 0.006, 0.012, M.sage, 0, 0.078, i * 0.16);
+    for (let i = -3; i <= 3; i++) chart.block(0.012, 0.006, 0.81, M.sage, i * 0.2, 0.078, 0);
+    chart.pipe([[-0.6, 0.087, 0.29], [-0.31, 0.087, 0.2], [-0.17, 0.087, -0.09], [0.21, 0.087, 0.02], [0.57, 0.087, -0.31]], 0.022, M.hull);
+    chart.round(0.052, 0.013, 0.052, M.brass, 0.57, 0.086, -0.31);
+    chart.finish();
+    for (const x of [-0.7, 0.77]) block(0.09, 0.94, 0.09, M.woodDark, x, 5.52, -1.67);
+    for (const [x, w] of [[-1.65, 3.5], [4, 5.6]]) block(w - 0.14, 1.24, 0.012, M.glass, x, 6.6, -2.12);
+    for (const z of [-1.05, 1.05]) block(0.012, 1.3, 1.95, M.glass, 8.045, 6.59, z).rotation.z = 0.1;
+    block(0.08, 1.46, 0.075, M.woodDark, 8.04, 6.59, 0).rotation.z = 0.1;
+    pipe([[5.87, 7.38, -1.85], [6.23, 7.28, -1.55], [6.24, 7.12, -1.24]], 0.025, M.brass);
+    k.mesh(new THREE.CylinderGeometry(0.1, 0.3, 0.22, 24, 1, true), M.teal, 6.24, 7.07, -1.24);
+    round(0.14, 0.025, 0.14, M.glow, 6.24, 6.97, -1.24);
+    k.finish();
+    const light = new THREE.PointLight(0xffd5a4, 9, 6.5, 2);
+    light.position.set(5.4, 7.0, -0.2);
     g.add(light);
     this.cabLight = light;
   }
@@ -547,18 +629,34 @@ export class Train {
     endCap.scale.x = 0.32;
     endCap.position.set(3.7, 3.12, -1.3);
     g.add(endCap);
+    const k = interiorKit(g, 'engine-workspace');
+    const { block, round, cushion, pipe, ring } = k;
     this.fireboxMat = M.firebox;
-    profiledBox(1.55, 1.3, 0.4, 0.2, M.iron, -0.8, 2.88, -0.32, g);
-    profiledBox(1.17, 0.85, 0.08, 0.035, this.fireboxMat, -0.8, 2.88, -0.08, g);
-    const grate = [];
-    for (let x = -1.2; x < -0.3; x += 0.2) grate.push([x, 2.88, -0.025, 0.055, 0.85, 0.055]);
-    instancedDetails(grate, this.geometry.detail, M.iron, g);
-    instancedDetails([[-2.2, 3.55, -0.8, 1, 1, 1], [-1.9, 3.55, -1.7, 1, 1.25, 1]], new THREE.CylinderGeometry(0.1, 0.1, 1.8, 8), M.copper, g);
-    const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.1, 16), M.cream);
-    dial.rotation.x = Math.PI / 2;
-    dial.position.set(-2.2, 4.1, -0.65);
-    g.add(dial);
-    box(0.035, 0.22, 0.035, M.iron, -2.15, 4.16, -0.585, g, false).rotation.z = -0.5;
+    cushion(2.1, 2.07, 0.09, M.sootGrime, 0.25, 3.01, -0.28);
+    cushion(1.88, 1.87, 0.23, M.copper, 0.25, 3.0, -0.3);
+    cushion(1.65, 1.64, 0.06, M.iron, 0.25, 3.0, -0.154);
+    cushion(1.44, 1.42, 0.05, M.firebox, 0.25, 3.0, -0.114);
+    k.arch(1.85, 0.23, 0.065, 0.07, M.brass, 0.25, 3.67, -0.17);
+    block(1.73, 0.16, 0.36, M.iron, 0.25, 2.13, -0.26);
+    for (let i = 0; i < 6; i++) block(0.045, 1.28, 0.05, M.iron, -0.3 + i * 0.22, 3.0, -0.055);
+    block(1.4, 0.06, 0.06, M.iron, 0.25, 2.62, -0.046);
+    this.flames = k.pivot('firebox-flames', 0.25, 2.35, -0.075);
+    for (let i = 0; i < 5; i++) {
+      const flame = k.mesh(new THREE.ConeGeometry(0.13, 0.75 + (i % 3) * 0.16, 7), M.ember,
+        -0.49 + i * 0.24, 0.47, 0, true);
+      flame.scale.z = 0.12;
+      this.flames.add(flame);
+    }
+    pipe([[-4.9, 3.68, -1.35], [-4.9, 4.06, -1.35], [-3.7, 4.23, -0.97], [-2.32, 4.2, -0.68], [-1.78, 3.8, -0.44]], 0.075, M.copper);
+    pipe([[-2.3, 2.36, -0.56], [-2.72, 2.47, -0.49], [-2.72, 3.02, -0.47], [-2.36, 3.12, -0.48]], 0.067, M.copper);
+    this.pressureNeedle = k.dial(0.46, -1.78, 3.78, -0.24, M, 'pressure-needle');
+    this.valveWheel = k.pivot('engine-valve', -2.38, 2.97, -0.24);
+    this.valveWheel.add(ring(0.37, 0.052, M.wine, 0, 0, 0, true));
+    for (let i = 0; i < 3; i++) {
+      const spoke = block(0.68, 0.035, 0.04, M.brass, 0, 0, 0, true);
+      spoke.rotation.z = i * Math.PI / 3;
+      this.valveWheel.add(spoke);
+    }
     const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.6, 3.0, 14), M.iron);
     stack.position.set(1.4, 5.71, -1.3);
     stack.castShadow = true;
@@ -577,33 +675,48 @@ export class Train {
     instancedDetails([[4.5, 2.22, -1.7, 0.15, 0.9, 0.15], [6, 2.22, -1.7, 0.15, 0.9, 0.15], [4.5, 2.22, -0.8, 0.15, 0.9, 0.15], [6, 2.22, -0.8, 0.15, 0.9, 0.15]], this.geometry.detail, M.iron, g);
     profiledBox(0.65, 0.36, 0.6, 0.06, M.iron, 5.5, 3.03, -1.15, g);
 
-    this.flywheel = new THREE.Group();
-    this.flywheel.position.set(2.15, 2.94, -0.08);
-    g.add(this.flywheel);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.87, 0.12, 8, 24), M.iron);
-    rim.castShadow = true;
-    this.flywheel.add(rim);
-    const spokes = [];
-    for (let a = 0; a < Math.PI; a += Math.PI / 3) spokes.push([0, 0, 0, 1.58, 0.105, 0.1, 0, 0, a]);
-    instancedDetails(spokes, this.geometry.detail, M.engine, this.flywheel, true);
-    const hub = new THREE.Mesh(this.geometry.wheelHub, M.brass);
-    hub.scale.z = 0.4;
+    cushion(2.06, 1.32, 0.09, M.woodDark, 5.28, 3.71, -1.94);
+    block(1.86, 1.12, 0.035, M.teal, 5.28, 3.71, -1.88);
+    block(1.84, 0.055, 0.11, M.brass, 5.28, 4.09, -1.81);
+    for (const [i, x] of [4.67, 5.25, 5.85].entries()) {
+      ring(0.065, 0.02, M.brass, x, 4.02, -1.73);
+      block(0.065, 0.54, 0.06, M.iron, x, 3.63, -1.72).rotation.z = (i - 1) * 0.12;
+      if (i === 1) block(0.42, 0.16, 0.17, M.iron, x, 3.87, -1.71);
+      else {
+        ring(0.12, 0.045, M.iron, x, 3.87, -1.72);
+        block(0.1, 0.13, 0.055, M.wood, x, 3.4, -1.7);
+      }
+    }
+    this.flywheel = k.pivot('engine-flywheel', 2.56, 2.95, -0.23);
+    this.flywheel.add(ring(0.98, 0.1, M.iron, 0, 0, 0, true));
+    this.flywheel.add(ring(0.98, 0.025, M.copper, 0, 0, 0.09, true));
+    for (let i = 0; i < 3; i++) {
+      const spoke = block(1.88, 0.09, 0.09, M.teal, 0, 0, 0, true);
+      spoke.rotation.z = i * Math.PI / 3;
+      this.flywheel.add(spoke);
+    }
+    const hub = round(0.17, 0.15, 0.17, M.brass, 0, 0, 0, true);
+    hub.rotation.x = Math.PI / 2;
     this.flywheel.add(hub);
-    box(0.16, 0.16, 0.14, M.copper, 0.58, 0, 0.1, this.flywheel);
-
-    this.fireLight = new THREE.PointLight(0xffb273, 5, 4, 2);
-    this.fireLight.position.set(-0.8, 2.9, 0.12);
+    this.connectingRod = block(1, 0.083, 0.06, M.copper, 3.7, 2.95, -0.1, true);
+    this.connectingRod.name = 'engine-connecting-rod';
+    this.piston = block(0.23, 0.23, 0.13, M.brass, 4.7, 2.95, -0.15, true);
+    this.piston.name = 'engine-piston';
+    cushion(1.21, 0.48, 0.43, M.engine, 5.32, 2.95, -0.46);
+    for (const x of [4.78, 5.83]) block(0.1, 0.52, 0.46, M.iron, x, 2.95, -0.47);
+    k.finish();
+    this.fireLight = new THREE.PointLight(0xffb273, 8, 6, 2);
+    this.fireLight.position.set(0.25, 3.15, 0.95);
     g.add(this.fireLight);
   }
 
   #buildLiving(g) {
     const M = this.materials;
     const result = buildLivingInterior(g, M, {
-      box,
-      profiledBox,
-      createPlant: (x, z, scale) => new Plant(g, M, this.geometry, x, z, scale),
+      createPlant: (x, y, z, scale, kind) => new Plant(g, M, this.geometry, x, y, z, scale, kind),
     });
     this.plantPots = result.plantPots;
+    this.wateringCan = result.can;
     this.chairX = CAR_CENTERS[2] - 3.6;
     curvedRoof(16.1, 6.1, 0.65, M.roofGreen, this.#fadingMat('car2', M.roofGreen), -0.65, 5.05, g);
     profiledBox(1.9, 0.24, 4.9, 0.08, M.wood, -7.8, 1.66, 0, g);
@@ -814,6 +927,20 @@ export class Train {
     const spin = (this.speed / 0.92) * dt;
     for (const w of this.wheels) w.rotation.z -= spin;
     if (this.flywheel) this.flywheel.rotation.z -= this.speed * dt * 1.7;
+    const motion = this.motionQuery?.matches ? 0 : 1;
+    const speed01 = clamp(this.speed / TUNING.baseSpeed, 0, 1);
+    this.headingNeedle.rotation.z = -this.heading;
+    this.speedNeedle.rotation.z = damp(this.speedNeedle.rotation.z, 2.3 - speed01 * 4.6, 5, dt);
+    this.cabWheel.rotation.z = Math.sin(this.heading) * 0.7;
+    this.cabLevers[0].rotation.z = damp(this.cabLevers[0].rotation.z, -0.38 + speed01 * 0.85, 5, dt);
+    this.cabLevers[1].rotation.x = damp(this.cabLevers[1].rotation.x, this.paused || this.blocked ? 0.5 : -0.25, 5, dt);
+    const crankX = 2.56 + Math.cos(this.flywheel.rotation.z) * 0.62;
+    const crankY = 2.95 + Math.sin(this.flywheel.rotation.z) * 0.62;
+    const reach = Math.sqrt(2.4 ** 2 - (crankY - 2.95) ** 2);
+    this.piston.position.x = crankX + reach;
+    this.connectingRod.position.set(crankX + reach / 2, (crankY + 2.95) / 2, -0.1);
+    this.connectingRod.scale.x = 2.4;
+    this.connectingRod.rotation.z = Math.atan2(2.95 - crankY, reach);
 
     const rust = this.wear / 100;
     this.materials.wheel.color.setRGB(
@@ -823,13 +950,21 @@ export class Train {
     );
 
     const eff01 = this.eff / 100;
+    const flicker = 1 + 0.06 * Math.sin(time * 8.1) * Math.sin(time * 4.3) * motion;
+    this.pressureNeedle.rotation.z = damp(this.pressureNeedle.rotation.z, 2.3 - eff01 * 4.6, 5, dt);
+    this.valveWheel.rotation.z = damp(this.valveWheel.rotation.z, eff01 * Math.PI * 1.2, 4, dt);
+    this.flames.scale.y = (0.28 + eff01 * 0.78) * flicker;
+    this.materials.ember.emissiveIntensity = (0.7 + eff01 * 1.5) * flicker;
     if (this.fireboxMat) {
-      this.fireboxMat.emissiveIntensity = (0.35 + eff01 * 1.5) * (0.92 + 0.08 * Math.sin(time * 13) * Math.sin(time * 5.1));
+      this.fireboxMat.emissiveIntensity = (0.15 + eff01 * 0.65) * flicker;
     }
-    if (this.fireLight) this.fireLight.intensity = 2 + eff01 * 4 + Math.sin(time * 11) * 0.5;
+    if (this.fireLight) this.fireLight.intensity = 3 + eff01 * 6;
 
     const plant01 = (this.plants - TUNING.plantFloor) / (100 - TUNING.plantFloor);
-    if (this.plantPots) for (const pl of this.plantPots) pl.setHappiness(plant01);
+    if (this.plantPots) for (const pl of this.plantPots) pl.setHappiness(plant01, time, motion);
+    this.wateringPulse = damp(this.wateringPulse, this.plants > this.previousPlants + 0.001 ? 1 : 0, 7, dt);
+    this.previousPlants = this.plants;
+    this.wateringCan.rotation.z = -this.wateringPulse * 0.38;
 
     this.#updateSmoke(dt);
   }
@@ -945,11 +1080,12 @@ export class Train {
   }
 
   dispose() {
-    const geometries = new Set();
-    const materials = new Set();
+    const geometries = new Set([...Object.values(this.geometry), this.dotGeo]);
+    const materials = new Set([...Object.values(this.materials), this.dotMat]);
     const textures = new Set();
     const instances = new Set();
-    const roots = [...this.cars.map((car) => car.group), this.routeGroup, ...this.smoke.map((puff) => puff.sprite)];
+    // A docked player is a passenger, not a train-owned render resource.
+    const roots = [...this.carVisuals, this.routeGroup, ...this.smoke.map((puff) => puff.sprite)];
     for (const root of roots) {
       root.traverse((obj) => {
         if (obj.isInstancedMesh) instances.add(obj);
@@ -958,12 +1094,13 @@ export class Train {
         const owned = Array.isArray(obj.material) ? obj.material : [obj.material];
         for (const material of owned) {
           materials.add(material);
-          for (const value of Object.values(material)) {
-            if (value?.isTexture) textures.add(value);
-          }
         }
       });
       this.scene.remove(root);
+    }
+    for (const car of this.cars) this.scene.remove(car.group);
+    for (const material of materials) {
+      for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
     }
     for (const instance of instances) instance.dispose();
     for (const texture of textures) texture.dispose();
