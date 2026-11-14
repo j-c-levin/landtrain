@@ -2,6 +2,12 @@ import * as THREE from 'three';
 import { CAR_LEN, CAR_CENTERS, LADDERS } from '../constants.js';
 import { box, profiledBox, curvedRoof, instancedDetails } from './parts.js';
 
+export const CAR_WINDOWS = [
+  [[-4.6, 2.4], [-0.8, 2.4], [3.7, 3.8]],
+  [[-4.75, 2.0], [0.5, 1.9], [4.5, 2.6]],
+  [[-3.9, 2.5], [0, 2.8], [3.9, 2.5]],
+];
+
 export function cabinSides(train, g, zone, center, length, base, eave, wall, windows, z = 2.36) {
   const M = train.materials;
   const sill = base + 0.85;
@@ -40,7 +46,6 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
 export function buildCarShell(train, g, ci) {
   const M = train.materials;
   const isCab = ci === 0;
-  const isEngine = ci === 1;
   const zone = 'car' + ci;
 
   const chassis = [[0, 1.27, -1.65, CAR_LEN + 1.6, 0.34, 0.3], [0, 1.27, 1.65, CAR_LEN + 1.6, 0.34, 0.3]];
@@ -51,15 +56,13 @@ export function buildCarShell(train, g, ci) {
   for (let x = -6.6; x < 7; x += 0.6) decking.push([x, 1.782, 0, 0.025, 0.008, 4.65]);
   instancedDetails(decking, train.geometry.detail, M.woodDark, g);
 
-  if (!isEngine) {
-    const eave = ci === 2 ? 4.75 : 4.67;
-    cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, ci === 2 ? M.sage : M.cream,
-      ci === 2 ? [[-3.9, 2.5], [0, 2.8], [3.9, 2.5]] : [[-4.6, 2.4], [-0.8, 2.4], [3.7, 3.8]]);
-    for (const x of [-6.9, isCab ? 8.15 : 6.9]) {
-      box(0.22, eave - 1.78, 1.65, M.innerWall, x, (eave + 1.78) / 2, -1.5, g);
-      box(0.22, eave - 1.78, 0.95, train.fadingMat(zone, ci === 2 ? M.sage : M.cream), x, (eave + 1.78) / 2, 1.9, g);
-      box(0.22, 0.35, 2.1, M.woodDark, x, eave - 0.175, 0.35, g);
-    }
+  const eave = ci === 2 ? 4.75 : 4.67;
+  const wall = [M.cream, M.hull, M.sage][ci];
+  cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, wall, CAR_WINDOWS[ci]);
+  for (const x of [-6.9, isCab ? 8.15 : 6.9]) {
+    box(0.22, eave - 1.78, 1.65, M.innerWall, x, (eave + 1.78) / 2, -1.5, g);
+    box(0.22, eave - 1.78, 0.95, train.fadingMat(zone, wall), x, (eave + 1.78) / 2, 1.9, g);
+    box(0.22, 0.35, 2.1, M.woodDark, x, eave - 0.175, 0.35, g);
   }
   if (isCab) curvedRoof(15.6, 5.5, 0.6, M.copper, train.fadingMat(zone, M.copper), 0.5, 5.05, g);
 

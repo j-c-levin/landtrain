@@ -26,13 +26,13 @@ const SPILL = [
 // [x, y, z, width, height] bloom over each lit window group
 const GLOWS = [
   [[3.5, 2.9, 2.4, 14, 4.2], [5, 6.4, 2.2, 11, 3.6]],
-  [[0.4, 2.9, 1.2, 7, 5]],
+  [[0.5, 2.9, 2.4, 10, 3.8]],
   [[0, 2.9, 2.4, 14, 4.2]],
 ];
 // [x, y, z, scale] lamp halos
 const HALOS = [
   [[9.6, 3.75, 0, 3.4]],
-  [[0.3, 3.1, 1.3, 3.2]],
+  [[0.5, 2.9, 1.3, 3.2]],
   [[-7.05, 3.45, 2.6, 2.2]],
 ];
 export function buildPracticals(train, g, ci) {

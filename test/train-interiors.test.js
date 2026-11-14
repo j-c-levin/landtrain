@@ -402,6 +402,55 @@ test('car groups follow distinct trail frames while wheels animate and smoke reu
   near(puff.sprite.position.z, emitted.z, 'emitted puff stays world-space');
 });
 
+test('engine room is enclosed, and its running gear follows speed, upkeep and wear', (t) => {
+  const { train } = fixture(t);
+  const engine = train.cars[1].group;
+  const zones = [...Object.entries(train.zoneMats).map(([zone, mat]) => ({ zone, mat })), ...train.fadeMats];
+  const fading = new Set(zones.filter(({ zone }) => zone === 'car1').map(({ mat }) => mat));
+  let nearWalls = 0;
+  engine.traverse((object) => { if (fading.has(object.material)) nearWalls++; });
+  assert.ok(nearWalls >= 4, 'engine car has a see-through near wall, roof and trim');
+  const bounds = new THREE.Box3();
+  let stackTop = -Infinity;
+  engine.updateMatrixWorld(true);
+  engine.traverse((object) => {
+    if (!object.isMesh || object.isInstancedMesh || !object.geometry.attributes.position) return;
+    bounds.setFromObject(object);
+    const local = engine.worldToLocal(bounds.getCenter(new THREE.Vector3()));
+    if (Math.hypot(local.x - train.stackLocal.x, local.z - train.stackLocal.z) < 0.05) stackTop = Math.max(stackTop, bounds.max.y);
+  });
+  assert.ok(Math.abs(stackTop - train.stackLocal.y) < 0.25, `smoke starts at the chimney mouth: ${stackTop}`);
+
+  const still = [train.flywheel.rotation.z, train.piston.position.x, train.governor.rotation.y];
+  train.update(0.1, 0.1, []);
+  assert.deepEqual([train.flywheel.rotation.z, train.piston.position.x, train.governor.rotation.y], still, 'at rest nothing turns');
+  const restSpread = train.governorArms[1].rotation.z;
+  train.addWaypoint(260, 0);
+  let minHead = Infinity, maxHead = -Infinity;
+  for (let i = 0; i < 200; i++) {
+    train.update(0.05, i * 0.05, []);
+    minHead = Math.min(minHead, train.piston.position.x);
+    maxHead = Math.max(maxHead, train.piston.position.x);
+    assert.ok(train.pistonRod.scale.x > 0, 'piston rod never inverts');
+  }
+  assert.ok(train.flywheel.rotation.z < still[0], 'flywheel turns with travel');
+  assert.ok(train.governor.rotation.y > still[2], 'governor spins with travel');
+  assert.ok(train.governorArms[1].rotation.z > restSpread, 'governor balls fly out with speed');
+  assert.ok(Math.abs(maxHead - minHead - 1) < 0.01, 'crosshead stroke is twice the crank throw');
+  assert.equal(train.governorArms[0].rotation.z, -train.governorArms[1].rotation.z);
+
+  const needle = () => [train.pressureNeedle.rotation.z, train.wearNeedle.rotation.z];
+  train.eff = 100; train.wear = 0;
+  train.paused = true;
+  train.update(5, 20, []);
+  const healthy = needle();
+  train.eff = 10; train.wear = 90;
+  train.update(5, 25, []);
+  const tired = needle();
+  assert.ok(tired[0] > healthy[0] + 3, 'pressure gauge falls with efficiency');
+  assert.ok(tired[1] > healthy[1] + 3, 'running-gear gauge falls with tread wear');
+});
+
 test('train adds at most four nonshadow PointLights and no shadow-casting lights', (t) => {
   const { scene } = fixture(t);
   const lights = [];

@@ -11,7 +11,7 @@ import { TrailPath } from './trail.js';
 import { createTrainGeometry } from './parts.js';
 import { buildCarShell, buildCarFittings } from './shell.js';
 import { buildFrontCar } from './cab.js';
-import { buildEngine } from './engine.js';
+import { buildEngine, animateEngine } from './engine.js';
 import { buildLiving } from './living.js';
 import { createPracticals, buildPracticals, setPracticalsNight } from './practicals.js';
 
@@ -211,7 +211,6 @@ export class Train {
     // -- visuals --
     const spin = (this.speed / 0.92) * dt;
     for (const w of this.wheels) w.rotation.z -= spin;
-    if (this.flywheel) this.flywheel.rotation.z -= this.speed * dt * 1.7;
     const motion = this.motionQuery?.matches ? 0 : 1;
     const speed01 = clamp(this.speed / TUNING.baseSpeed, 0, 1);
     this.headingNeedle.rotation.z = -this.heading;
@@ -219,13 +218,7 @@ export class Train {
     this.cabWheel.rotation.z = Math.sin(this.heading) * 0.7;
     this.cabLevers[0].rotation.z = damp(this.cabLevers[0].rotation.z, -0.38 + speed01 * 0.85, 5, dt);
     this.cabLevers[1].rotation.x = damp(this.cabLevers[1].rotation.x, this.paused || this.blocked ? 0.5 : -0.25, 5, dt);
-    const crankX = 2.56 + Math.cos(this.flywheel.rotation.z) * 0.62;
-    const crankY = 2.95 + Math.sin(this.flywheel.rotation.z) * 0.62;
-    const reach = Math.sqrt(2.4 ** 2 - (crankY - 2.95) ** 2);
-    this.piston.position.x = crankX + reach;
-    this.connectingRod.position.set(crankX + reach / 2, (crankY + 2.95) / 2, -0.1);
-    this.connectingRod.scale.x = 2.4;
-    this.connectingRod.rotation.z = Math.atan2(2.95 - crankY, reach);
+    animateEngine(this, dt, speed01);
 
     const rust = this.wear / 100;
     const clean = TRAIN_LOOK.wheelClean;
@@ -245,7 +238,7 @@ export class Train {
     if (this.fireboxMat) {
       this.fireboxMat.emissiveIntensity = (0.15 + eff01 * 0.65) * flicker;
     }
-    if (this.fireLight) this.fireLight.intensity = 3 + eff01 * 6;
+    if (this.fireLight) this.fireLight.intensity = 4 + eff01 * 9;
 
     const plant01 = (this.plants - TUNING.plantFloor) / (100 - TUNING.plantFloor);
     if (this.plantPots) for (const pl of this.plantPots) pl.setHappiness(plant01, time, motion);
