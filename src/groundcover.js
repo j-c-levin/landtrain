@@ -176,6 +176,13 @@ const WRAP_PARS = /* glsl */ `
   uniform vec4 uCoverTrain;
   uniform vec3 uCoverClear;
   uniform vec2 uCoverEye;
+  uniform float uCoverRegion;
+  uniform vec4 uCoverBias;
+  uniform vec2 uCoverLive;
+  uniform vec3 uCoverLush;
+  uniform vec3 uCoverParched;
+  uniform vec3 uCoverBare;
+  uniform vec3 uCoverGust;
   vec3 coverWorld;
 `;
 
@@ -188,7 +195,13 @@ const WRAP_PROJECT = /* glsl */ `
     vec2 world = uCoverCentre + rel;
     float keep = 1.0 - smoothstep(0.78 * halfTile, 0.98 * halfTile, length(rel));
     keep *= step(uCoverClipX.x, world.x) * step(world.x, uCoverClipX.y);
-    keep *= smoothstep(0.35, 0.65, texture2D(uCoverMask, (world - uCoverMaskRect.xy) * uCoverMaskRect.zw).r);
+    vec4 region = texture2D(uCoverMask, (world - uCoverMaskRect.xy) * uCoverMaskRect.zw);
+    keep *= smoothstep(0.35, 0.65, region.r);
+    // region maps (opt-in): g lushness, b bare earth, a sand thin, grow and tint the cover
+    float pick = fract(sin(dot(origin, vec2(12.9898, 78.233))) * 43758.5453);
+    float want = uCoverBias.x + uCoverBias.y * (region.g * 2.0 - 1.0) + uCoverBias.z * region.b - uCoverBias.w * region.a;
+    keep *= mix(1.0, step(pick, want), uCoverRegion);
+    float grow = 1.0 + uCoverRegion * uCoverLive.x * (region.g * 2.0 - 1.0);
     // nothing grows through the train, and nothing looms against the lens
     vec2 ta = uCoverTrain.xy;
     vec2 tb = uCoverTrain.zw;
@@ -197,10 +210,26 @@ const WRAP_PROJECT = /* glsl */ `
     float off = length(world - ta - seg * along);
     keep *= mix(uCoverClear.z, 1.0, smoothstep(uCoverClear.x, uCoverClear.x * 1.6 + 0.5, off));
     keep *= smoothstep(uCoverClear.y * 0.35, uCoverClear.y, length(world - uCoverEye));
-    vec3 shape = local.xyz - vec3(origin.x, 0.0, origin.y);
+    vec3 shape = (local.xyz - vec3(origin.x, 0.0, origin.y)) * grow;
     float bend = shape.y * shape.y * uCoverSway;
     shape.x += sin(uCoverTime * 1.3 + world.x * 0.35 + world.y * 0.27) * bend;
     shape.z += cos(uCoverTime * 1.1 + world.x * 0.21 - world.y * 0.31) * bend * 0.6;
+    // gusts (opt-in): fronts roll downwind, leaning the cover and lifting a sheen off its tips
+    float gust = 0.0;
+    if (uCoverGust.z > 0.0) {
+      float front = dot(world, uCoverGust.xy) * 0.042 - uCoverTime * 1.15
+        + sin(dot(world, vec2(-uCoverGust.y, uCoverGust.x)) * 0.019 + uCoverTime * 0.2) * 1.8;
+      gust = 0.5 + 0.5 * sin(front);
+      gust *= gust * (0.6 + 0.4 * sin(front * 0.37 + 1.7));
+      shape.xz += uCoverGust.xy * min(bend, shape.y * 0.6) * uCoverGust.z * (0.3 + gust);
+      gust *= step(1e-4, uCoverSway) * smoothstep(0.05, 0.5, shape.y);
+    }
+    #ifdef COVER_TINT
+      vec3 tint = mix(uCoverParched, vec3(1.0), smoothstep(0.1, 0.5, region.g));
+      tint = mix(tint, uCoverLush, smoothstep(0.5, 0.9, region.g));
+      tint = mix(tint, uCoverBare, region.b * 0.8);
+      vColor.rgb *= mix(vec3(1.0), tint, uCoverRegion * uCoverLive.y) * (1.0 + gust * 0.22);
+    #endif
     coverWorld = vec3(world.x, 0.0, world.y) + shape * keep;
   }
   vec4 mvPosition = viewMatrix * vec4(coverWorld, 1.0);
@@ -254,7 +283,10 @@ const _sphere = new THREE.Sphere();
 
 // look: { tuft, tussock, bush, stone, flower } HSL specs. clipX: world x-range
 // the cover may occupy. mask: optional coverMask() result.
-export function createGroundCover({ look, seed, clipX, mask = null }) {
+// Opt-in extras: regions { lush, parched, bare, kinds } reads the mask's g/b/a
+// channels as a region map; gust { dir, strength } adds rolling wind; extend(ctx)
+// adds a biome's own cover types after the standard ones.
+export function createGroundCover({ look, seed, clipX, mask = null, regions = null, gust = null, extend = null }) {
   const tier = TIERS[getLookTier()] || TIERS.medium;
   const rand = mulberry(seed);
   const group = new THREE.Group();
@@ -266,7 +298,13 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
     uCoverTime: { value: 0 },
     uCoverTrain: { value: new THREE.Vector4(0, 0, 0, 0) },
     uCoverEye: { value: new THREE.Vector2(1e6, 1e6) },
+    uCoverRegion: { value: regions ? 1 : 0 },
+    uCoverLush: { value: new THREE.Vector3(...(regions?.lush ?? [1, 1, 1])) },
+    uCoverParched: { value: new THREE.Vector3(...(regions?.parched ?? [1, 1, 1])) },
+    uCoverBare: { value: new THREE.Vector3(...(regions?.bare ?? [1, 1, 1])) },
+    uCoverGust: { value: new THREE.Vector3(gust?.dir[0] ?? 1, gust?.dir[1] ?? 0, gust && !reduced ? gust.strength : 0) },
   };
+  const kinds = regions?.kinds ?? {};
   const layers = [];
   const depthMaterials = [];
   const dummy = new THREE.Object3D();
@@ -283,7 +321,8 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
 
   const matrix = new THREE.Matrix4();
 
-  function add(entry, n, shapes, material, count, sway, cast, place) {
+  // live: { bias: [base, lush, bare, sand] chance an instance grows, grow, tint } under a region map
+  function add(entry, n, shapes, material, count, sway, cast, place, live = null) {
     const [geometry, coarse = null] = [shapes].flat();
     const uniforms = {
       ...shared,
@@ -291,7 +330,10 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
       uCoverTile: { value: entry.tile },
       uCoverClear: entry.clear,
       uCoverSway: { value: reduced ? 0 : sway },
+      uCoverBias: { value: new THREE.Vector4(...(live?.bias ?? [1, 0, 0, 0])) },
+      uCoverLive: { value: new THREE.Vector2(live?.grow ?? 0, live?.tint ?? 0) },
     };
+    material.defines = { ...material.defines, COVER_TINT: '' };
     material.onBeforeCompile = (shader) => wrapShader(shader, uniforms);
     material.customProgramCacheKey = () => 'cover';
     let depth = null;
@@ -347,7 +389,7 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
     const s = 0.6 + rand() * 0.9;
     o.scale.set(s, s * (0.6 + rand() * 0.8), s);
     jitterHSL(c, rand, look.tuft);
-  });
+  }, kinds.micro);
 
   const fine = layer(tier.fineTile, 0.3, [2.7, 5, 0.45], FINE_CEILING);
   const tuftMat = floraMaterials.cover({ side: THREE.DoubleSide });
@@ -355,34 +397,36 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
     const s = 0.7 + rand() * rand() * 1.3;
     o.scale.set(s, s * (0.7 + rand() * 0.7), s);
     jitterHSL(c, rand, look.tuft);
-  });
+  }, kinds.tuft);
   add(fine, tier.fineCells - 2, flowerGeometry(rand), floraMaterials.cover(), tier.flowers, 0.12, false, (o, c) => {
     o.scale.setScalar(0.9 + rand() * 1.1);
     const F = look.flower;
     jitterHSL(c, rand, { ...F, h: F.hues[Math.floor(rand() * F.hues.length)] });
-  });
+  }, kinds.flower);
   add(fine, tier.fineCells - 2, pebbleGeometry(rand), floraMaterials.cover({ flatShading: true }), tier.pebbles, 0, false, (o, c) => {
     const s = 0.07 + rand() * rand() * 0.42;
     o.scale.set(s * (0.8 + rand() * 0.6), s, s * (0.8 + rand() * 0.6));
     jitterHSL(c, rand, look.stone);
-  });
+  }, kinds.pebble);
 
   const mid = layer(tier.midTile, 0.36, [7.5, 16, 0]);
   add(mid, tier.midCells, bladeFan(rand, 9, 1.3, 0.6, 0.07), floraMaterials.cover({ side: THREE.DoubleSide }), tier.tussocks, 0.03, false, (o, c) => {
     const s = 0.6 + rand() * 1.2;
     o.scale.set(s, s * (0.7 + rand() * 0.8), s);
     jitterHSL(c, rand, look.tussock);
-  });
+  }, kinds.tussock);
   add(mid, tier.midCells, blobCluster(rand, 2, getLookTier() === 'low' ? [0] : [1, 0]), floraMaterials.cover(), tier.shrubs, 0, true, (o, c) => {
     const s = 0.7 + rand() * rand() * 2.4;
     o.scale.set(s, s * (0.75 + rand() * 0.4), s);
     jitterHSL(c, rand, look.bush);
-  });
+  }, kinds.shrub);
   add(mid, 4, pebbleGeometry(rand), floraMaterials.cover({ flatShading: true }), tier.stones, 0, true, (o, c) => {
     const s = 0.4 + rand() * rand() * 1.3;
     o.scale.set(s * (0.8 + rand() * 0.7), s * (0.6 + rand() * 0.5), s * (0.8 + rand() * 0.7));
     jitterHSL(c, rand, look.stone);
-  });
+  }, kinds.stone);
+
+  extend?.({ micro, fine, mid, layer, add, rand, tier: getLookTier(), cover: floraMaterials.cover });
 
   // Blade fans are lit as if they always face up, so neither side goes black.
   const litBothSides = (mat) => {

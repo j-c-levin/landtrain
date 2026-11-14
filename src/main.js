@@ -183,7 +183,7 @@ function tick(frameTime) {
       ui.hideEdgeMarkers();
     }
   }
-  world.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
+  world.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y, Math.max(sky.nightness, sky.duskness));
   if (journey.grassland) journey.grassland.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
   setChart(rig.mapBlend, sky.nightness);
