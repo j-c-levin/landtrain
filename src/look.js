@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PAINT, PaintMaterial } from './paint.js';
+import { SHEET_VERT, SHEET_FRAG, SHEET_DEPTH_FRAG } from './map/chart-glsl.js';
 
 const std = (params) => new THREE.MeshStandardMaterial(params);
 
@@ -22,6 +23,7 @@ export const CHART = {
   uChartNight: { value: 0 },
   uChartInk: { value: new THREE.Color(0x3a2a1c) },
   uChartIndigo: { value: new THREE.Color(0x4a4e74) },
+  uChartLamp: { value: new THREE.Vector3(0, 0, 1) },
 };
 
 export function setChart(mapBlend, night) {
@@ -36,6 +38,7 @@ const FLOCK_PARS = /* glsl */ `
   uniform float uChartNight;
   uniform vec3 uChartInk;
   uniform vec3 uChartIndigo;
+  uniform vec3 uChartLamp;
   vec3 fChart;
   uniform vec3 uFlockA;
   uniform vec3 uFlockB;
@@ -109,7 +112,9 @@ const FLOCK_FRAG = /* glsl */ `
       wash = mix(wash, uFlockMud, vShore.x * 0.85);
     #endif
     wash *= 1.0 - 0.07 * (fNoise(fp * 0.9) - 0.5) - 0.08 * (fNoise(fp * 0.016) - 0.5);
-    wash = mix(wash, uChartIndigo * (0.55 + 0.9 * dot(wash, vec3(0.3, 0.59, 0.11))), uChartNight);
+    float fLamp = smoothstep(0.0, 0.72, 1.0 - length(fp - uChartLamp.xy) * uChartLamp.z) * uChartNight;
+    wash = mix(wash, uChartIndigo * (0.55 + 0.9 * dot(wash, vec3(0.3, 0.59, 0.11))), uChartNight - fLamp * 0.88);
+    wash *= 1.0 - fLamp * vec3(0.04, 0.12, 0.3);
     // pen stipple: a short dry stroke in the odd cell
     vec2 sc = fp / 19.0;
     vec2 si = floor(sc);
@@ -741,13 +746,17 @@ export const plantMaterials = {
 export const MAP_LOOK = {
   shroud: '#221a30',
   paper: 0xf0e2c0,
-  paperNight: 0xe6dcc8,
+  paperNight: 0x7f86b4,
+  fox: 0xc9a56e,
   ink: 0x3a2a1c,
   rhumb: 0xa8482c,
-  rose: [900, -260],
+  roses: [900, -260, 3980, 250],
   route: 0xb5321a,
   casing: 0xfff3d6,
   markInk: 0x2b2018,
+  trail: 0x4a3524,
+  trailNight: 0xf3e3bd,
+  lampRadius: 190,
   beaconGlow: [1.0, 0.72, 0.3],
 };
 
@@ -761,11 +770,11 @@ function letteringTexture() {
     ctx.fillStyle = '#000';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = 'italic 500 58px Fraunces, Georgia, serif';
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '14px';
+    ctx.font = 'italic 500 50px Fraunces, Georgia, serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '9px';
     ctx.fillText('country not yet travelled', 512, 150);
-    ctx.font = '400 30px Fraunces, Georgia, serif';
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '22px';
+    ctx.font = '400 27px Fraunces, Georgia, serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '20px';
     ctx.fillText('TERRA INCOGNITA', 512, 226);
   };
   draw();
@@ -774,7 +783,7 @@ function letteringTexture() {
   tex.anisotropy = 4;
   const fonts = globalThis.document?.fonts;
   if (fonts?.load) {
-    fonts.load('italic 500 58px Fraunces').then(() => {
+    fonts.load('italic 500 50px Fraunces').then(() => {
       draw();
       tex.needsUpdate = true;
     }, () => {});
@@ -821,110 +830,6 @@ function beaconTexture() {
   return tex;
 }
 
-const SHROUD_VERT = /* glsl */ `
-  varying vec2 vWorld;
-  void main() {
-    vec4 world = modelMatrix * vec4(position, 1.0);
-    vWorld = world.xz;
-    gl_Position = projectionMatrix * viewMatrix * world;
-  }
-`;
-
-const SHEET_GLSL = /* glsl */ `
-  uniform sampler2D map;
-  uniform vec4 uRect;
-  float inkHash(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-  }
-  float inkNoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(inkHash(i), inkHash(i + vec2(1.0, 0.0)), f.x),
-               mix(inkHash(i + vec2(0.0, 1.0)), inkHash(i + vec2(1.0, 1.0)), f.x), f.y);
-  }
-  // > 0 on the paper, < 0 where travel has cut the sheet away
-  float sheet(vec2 w) {
-    float a = texture2D(map, vec2((w.x - uRect.x) * uRect.z, 1.0 - (w.y - uRect.y) * uRect.w)).a;
-    float n = inkNoise(w * 0.03) * 0.65 + inkNoise(w * 0.1) * 0.35;
-    return a + (n - 0.5) * 0.34 - 0.6;
-  }
-`;
-
-// Writes the sheet's own depth where the paper lies, so the pen that follows
-// depth edges never traces country hidden beneath it.
-const SHEET_DEPTH_FRAG = /* glsl */ `
-  varying vec2 vWorld;
-  ${SHEET_GLSL}
-  void main() {
-    if (sheet(vWorld) < 0.0) discard;
-    gl_FragColor = vec4(0.0);
-  }
-`;
-
-const SHROUD_FRAG = /* glsl */ `
-  uniform sampler2D tLetters;
-  uniform float uOpacity;
-  uniform float uNight;
-  uniform vec3 uPaper;
-  uniform vec3 uPaperNight;
-  uniform vec3 uInk;
-  uniform vec3 uRhumb;
-  uniform vec2 uRose;
-  varying vec2 vWorld;
-  ${SHEET_GLSL}
-  void main() {
-    float e = sheet(vWorld);
-    float px = max(fwidth(vWorld.x), 1e-4);
-    if (e < 0.0) {
-      // the sheet stands a little proud of the model and shades it along the cut
-      float lifted = sheet(vWorld - vec2(3.2, 3.6));
-      float shade = smoothstep(-0.05, 0.04, lifted) * 0.16 + smoothstep(-0.1, 0.0, e) * 0.14;
-      gl_FragColor = vec4(vec3(0.07, 0.045, 0.06), shade * uOpacity);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-      return;
-    }
-    float fw = max(fwidth(e), 1e-5);
-    vec3 col = uPaper * (1.0 - 0.06 * (inkNoise(vWorld * 0.9) - 0.5));
-    col *= 1.0 - 0.08 * (inkNoise(vWorld * 0.008) - 0.5);
-
-    vec2 g = abs(fract(vWorld / 100.0 - 0.5) - 0.5) * 100.0;
-    col = mix(col, uInk, (1.0 - smoothstep(0.5, 1.4, min(g.x, g.y) / px)) * 0.14);
-
-    vec2 d = vWorld - uRose;
-    float seg = 3.14159265 / 8.0;
-    float spoke = abs(fract(atan(d.y, d.x) / seg - 0.5) - 0.5) * seg * length(d);
-    col = mix(col, uRhumb, (1.0 - smoothstep(0.5, 1.3, spoke / px)) * 0.22);
-    float ring = abs(length(d) - 150.0);
-    col = mix(col, uRhumb, (1.0 - smoothstep(0.5, 1.3, ring / px)) * 0.22);
-
-    vec2 cell = vWorld / vec2(120.0, 60.0);
-    cell.x += floor(cell.y) * 0.37;
-    float letters = texture2D(tLetters, vec2(cell.x, 1.0 - cell.y)).a;
-    letters *= step(0.72, inkHash(floor(cell) + 3.0));
-    col = mix(col, uInk, letters * 0.5 * smoothstep(0.2, 0.3, e));
-
-    float waves = 0.0;
-    waves += (1.0 - smoothstep(0.6, 1.5, abs(e - 0.05) / fw)) * 0.5;
-    waves += (1.0 - smoothstep(0.6, 1.5, abs(e - 0.115) / fw)) * 0.34;
-    waves += (1.0 - smoothstep(0.6, 1.5, abs(e - 0.2) / fw)) * 0.2;
-    waves *= step(0.3, inkNoise(vWorld * 0.05 + 40.0));
-    col = mix(col, uInk, waves);
-    // the cut edge shows the thickness of the sheet, then the inked coast
-    col = mix(col, vec3(1.0, 0.98, 0.92), (1.0 - smoothstep(0.6, 1.6, e / fw)) * 0.7);
-    col = mix(col, uInk, (1.0 - smoothstep(0.9, 2.2, abs(e / fw - 2.6))) * 0.9);
-    col *= 1.0 - 0.08 * (1.0 - smoothstep(0.0, 0.2, e));
-    col *= mix(vec3(1.0), uPaperNight, uNight);
-
-    gl_FragColor = vec4(col, uOpacity);
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
-  }
-`;
-
 const overlay = (params) =>
   new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, fog: false, ...params });
 
@@ -933,8 +838,8 @@ export const mapMaterials = {
   // chart lives in the shader so it stays crisp at any zoom.
   shroud: (map, rect) =>
     new THREE.ShaderMaterial({
-      vertexShader: SHROUD_VERT,
-      fragmentShader: SHROUD_FRAG,
+      vertexShader: SHEET_VERT,
+      fragmentShader: SHEET_FRAG,
       transparent: true,
       depthWrite: false,
       depthTest: false,
@@ -944,23 +849,27 @@ export const mapMaterials = {
         tLetters: { value: letteringTexture() },
         uOpacity: { value: 0 },
         uNight: { value: 0 },
+        uGrow: { value: 0 },
         uPaper: { value: new THREE.Color(MAP_LOOK.paper) },
         uPaperNight: { value: new THREE.Color(MAP_LOOK.paperNight) },
+        uFox: { value: new THREE.Color(MAP_LOOK.fox) },
         uInk: { value: new THREE.Color(MAP_LOOK.ink) },
         uRhumb: { value: new THREE.Color(MAP_LOOK.rhumb) },
-        uRose: { value: new THREE.Vector2(...MAP_LOOK.rose) },
+        uRose: { value: new THREE.Vector4(...MAP_LOOK.roses) },
         uRect: { value: rect },
+        uLamp: CHART.uChartLamp,
       },
     }),
-  sheetDepth: (map, rect) =>
+  sheetDepth: (map, rect, grow) =>
     new THREE.ShaderMaterial({
-      vertexShader: SHROUD_VERT,
+      vertexShader: SHEET_VERT,
       fragmentShader: SHEET_DEPTH_FRAG,
       colorWrite: false,
       depthFunc: THREE.AlwaysDepth,
       fog: false,
-      uniforms: { map: { value: map }, uRect: { value: rect } },
+      uniforms: { map: { value: map }, uRect: { value: rect }, uGrow: grow },
     }),
+  trail: () => overlay({ color: MAP_LOOK.trail, side: THREE.DoubleSide }),
   routeLine: () =>
     new THREE.LineDashedMaterial({
       color: MAP_LOOK.markInk, dashSize: 9, gapSize: 6, transparent: true, opacity: 0.9, depthTest: false, fog: false,

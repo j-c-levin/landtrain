@@ -19,6 +19,7 @@ import { Interactions } from './character/interactions.js';
 import { CameraRig, createCamera } from './camera/camera.js';
 import { FogOfWar } from './map/fog-of-war.js';
 import { placeMarker, revealAhead } from './map/map-view.js';
+import { createChart } from './map/chart.js';
 import { UI } from './ui/ui.js';
 import { createInput, NEUTRAL_INPUT } from './ui/input.js';
 import { bindTouchZones } from './ui/touch-zones.js';
@@ -65,6 +66,7 @@ const rig = new CameraRig(camera, train, player);
 const ui = new UI();
 const audio = new AudioFX();
 const interactions = new Interactions({ train, player, rig, ui, audio });
+const chart = createChart({ renderer, canvas, train, fog });
 let post = null;
 const focus = { distance: 30, strength: 0, target: new THREE.Vector3() };
 
@@ -166,6 +168,7 @@ function tick(frameTime) {
   // see-through walls follow the player; book mode seals the whole train
   train.setFocus(focusZone(player.level, player.x), rig.mode === 'book' || rig.transitionTarget === 'book', dt);
 
+  chart.update(rig, camera, sky.nightness, journey.goalPos, journey.obstacles);
   train.updateRouteDisplay(rig.mapBlend, elapsed);
   if (slowUpdateElapsed >= 1 / qualityPolicy.slowUpdateHz) {
     slowUpdateElapsed = 0;
@@ -205,7 +208,7 @@ function tick(frameTime) {
     const want = (rig.mode === 'cabin' ? 0.35 : 1) * (1 - Math.min(1, rig.mapBlend * 2.5));
     focus.strength = damp(focus.strength, want, 5, rawDt);
     post.render(scene, camera, focus.distance, focus.strength);
-  } else {
+  } else if (!chart.render(scene, camera)) {
     renderer.render(scene, camera);
   }
 }
