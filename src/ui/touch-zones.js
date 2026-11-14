@@ -38,6 +38,16 @@ export function bindTouchZones(canvas, input, canWalk) {
   const holds = new Map();
   bindPromptButton(input);
 
+  for (const pad of document.querySelectorAll('.coach-pad')) {
+    pad.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (!canWalk()) return;
+      holds.set(e.pointerId, pad.dataset.code);
+      input.press(pad.dataset.code);
+    });
+    pad.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;
     if (!canWalk()) return;

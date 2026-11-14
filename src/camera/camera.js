@@ -33,10 +33,10 @@ const BOOK_PHI = 0.26;
 
 // A tall screen gets its own framings rather than a cropped landscape one.
 const TALL = {
-  inhabitDist: 27,
-  inhabitUp: 3.3,
-  inhabitLook: 1.15,
-  lead: 1.4,
+  inhabitDist: 16.5,
+  inhabitUp: 2.5,
+  inhabitLook: 1.0,
+  lead: 0.9,
   cabinX: 6.5,
   cabinSide: 7.5,
   cabinUp: 2.7,
@@ -45,8 +45,11 @@ const TALL = {
   bookYaw: 0.34,
   bookPhi: 0.44,
   bookDist: 74,
+  bookMax: 78,
+  mapScale: 0.85,
   sway: 0.2,
 };
+const SHORT_MAP_SCALE = 0.6;
 const tallness = (aspect) => clamp((1.05 - aspect) / 0.45, 0, 1);
 
 const FOV = 42;
@@ -89,6 +92,7 @@ export class CameraRig {
     this.mapCenter = new THREE.Vector2();
     this.pan = new THREE.Vector2();
     this.mapHeight = 330;
+    this.mapScale = 1;
 
     // book-mode free orbit. autoOrbit drives the gentle cinematic drift;
     // any manual drag/zoom switches it off so the chosen view sticks,
@@ -165,7 +169,7 @@ export class CameraRig {
   #computeMap() {
     const cx = this.mapCenter.x + this.pan.x;
     const cz = this.mapCenter.y + this.pan.y;
-    const h = this.mapHeight;
+    const h = this.mapHeight * this.mapScale;
     _pos.set(cx, h, cz + h * 0.12);
     _look.set(cx, 0, cz);
   }
@@ -177,16 +181,17 @@ export class CameraRig {
     const o = this.orbit;
     const c = this.train.pos;
     const pp = this.player.group.getWorldPosition(_pp);
-    const blend = clamp((50 - o.dist) / 38, 0, 1);
+    const dist = Math.min(o.dist, this.maxOrbit);
+    const blend = clamp((50 - dist) / 38, 0, 1);
     _look.set(
       lerp(c.x, pp.x, blend),
       lerp(3.2, pp.y + 1.1, blend),
       lerp(c.z, pp.z, blend)
     );
     _pos.set(
-      _look.x + o.dist * Math.cos(o.phi) * Math.cos(o.theta),
-      _look.y + o.dist * Math.sin(o.phi),
-      _look.z - o.dist * Math.cos(o.phi) * Math.sin(o.theta)
+      _look.x + dist * Math.cos(o.phi) * Math.cos(o.theta),
+      _look.y + dist * Math.sin(o.phi),
+      _look.z - dist * Math.cos(o.phi) * Math.sin(o.theta)
     );
   }
 
@@ -406,7 +411,7 @@ export class CameraRig {
   }
 
   panMap(dxPixels, dyPixels, viewportHeight) {
-    const worldPerPixel = (2 * this.mapHeight * Math.tan((FOV * Math.PI) / 360)) / viewportHeight;
+    const worldPerPixel = (2 * this.mapHeight * this.mapScale * Math.tan((FOV * Math.PI) / 360)) / viewportHeight;
     this.pan.x -= dxPixels * worldPerPixel;
     this.pan.y -= dyPixels * worldPerPixel;
   }
@@ -424,11 +429,12 @@ export class CameraRig {
   }
 
   get maxOrbit() {
-    return BOOK_MAX / Math.min(1, this.aspect);
+    return lerp(BOOK_MAX, TALL.bookMax, this.tall);
   }
 
   setAspect(aspect) {
     this.aspect = aspect;
+    this.mapScale = clamp((globalThis.innerHeight ?? 900) / 700, SHORT_MAP_SCALE, lerp(1, TALL.mapScale, tallness(aspect)));
     if (!this.settled) this.tall = tallness(aspect);
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();

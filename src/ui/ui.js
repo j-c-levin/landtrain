@@ -64,6 +64,7 @@ export class UI {
     this.shownDist = null;
     this.shownProgress = -1;
     this.coach = '';
+    this.cardUp = false;
   }
 
   showPrompt(text, progress, subdued = false, holding = false) {
@@ -182,7 +183,7 @@ export class UI {
     this.journeyEl.classList.toggle('guiding', !!this.guide);
   }
 
-  // which = '' | 'walk' | 'climb'
+  // which = '' | 'walk' | 'up' | 'down' | 'up down'
   setCoach(which) {
     if (which === this.coach) return;
     this.coach = which;
@@ -203,8 +204,8 @@ export class UI {
       return;
     }
     el.hidden = false;
-    el.style.left = `${placement.sx * w}px`;
-    el.style.top = `${placement.sy * h}px`;
+    el.style.left = `${Math.min(w - 34, Math.max(34, placement.sx * w))}px`;
+    el.style.top = `${Math.min(h - 34, Math.max(92, placement.sy * h))}px`;
     const arrow = name === 'tree' ? this.arrowTree : this.arrowTrain;
     arrow.style.transform = `translate(0, -50%) rotate(${placement.angle}rad)`;
   }
@@ -222,10 +223,14 @@ export class UI {
     this.cardInner.className = kind;
     this.cardInner.innerHTML = html;
     this.cardEl.classList.remove('hidden');
+    this.cardUp = true;
+    document.body.classList.add('card-up');
   }
 
   hideCard() {
     this.cardEl.classList.add('hidden');
+    this.cardUp = false;
+    document.body.classList.remove('card-up');
   }
 
   #dismissable(armDelay, onDismiss) {

@@ -22,26 +22,32 @@ function remember() {
 export function createOnboarding({ ui, rig, train, player }) {
   const text = ui.isTouch
     ? {
-        walk: 'hold either side of the screen to walk',
-        climb: 'hold the top of the screen at a ladder to climb to the roof',
-        cab: 'the cab is up front — walk in and plot a route',
-        plot: 'tap the chart to lay a route to the tree',
+        walk: '',
+        climb: 'find a ladder and climb to the roof',
+        cab: 'the cab is up front, along the roof',
       }
     : {
         walk: 'A and D walk the train',
-        climb: 'W climbs a ladder — head up to the roof',
-        cab: 'the cab is up front — walk in and plot a route',
-        plot: 'click the chart to lay a route to the tree',
+        climb: 'find a ladder — W climbs to the roof',
+        cab: 'the cab is up front, along the roof',
       };
   let step = recall() ? 'done' : 'walk';
   let walked = 0;
   let lastX = player.x;
 
-  function atLadder() {
+  function ladderHere() {
     for (let i = 0; i < LADDERS.length; i++) {
-      if (Math.abs(player.x - LADDERS[i].x) < 1.1) return true;
+      if (Math.abs(player.x - LADDERS[i].x) < 1.1) return LADDERS[i];
     }
-    return false;
+    return null;
+  }
+
+  function ladderCoach() {
+    const ladder = ladderHere();
+    if (!ladder || player.climbing) return '';
+    const at = ladder.levels.indexOf(player.level);
+    if (at < 0) return '';
+    return at === 0 ? 'up' : at === ladder.levels.length - 1 ? 'down' : 'up down';
   }
 
   return {
@@ -59,12 +65,11 @@ export function createOnboarding({ ui, rig, train, player }) {
         return;
       }
       if (step === 'walk' && walked > 3) step = 'climb';
-      if (step === 'climb' && player.level === 'roof' && !player.climbing) step = 'cab';
+      if (step !== 'cab' && player.level === 'roof' && !player.climbing) step = 'cab';
 
-      const inMap = rig.mapEngaged;
-      ui.setGuide(inMap ? text.plot : rig.mode === 'book' ? '' : text[step]);
       const walking = rig.mode === 'inhabit' && !rig.busy;
-      ui.setCoach(!walking ? '' : step === 'walk' ? 'walk' : step === 'climb' && atLadder() && !player.climbing ? 'climb' : '');
+      ui.setGuide(walking ? text[step] : '');
+      ui.setCoach(!walking ? '' : (step !== 'cab' && ladderCoach()) || (step === 'walk' ? 'walk' : ''));
     },
   };
 }

@@ -39,6 +39,12 @@ const ICON = {
 
 export const TAP_ICON = ICON.tap;
 
+const pad = (dir, code, key, touchLabel, keyLabel) => `
+    <button type="button" tabindex="-1" class="coach-pad coach-${dir}" data-code="${code}">
+      <span class="coach-btn">${ICON.chevron}<kbd>${key}</kbd></span>
+      <span class="coach-label"><span class="touch-only">${touchLabel}</span><span class="keys-only">${keyLabel}</span></span>
+    </button>`;
+
 export const HUD_HTML = `
   <div id="gauges" class="plate">
     ${dial('gauge-engine', 'boiler', FLAME)}
@@ -66,10 +72,15 @@ export const HUD_HTML = `
   </div>
 
   <div id="coach" aria-hidden="true">
-    <div class="coach-pad coach-left">${ICON.chevron}<span>hold to walk</span></div>
-    <div class="coach-pad coach-right">${ICON.chevron}<span>hold to walk</span></div>
-    <div class="coach-pad coach-up">${ICON.chevron}<span>hold to climb</span></div>
-    <div class="coach-pad coach-down">${ICON.chevron}<span>hold to descend</span></div>
+    ${pad('left', 'ArrowLeft', 'A', 'hold to walk', 'walk')}
+    ${pad('right', 'ArrowRight', 'D', 'hold to walk', 'walk')}
+    ${pad('up', 'ArrowUp', 'W', 'hold to climb', 'climb')}
+    ${pad('down', 'ArrowDown', 'S', 'hold to descend', 'descend')}
+  </div>
+
+  <div id="edge-markers">
+    <div class="edge-marker" id="marker-tree" hidden><span class="edge-arrow"></span><span class="edge-icon">${ICON.tree}</span></div>
+    <div class="edge-marker" id="marker-train" hidden><span class="edge-arrow"></span><span class="edge-icon">${ICON.train}</span></div>
   </div>
 
   <div id="toast" role="status"></div>
@@ -99,11 +110,6 @@ export const HUD_HTML = `
     </g>
     <text y="-45.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-size="11" fill="var(--rust)">N</text>
   </svg>
-
-  <div id="edge-markers">
-    <div class="edge-marker" id="marker-tree" hidden><span class="edge-arrow"></span><span class="edge-icon">${ICON.tree}</span></div>
-    <div class="edge-marker" id="marker-train" hidden><span class="edge-arrow"></span><span class="edge-icon">${ICON.train}</span></div>
-  </div>
 `;
 
 const ORNAMENT = `

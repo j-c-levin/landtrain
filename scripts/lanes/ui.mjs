@@ -153,10 +153,6 @@ async function run() {
     await wait(page, 2500);
     await snap('first-walk');
 
-    await page.evaluate(() => {
-      const el = document.getElementById('coach');
-      el.className = 'climb';
-    });
     await place(page, STATIONS.ladder, 'dusk');
     await wait(page, 1800);
     await snap('ladder-coach');
@@ -193,6 +189,15 @@ async function run() {
       await page.waitForFunction(() => __game.rig.mode === 'book' && !__game.rig.busy, null, { timeout: 15000 });
       await wait(page, 6000);
       await snap(`book-default-${time}`);
+      if (time === 'night') {
+        await page.evaluate(() => {
+          const { rig } = __game;
+          rig.autoOrbit = false;
+          Object.assign(rig.orbit, { theta: -Math.PI / 2, phi: 0.26, dist: 160 });
+        });
+        await wait(page, 2500);
+        await snap('book-side-night');
+      }
       await page.keyboard.press('KeyE');
       await idle(page);
     }

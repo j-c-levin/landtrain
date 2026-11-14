@@ -33,7 +33,7 @@ export function createJourney({ scene, world, train, fog, ui, audio }) {
   let distText = '';
 
   function updateHud() {
-    if (hudTick-- > 0) return;
+    if (ui.cardUp || hudTick-- > 0) return;
     hudTick = 12;
     const d = Math.hypot(train.pos.x - goalPos.x, train.pos.z - goalPos.z);
     if (legGoal !== goalPos || d > legStart) {
