@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import { TUNING, clamp, damp } from './constants.js';
 import { QUALITY_TIERS, createQualityMonitor, selectInitialQuality } from './quality.js';
-import { setLookTier } from './look.js';
+import { setLookTier, setPaintLight } from './look.js';
+import { setCoverViewport } from './groundcover.js';
 import { registerServiceWorker } from './sw-register.js';
 import { installDebugHandle, bindSecretWarp } from './debug.js';
 import { createRenderer, applyRenderQuality, syncRendererSize } from './atmosphere/renderer.js';
-import { createHaze, updateHaze, createSunLight, followShadowBox } from './atmosphere/lighting.js';
+import {
+  createHaze, updateHaze, createSunLight, followShadowBox, createBounceLight, followBounceLight,
+} from './atmosphere/lighting.js';
 import { createEnvironment } from './atmosphere/environment.js';
 import { createPost } from './atmosphere/post.js';
 import { SkyCycle } from './atmosphere/sky.js';
@@ -52,6 +55,7 @@ const camera = createCamera();
 createHaze(scene);
 createEnvironment(renderer, scene);
 const sunLight = createSunLight(scene);
+const bounceLight = createBounceLight(scene);
 const world = createPrairie(scene);
 const sky = new SkyCycle(scene, renderer, sunLight);
 const fog = new FogOfWar(scene);
@@ -109,7 +113,9 @@ ui.intro(() => {
 
 function syncSize() {
   const aspect = syncRendererSize(renderer, canvas, qualityPolicy);
-  if (aspect !== null) rig.setAspect(aspect);
+  if (aspect === null) return;
+  rig.setAspect(aspect);
+  setCoverViewport(canvas.clientHeight);
 }
 syncSize();
 
@@ -181,7 +187,10 @@ function tick(frameTime) {
   if (journey.grassland) journey.grassland.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
   followShadowBox(sunLight, train.pos, sky.keyDir, rig.mapBlend);
-  train.setNight(sky.nightness);
+  followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity, sunLight.color);
+  setPaintLight(sky.nightness, sky.duskness);
+  train.setNight(sky.nightness, sky.duskness);
+  fog.setNight(sky.nightness);
   audio.update(dt, train.speed / TUNING.baseSpeed);
 
   input.endFrame();

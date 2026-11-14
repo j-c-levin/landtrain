@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { painted } from '../look.js';
 
 export function interiorKit(parent, name) {
   const root = new THREE.Group();
@@ -11,7 +12,8 @@ export function interiorKit(parent, name) {
   const statics = [];
   const retained = new Set();
 
-  function mesh(geometry, material, x = 0, y = 0, z = 0, live = false) {
+  function mesh(geometry, source, x = 0, y = 0, z = 0, live = false) {
+    const material = painted(source);
     const object = new THREE.Mesh(geometry, material);
     object.position.set(x, y, z);
     object.castShadow = !material.transparent;

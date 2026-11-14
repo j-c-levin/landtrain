@@ -14,6 +14,7 @@ export function createPracticals() {
     lights: [],
     beam: null,
     night: -1,
+    lamp: -1,
   };
 }
 
@@ -75,20 +76,23 @@ export function buildPracticals(train, g, ci) {
   }
 }
 
-export function setPracticalsNight(train, night) {
+// Lamps come up as the sun gets low, ahead of the window spill and the beam.
+export function setPracticalsNight(train, night, dusk = 0) {
   const P = train.practicals;
-  if (Math.abs(night - P.night) < 0.004) return;
+  const lamp = Math.max(night, dusk * 0.6);
+  if (Math.abs(night - P.night) < 0.004 && Math.abs(lamp - P.lamp) < 0.004) return;
   P.night = night;
+  P.lamp = lamp;
   P.spillMat.opacity = 0.42 * night;
-  P.haloMat.opacity = 0.12 + 0.5 * night;
+  P.haloMat.opacity = 0.14 + 0.48 * lamp;
   P.glowMat.opacity = 0.22 * night;
   P.contactMat.opacity = 1 - 0.45 * night;
   for (const { light, distance, intensity } of P.lights) {
-    light.distance = distance * (1 + 1.2 * night);
-    if (light !== train.fireLight) light.intensity = intensity * (1 + 1.4 * night);
+    light.distance = distance * (1.25 + 0.95 * lamp);
+    if (light !== train.fireLight) light.intensity = intensity * (1.15 + 1.25 * lamp);
   }
   if (P.beam) P.beam.intensity = 260 * night;
-  train.materials.glow.emissiveIntensity = 1.6 + 1.6 * night;
+  train.materials.glow.emissiveIntensity = 1.6 + 1.6 * lamp;
   train.materials.headlamp.emissiveIntensity = 2.4 + 2.6 * night;
   train.materials.glass.emissive.setHex(TRAIN_LOOK.spillLight);
   train.materials.glass.emissiveIntensity = 1.4 * night;

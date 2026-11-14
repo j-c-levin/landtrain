@@ -24,11 +24,11 @@ function parseArgs(argv) {
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.out || args.out === true) {
-  console.error('Usage: npm run capture -- --out <dir> [--url <dev server url>] [--only <substring>]');
+  console.error('Usage: npm run capture -- --out <dir> [--url <dev server url>] [--only <substring>[,<substring>...]]');
   process.exit(2);
 }
 const outDir = resolve(args.out);
-const only = typeof args.only === 'string' ? args.only : null;
+const only = typeof args.only === 'string' ? args.only.split(',').map((o) => o.trim()).filter(Boolean) : null;
 
 // time name -> sky clock seconds (DAY_LENGTH 120: phases 0.12 / 0.44 / 0.66)
 const SKY = { day: 14.4, dusk: 52.8, night: 79.2 };
@@ -94,7 +94,7 @@ const SHOTS = [
   shot(L, 'map-prairie', 'day', { kind: 'map' }),
 ];
 const fileName = (s) => `${s.profile}--${s.name}--${s.time}`;
-const selected = SHOTS.filter((s) => !only || fileName(s).includes(only));
+const selected = SHOTS.filter((s) => !only || only.some((o) => fileName(s).includes(o)));
 if (!selected.length) {
   console.error(`--only "${only}" matches no shots`);
   process.exit(2);
@@ -195,6 +195,7 @@ function installPins({ pin, skyTimes }) {
       for (const [key, value] of Object.entries(pin)) {
         Object.defineProperty(train, key, { configurable: true, get: () => value, set() {} });
       }
+      Object.defineProperty(rig, 'autoOrbit', { configurable: true, get: () => false, set() {} });
     },
   });
 }

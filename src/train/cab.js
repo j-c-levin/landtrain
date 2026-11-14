@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { TRAIN_LOOK } from '../look.js';
+import { TRAIN_LOOK, painted } from '../look.js';
 import { box, profiledBox, curvedRoof, instancedDetails } from './parts.js';
-import { cabinSides } from './shell.js';
+import { cabinSides, paintedFloor } from './shell.js';
 import { interiorKit } from './interior-kit.js';
 import { buildBunkInterior } from './interiors.js';
 
@@ -36,9 +36,9 @@ export function buildFrontCar(train, g) {
   instancedDetails(grille, train.geometry.detail, M.iron, g);
 
   buildBunkInterior(g, M);
-  profiledBox(2.6, 1.05, 1.3, 0.12, M.wood, -3.7, 2.305, -1.55, g);
-  instancedDetails([[-4.45, 2.43, -0.88, 0.5, 0.06, 0.06], [-3, 2.43, -0.88, 0.5, 0.06, 0.06]], train.geometry.detail, M.iron, g);
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 1.15, 12), M.woodDark);
+  profiledBox(2.6, 1.05, 1.3, 0.12, painted(M.wood), -3.7, 2.305, -1.55, g);
+  instancedDetails([[-4.45, 2.43, -0.88, 0.5, 0.06, 0.06], [-3, 2.43, -0.88, 0.5, 0.06, 0.06]], train.geometry.detail, painted(M.iron), g);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 1.15, 12), painted(M.woodDark));
   barrel.position.set(-1.3, 2.355, -1.65);
   barrel.castShadow = true;
   g.add(barrel);
@@ -46,6 +46,8 @@ export function buildFrontCar(train, g) {
   box(12.0, 0.14, 1.275, M.wood, 2, 4.98, -1.5875, g);
   box(12.0, 0.14, 1.275, train.fadingMat('car0', M.wood), 2, 4.98, 1.5875, g);
   cabinSides(train, g, 'cab', 2.075, 12.15, 5.05, 7.61, M.cream, [[-1.65, 3.5], [4, 5.6]], 2.13);
+  paintedFloor(train, g, 2.075, 11.9, 5.05, -1.12, 1.9);
+  paintedFloor(train, g, 2.075, 11.9, 5.05, 0.96, 2.2, train.fadingMat('car0', painted(M.wood)));
   for (const side of [-1, 1]) {
     const mat = side > 0 ? train.fadingMat('cab', M.hull) : M.hull;
     profiledBox(0.26, 0.83, 2.18, 0.12, mat, 8.15, 5.465, side * 1.09, g);

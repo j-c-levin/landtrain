@@ -45,6 +45,9 @@ export class SkyCycle {
     this.keyDir = new THREE.Vector3(-0.42, 0.72, 0.55).normalize();
     this.timeOffset = 0; // debug: jump the clock (window.__game.sky.timeOffset)
     this.nightness = 0;
+    // 1 while a low sun stands behind the train, raking long shadows at the lens
+    this.duskness = 0;
+    this.bounceIntensity = 0;
     this.biomeBlend = 0; // 0 = prairie palette (KEYS), 1 = grassland (KEYS_GRASSLAND); driven by train x in update()
     this._kA = {}; // scratch: KEYS sampled at the current day-phase
     this._kB = {}; // scratch: KEYS_GRASSLAND sampled at the current day-phase
@@ -311,10 +314,12 @@ export class SkyCycle {
     const alt = Math.sin(sa);
     const lowness = 1 - clamp(alt / 0.35, 0, 1); // 1 when kissing the horizon
     // high sun stands in front of the cutaway; it swings behind the train as it sets
-    const sunZ = lerp(0.5, -0.38, smootherstep(lowness));
+    const sunZ = lerp(0.5, -0.62, smootherstep((lowness - 0.2) / 0.3));
     _v.set(Math.cos(sa), alt * 0.78 + 0.02, sunZ).normalize();
     const sunUp = su <= 1;
     if (sunUp) this.keyDir.set(_v.x, Math.max(_v.y, 0.3), _v.z).normalize();
+    this.duskness = (sunUp ? smootherstep((lowness - 0.2) / 0.3) : 1) * (1 - smootherstep(k.stars / 0.6));
+    this.bounceIntensity = lerp(SKY_LOOK.bounceI[0], SKY_LOOK.bounceI[1], this.duskness) * (1 - k.stars);
     _v.multiplyScalar(3850);
     this.sunCore.position.copy(_v);
     this.sunHalo.position.copy(_v);

@@ -8,11 +8,30 @@ import { mulberry } from './prng.js';
 // centre in the vertex shader. A given world position always shows the same
 // instance, so the cover is deterministic without storing a world's worth of it.
 
+// *Cells: each layer is cut into an n-by-n grid so whole cells can be skipped
+// when they sit outside the lens, the wrap disc, or (for shadows) the key light's box.
 const TIERS = {
-  high: { microTile: 56, micro: 7000, fineTile: 170, tufts: 10000, flowers: 1500, pebbles: 1500, midTile: 880, tussocks: 4200, shrubs: 1700, stones: 700, shadows: true },
-  medium: { microTile: 48, micro: 3600, fineTile: 130, tufts: 5200, flowers: 800, pebbles: 700, midTile: 700, tussocks: 2400, shrubs: 1100, stones: 400, shadows: false },
-  low: { microTile: 40, micro: 1800, fineTile: 96, tufts: 2200, flowers: 360, pebbles: 300, midTile: 520, tussocks: 1000, shrubs: 520, stones: 200, shadows: false },
+  high: { microTile: 56, micro: 7000, microCells: 5, fineTile: 170, tufts: 10000, flowers: 1500, pebbles: 1500, fineCells: 8, midTile: 880, tussocks: 4200, shrubs: 1700, stones: 700, midCells: 9, shadows: true },
+  medium: { microTile: 48, micro: 3600, microCells: 4, fineTile: 130, tufts: 5200, flowers: 800, pebbles: 700, fineCells: 5, midTile: 700, tussocks: 2400, shrubs: 1100, stones: 400, midCells: 7, shadows: false },
+  low: { microTile: 40, micro: 1800, microCells: 3, fineTile: 96, tufts: 2200, flowers: 360, pebbles: 300, fineCells: 4, midTile: 520, tussocks: 1000, shrubs: 520, stones: 200, midCells: 6, shadows: false },
 };
+
+// lens height above which a layer is too small to resolve (the overhead map)
+const MICRO_CEILING = 45;
+const FINE_CEILING = 95;
+// shrubs further than this from the lens drop to their coarse shape
+const COARSE_FROM = 140;
+
+const SHADOW_REACH = 72;
+
+// below this viewport height the small layers thin out: their blades are under a pixel wide
+const RESOLVE_HEIGHT = 720;
+const RESOLVE_FLOOR = 0.55;
+let viewportHeight = RESOLVE_HEIGHT;
+
+export function setCoverViewport(height) {
+  viewportHeight = height;
+}
 
 function bladeFan(rand, blades, height, spread, width) {
   const pos = [];
@@ -68,38 +87,45 @@ export function shadeByHeight(geo, lo, hi) {
   return geo;
 }
 
-// Clump foliage: a few lumpy puffs welded into one soft-shaded shrub.
-function blobCluster(rand, n, detail) {
-  const parts = [];
+// Clump foliage: a few lumpy puffs welded into one soft-shaded shrub. Every
+// requested detail level is built from the same draws, so they share a shape.
+function blobCluster(rand, n, details) {
+  const parts = details.map(() => []);
   for (let i = 0; i < n; i++) {
-    const g = new THREE.IcosahedronGeometry(1, detail);
-    const p = g.attributes.position;
     const a1 = rand() * 9;
     const a2 = rand() * 9;
-    for (let v = 0; v < p.count; v++) {
-      const x = p.getX(v);
-      const y = p.getY(v);
-      const z = p.getZ(v);
-      const k = 0.78 + 0.2 * Math.sin(x * 4.1 + a1) * Math.sin(z * 3.7 + a2) + 0.16 * Math.sin(y * 5.3 + a1 + a2);
-      p.setXYZ(v, x * k, Math.max(y, -0.35) * k, z * k);
-    }
     const s = i === 0 ? 1 : 0.45 + rand() * 0.35;
     const a = rand() * Math.PI * 2;
     const d = i === 0 ? 0 : 0.65 + rand() * 0.4;
-    g.rotateY(rand() * Math.PI);
-    g.scale(s, s * (0.7 + rand() * 0.25), s);
-    g.translate(Math.cos(a) * d, s * 0.3, Math.sin(a) * d);
-    parts.push(g);
+    const turn = rand() * Math.PI;
+    const squash = 0.7 + rand() * 0.25;
+    details.forEach((detail, level) => {
+      const g = new THREE.IcosahedronGeometry(1, detail);
+      const p = g.attributes.position;
+      for (let v = 0; v < p.count; v++) {
+        const x = p.getX(v);
+        const y = p.getY(v);
+        const z = p.getZ(v);
+        const k = 0.78 + 0.2 * Math.sin(x * 4.1 + a1) * Math.sin(z * 3.7 + a2) + 0.16 * Math.sin(y * 5.3 + a1 + a2);
+        p.setXYZ(v, x * k, Math.max(y, -0.35) * k, z * k);
+      }
+      g.rotateY(turn);
+      g.scale(s, s * squash, s);
+      g.translate(Math.cos(a) * d, s * 0.3, Math.sin(a) * d);
+      parts[level].push(g);
+    });
   }
-  const joined = mergeGeometries(parts);
-  for (const g of parts) g.dispose();
-  // weld the facets so the clump shades as one soft tuft of foliage
-  joined.deleteAttribute('normal');
-  joined.deleteAttribute('uv');
-  const merged = mergeVertices(joined, 1e-3);
-  joined.dispose();
-  merged.computeVertexNormals();
-  return shadeByHeight(merged, 0.5, 1.14);
+  return parts.map((group) => {
+    const joined = mergeGeometries(group);
+    for (const g of group) g.dispose();
+    // weld the facets so the clump shades as one soft tuft of foliage
+    joined.deleteAttribute('normal');
+    joined.deleteAttribute('uv');
+    const merged = mergeVertices(joined, 1e-3);
+    joined.dispose();
+    merged.computeVertexNormals();
+    return shadeByHeight(merged, 0.5, 1.14);
+  });
 }
 
 function pebbleGeometry(rand) {
@@ -221,6 +247,10 @@ export function coverMask({ minX, maxX, minZ, maxZ }, blocked, step = 4) {
 }
 
 const _fwd = new THREE.Vector3();
+const _view = new THREE.Matrix4();
+const _inverse = new THREE.Matrix4();
+const _frustum = new THREE.Frustum();
+const _sphere = new THREE.Sphere();
 
 // look: { tuft, tussock, bush, stone, flower } HSL specs. clipX: world x-range
 // the cover may occupy. mask: optional coverMask() result.
@@ -238,17 +268,23 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
     uCoverEye: { value: new THREE.Vector2(1e6, 1e6) },
   };
   const layers = [];
+  const depthMaterials = [];
   const dummy = new THREE.Object3D();
   const color = new THREE.Color();
 
   // clear: [radius kept clear around the train, radius kept clear around the lens, size left under the train]
-  function layer(tile, lead, clear) {
-    const entry = { tile, lead, centre: { value: new THREE.Vector2() }, clear: { value: new THREE.Vector3(...clear) } };
+  function layer(tile, lead, clear, ceiling = Infinity) {
+    const entry = {
+      tile, lead, ceiling, centre: { value: new THREE.Vector2() }, clear: { value: new THREE.Vector3(...clear) }, grids: [],
+    };
     layers.push(entry);
     return entry;
   }
 
-  function add(entry, geometry, material, count, sway, cast, place) {
+  const matrix = new THREE.Matrix4();
+
+  function add(entry, n, shapes, material, count, sway, cast, place) {
+    const [geometry, coarse = null] = [shapes].flat();
     const uniforms = {
       ...shared,
       uCoverCentre: entry.centre,
@@ -258,68 +294,91 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
     };
     material.onBeforeCompile = (shader) => wrapShader(shader, uniforms);
     material.customProgramCacheKey = () => 'cover';
-    const mesh = new THREE.InstancedMesh(geometry, material, count);
+    let depth = null;
+    if (cast && tier.shadows) {
+      depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+      depth.onBeforeCompile = (shader) => wrapShader(shader, uniforms);
+      depth.customProgramCacheKey = () => 'cover-depth';
+      depthMaterials.push(depth);
+    }
+    const size = entry.tile / n;
+    geometry.computeBoundingSphere();
+    const meshes = new Array(n * n).fill(null);
+    entry.grids.push({ n, meshes, geometry, coarse, pad: geometry.boundingSphere.radius * 3.2 });
+    const matrices = new Float32Array(count * 16);
+    const colors = new Float32Array(count * 3);
+    const cellOf = new Uint16Array(count);
+    const tally = new Uint32Array(n * n);
     for (let i = 0; i < count; i++) {
       dummy.position.set(rand() * entry.tile, 0, rand() * entry.tile);
       dummy.rotation.set(0, rand() * Math.PI * 2, 0);
       place(dummy, color);
       dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-      mesh.setColorAt(i, color);
+      dummy.matrix.toArray(matrices, i * 16);
+      color.toArray(colors, i * 3);
+      const cell = Math.min(n - 1, Math.floor(dummy.position.x / size)) + n * Math.min(n - 1, Math.floor(dummy.position.z / size));
+      cellOf[i] = cell;
+      tally[cell]++;
     }
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.instanceColor.needsUpdate = true;
-    mesh.frustumCulled = false;
-    mesh.receiveShadow = true;
-    if (cast && tier.shadows) {
-      mesh.castShadow = true;
-      const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
-      depth.onBeforeCompile = (shader) => wrapShader(shader, uniforms);
-      depth.customProgramCacheKey = () => 'cover-depth';
-      mesh.customDepthMaterial = depth;
+    const filled = new Uint32Array(n * n);
+    for (let cell = 0; cell < n * n; cell++) {
+      if (!tally[cell]) continue;
+      const mesh = new THREE.InstancedMesh(geometry, material, tally[cell]);
+      mesh.frustumCulled = false;
+      mesh.receiveShadow = true;
+      mesh.userData.fullCount = tally[cell];
+      mesh.userData.fine = entry.ceiling < Infinity;
+      mesh.userData.casts = !!depth;
+      if (depth) mesh.customDepthMaterial = depth;
+      meshes[cell] = mesh;
+      group.add(mesh);
     }
-    mesh.userData.fullCount = count;
-    group.add(mesh);
+    for (let i = 0; i < count; i++) {
+      const mesh = meshes[cellOf[i]];
+      const slot = filled[cellOf[i]]++;
+      mesh.setMatrixAt(slot, matrix.fromArray(matrices, i * 16));
+      mesh.setColorAt(slot, color.fromArray(colors, i * 3));
+    }
   }
 
   // a carpet of short static grass right where the lens is working
-  const micro = layer(tier.microTile, 0.3, [2.6, 3.2, 0.5]);
-  add(micro, bladeFan(rand, 5, 0.3, 0.7, 0.026), floraMaterials.cover({ side: THREE.DoubleSide }), tier.micro, 0.06, false, (o, c) => {
+  const micro = layer(tier.microTile, 0.3, [2.6, 3.2, 0.5], MICRO_CEILING);
+  add(micro, tier.microCells, bladeFan(rand, 5, 0.3, 0.7, 0.026), floraMaterials.cover({ side: THREE.DoubleSide }), tier.micro, 0.06, false, (o, c) => {
     const s = 0.6 + rand() * 0.9;
     o.scale.set(s, s * (0.6 + rand() * 0.8), s);
     jitterHSL(c, rand, look.tuft);
   });
 
-  const fine = layer(tier.fineTile, 0.3, [2.7, 5, 0.45]);
+  const fine = layer(tier.fineTile, 0.3, [2.7, 5, 0.45], FINE_CEILING);
   const tuftMat = floraMaterials.cover({ side: THREE.DoubleSide });
-  add(fine, bladeFan(rand, 6, 0.5, 0.5, 0.032), tuftMat, tier.tufts, 0.09, false, (o, c) => {
+  add(fine, tier.fineCells, bladeFan(rand, 6, 0.5, 0.5, 0.032), tuftMat, tier.tufts, 0.09, false, (o, c) => {
     const s = 0.7 + rand() * rand() * 1.3;
     o.scale.set(s, s * (0.7 + rand() * 0.7), s);
     jitterHSL(c, rand, look.tuft);
   });
-  add(fine, flowerGeometry(rand), floraMaterials.cover(), tier.flowers, 0.12, false, (o, c) => {
+  add(fine, tier.fineCells - 2, flowerGeometry(rand), floraMaterials.cover(), tier.flowers, 0.12, false, (o, c) => {
     o.scale.setScalar(0.9 + rand() * 1.1);
     const F = look.flower;
     jitterHSL(c, rand, { ...F, h: F.hues[Math.floor(rand() * F.hues.length)] });
   });
-  add(fine, pebbleGeometry(rand), floraMaterials.cover({ flatShading: true }), tier.pebbles, 0, false, (o, c) => {
+  add(fine, tier.fineCells - 2, pebbleGeometry(rand), floraMaterials.cover({ flatShading: true }), tier.pebbles, 0, false, (o, c) => {
     const s = 0.07 + rand() * rand() * 0.42;
     o.scale.set(s * (0.8 + rand() * 0.6), s, s * (0.8 + rand() * 0.6));
     jitterHSL(c, rand, look.stone);
   });
 
   const mid = layer(tier.midTile, 0.36, [7.5, 16, 0]);
-  add(mid, bladeFan(rand, 9, 1.3, 0.6, 0.07), floraMaterials.cover({ side: THREE.DoubleSide }), tier.tussocks, 0.03, false, (o, c) => {
+  add(mid, tier.midCells, bladeFan(rand, 9, 1.3, 0.6, 0.07), floraMaterials.cover({ side: THREE.DoubleSide }), tier.tussocks, 0.03, false, (o, c) => {
     const s = 0.6 + rand() * 1.2;
     o.scale.set(s, s * (0.7 + rand() * 0.8), s);
     jitterHSL(c, rand, look.tussock);
   });
-  add(mid, blobCluster(rand, 2, getLookTier() === 'low' ? 0 : 1), floraMaterials.cover(), tier.shrubs, 0, true, (o, c) => {
+  add(mid, tier.midCells, blobCluster(rand, 2, getLookTier() === 'low' ? [0] : [1, 0]), floraMaterials.cover(), tier.shrubs, 0, true, (o, c) => {
     const s = 0.7 + rand() * rand() * 2.4;
     o.scale.set(s, s * (0.75 + rand() * 0.4), s);
     jitterHSL(c, rand, look.bush);
   });
-  add(mid, pebbleGeometry(rand), floraMaterials.cover({ flatShading: true }), tier.stones, 0, true, (o, c) => {
+  add(mid, 4, pebbleGeometry(rand), floraMaterials.cover({ flatShading: true }), tier.stones, 0, true, (o, c) => {
     const s = 0.4 + rand() * rand() * 1.3;
     o.scale.set(s * (0.8 + rand() * 0.7), s * (0.6 + rand() * 0.5), s * (0.8 + rand() * 0.7));
     jitterHSL(c, rand, look.stone);
@@ -337,7 +396,52 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
     };
     mat.customProgramCacheKey = () => 'cover-blades';
   };
-  for (const mesh of group.children) if (mesh.material.side === THREE.DoubleSide) litBothSides(mesh.material);
+  const bladeMats = new Set(group.children.map((mesh) => mesh.material).filter((mat) => mat.side === THREE.DoubleSide));
+  for (const mat of bladeMats) litBothSides(mat);
+
+  // A cell's instances wrap around the layer centre, so it can show on either
+  // side of the seam: it is drawn if any of its wrapped images is wanted.
+  function cull(entry, { n, meshes, geometry, coarse, pad }, clipLo, clipHi, trainPos, eye, shadowReach) {
+    const size = entry.tile / n;
+    const half = entry.tile / 2;
+    const radius = size * 0.7072 + pad;
+    const cx = entry.centre.value.x;
+    const cz = entry.centre.value.y;
+    for (let cell = 0; cell < n * n; cell++) {
+      const mesh = meshes[cell];
+      if (!mesh) continue;
+      const rx = ((((cell % n) + 0.5) * size - cx + half) % entry.tile + entry.tile) % entry.tile - half;
+      const rz = (((Math.floor(cell / n) + 0.5) * size - cz + half) % entry.tile + entry.tile) % entry.tile - half;
+      let seen = false;
+      let shades = false;
+      let nearest = Infinity;
+      for (let image = 0; image < 4; image++) {
+        const ix = image & 1 ? rx - Math.sign(rx || 1) * entry.tile : rx;
+        const iz = image & 2 ? rz - Math.sign(rz || 1) * entry.tile : rz;
+        if (Math.hypot(ix, iz) > half + radius) continue;
+        const wx = cx + ix;
+        const wz = cz + iz;
+        if (wx + radius < clipLo || wx - radius > clipHi) continue;
+        _sphere.center.set(wx, 1, wz);
+        _sphere.radius = radius;
+        if (!_frustum.intersectsSphere(_sphere)) continue;
+        seen = true;
+        nearest = Math.min(nearest, Math.hypot(wx - eye.x, wz - eye.z) - radius);
+        if (Math.abs(wx - trainPos.x) < shadowReach + radius && Math.abs(wz - trainPos.z) < shadowReach + radius) shades = true;
+      }
+      mesh.visible = seen;
+      mesh.castShadow = shades && mesh.userData.casts;
+      if (coarse && seen) mesh.geometry = nearest > COARSE_FROM ? coarse : geometry;
+    }
+  }
+
+  let density = 1;
+  let resolve = 1;
+  const applyCounts = () => {
+    for (const mesh of group.children) {
+      mesh.count = Math.floor(mesh.userData.fullCount * density * (mesh.userData.fine ? resolve : 1));
+    }
+  };
 
   return {
     group,
@@ -347,6 +451,11 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
       // the other biome's cover is clipped to nothing out here: skip its draws
       group.visible = trainPos.x > clipX[0] - 600 && trainPos.x < clipX[1] + 600;
       if (!group.visible) return;
+      const wanted = Math.min(1, Math.max(RESOLVE_FLOOR, viewportHeight / RESOLVE_HEIGHT));
+      if (wanted !== resolve) {
+        resolve = wanted;
+        applyCounts();
+      }
       shared.uCoverTime.value = time;
       const hx = Math.cos(heading) * 25;
       const hz = -Math.sin(heading) * 25;
@@ -356,17 +465,29 @@ export function createGroundCover({ look, seed, clipX, mask = null }) {
       else shared.uCoverEye.value.set(camera.position.x, camera.position.z);
       camera.getWorldDirection(_fwd);
       const flat = 1 - Math.abs(_fwd.y);
+      camera.updateMatrixWorld();
+      _view.multiplyMatrices(camera.projectionMatrix, _inverse.copy(camera.matrixWorld).invert());
+      _frustum.setFromProjectionMatrix(_view);
+      // the overhead map widens the key light's box to take in the whole view
+      const shadowReach = camera.position.y > 60 ? 1e6 : SHADOW_REACH;
       for (const entry of layers) {
         const reach = entry.tile * entry.lead * flat;
         entry.centre.value.set(camera.position.x + _fwd.x * reach, camera.position.z + _fwd.z * reach);
+        const resolved = camera.position.y < entry.ceiling;
+        for (const grid of entry.grids) {
+          if (resolved) cull(entry, grid, clipX[0], clipX[1], trainPos, camera.position, shadowReach);
+          else for (const mesh of grid.meshes) if (mesh) mesh.visible = false;
+        }
       }
     },
     dispose() {
-      for (const mesh of group.children) mesh.customDepthMaterial?.dispose();
+      for (const depth of depthMaterials) depth.dispose();
+      for (const entry of layers) for (const grid of entry.grids) grid.coarse?.dispose();
       if (mask) mask.texture.dispose();
     },
     setDensity(fraction) {
-      for (const mesh of group.children) mesh.count = Math.floor(mesh.userData.fullCount * fraction);
+      density = fraction;
+      applyCounts();
     },
   };
 }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PAINT, PaintMaterial } from './paint.js';
 
 const std = (params) => new THREE.MeshStandardMaterial(params);
 
@@ -190,7 +191,7 @@ function skyKey(t, sky, fog, hemiSky, hemiGround, hemiI, dirCol, dirI, cloud, cl
 export const SKY_KEYS_PRAIRIE = [
   skyKey(0.000, ['#2f7fd0', '#62a6e2', '#b4d8ee', '#f3ead2'], '#e9e2c8', '#cfe4ff', '#b89a62', 0.55, '#fff0d2', 3.1, '#ffffff', 1.0, 0.0, 1.0, 0.5),
   skyKey(0.360, ['#3c74b4', '#86aed0', '#ecd2a2', '#fbc987'], '#f1cf9c', '#ffe4bc', '#a8824e', 0.5, '#ffd492', 3.0, '#ffe9c8', 1.0, 0.0, 1.0, 0.46),
-  skyKey(0.440, ['#31508e', '#7a76ac', '#f0a07c', '#ffb468'], '#f0a878', '#d8a8b4', '#a8683c', 0.5, '#ffa052', 5.2, '#ffb48c', 0.95, 0.05, 1.0, 0.3),
+  skyKey(0.440, ['#3a3c8c', '#9a64a0', '#f58a70', '#ffc680'], '#eea088', '#5236ff', '#a85a78', 1.05, '#ffa24e', 6.8, '#ffb090', 0.95, 0.05, 1.0, 0.16),
   skyKey(0.500, ['#1a2656', '#353a74', '#70507e', '#c47a62'], '#6c5270', '#6f73ac', '#3c3450', 0.4, '#8f9ad8', 0.5, '#4a4468', 0.45, 0.55, 1.06, 0.2),
   skyKey(0.565, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6276d0', '#22244a', 0.5, '#93a8ff', 1.5, '#1c2a52', 0.2, 1.0, 1.12, 0.1),
   skyKey(0.800, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6276d0', '#22244a', 0.5, '#93a8ff', 1.5, '#1c2a52', 0.2, 1.0, 1.12, 0.1),
@@ -203,7 +204,7 @@ export const SKY_KEYS_PRAIRIE = [
 export const SKY_KEYS_GRASSLAND = [
   skyKey(0.000, ['#2a78c4', '#5aa6dc', '#b2e0e2', '#e8f2dc'], '#dcecd8', '#d0ecff', '#7a9a58', 0.55, '#fff4dc', 3.0, '#ffffff', 1.0, 0.0, 1.0, 0.5),
   skyKey(0.360, ['#3878aa', '#7cb6c8', '#cce6c8', '#eef0c4'], '#e2eccc', '#e2f4e4', '#6e9050', 0.5, '#fbe8b8', 2.9, '#f2f8e8', 1.0, 0.0, 1.0, 0.46),
-  skyKey(0.440, ['#2e5e8e', '#6a8cae', '#b8cca8', '#f0cf92'], '#dcc898', '#cad8c8', '#6c7a48', 0.5, '#ffbc72', 4.8, '#f0d8b4', 0.95, 0.05, 1.0, 0.3),
+  skyKey(0.440, ['#34508e', '#8a78a8', '#eaa888', '#f8d898'], '#e0bc98', '#4a44f0', '#7c6a80', 1.0, '#ffb060', 6.2, '#f4c8a8', 0.95, 0.05, 1.0, 0.16),
   skyKey(0.500, ['#16264a', '#2c3a68', '#506078', '#948a8e'], '#5c7078', '#5e7a9a', '#2e3c48', 0.4, '#8cacd0', 0.5, '#3e4860', 0.45, 0.55, 1.06, 0.2),
   skyKey(0.565, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.5, '#a4ccff', 1.2, '#18304a', 0.2, 1.0, 1.12, 0.12),
   skyKey(0.800, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.5, '#a4ccff', 1.2, '#18304a', 0.2, 1.0, 1.12, 0.12),
@@ -245,6 +246,9 @@ export const SKY_LOOK = {
   envHorizon: [1.0, 0.95, 0.86],
   envGround: [0.5, 0.4, 0.26],
   envSoftbox: [7.0, 6.2, 4.8],
+  // ground bounce onto the lens side of the train: [day, low sun] intensity
+  bounce: 0xffd9a8,
+  bounceI: [0.35, 1.7],
 };
 
 export const skyMaterials = {
@@ -489,8 +493,10 @@ export const TRAIN_LOOK = {
   fireLight: 0xffb273,
   readingLight: 0xffd6a1,
   bunkLight: 0xffd3a3,
-  wheelClean: [0.3, 0.05, 0.035],
-  wheelRusted: [0.4, 0.24, 0.15],
+  wheelClean: [0.115, 0.036, 0.03],
+  wheelRusted: [0.2, 0.125, 0.085],
+  spoke: 0x8f8266,
+  wheelBoss: 0x7d6a3c,
   // night practicals: warm pools the windows and lamps throw on the ground
   spill: ['rgba(255,186,104,0.7)', 'rgba(255,160,80,0)'],
   spillLight: 0xffb870,
@@ -512,7 +518,9 @@ export function createTrainMaterials() {
     brass: std({ color: C.brass, roughness: 0.24, metalness: 1.0 }),
     glow: std({ color: 0xffd9a0, emissive: 0xffb35c, emissiveIntensity: 1.6, roughness: 0.5 }),
     headlamp: std({ color: 0xffe9b0, emissive: 0xffc868, emissiveIntensity: 2.4 }),
-    wheel: enamel({ color: 0x6b1c12, roughness: 0.5, vertexColors: true }, 0.35),
+    wheel: enamel({ color: 0x4a1a14, roughness: 0.62, vertexColors: true }, 0.2),
+    spoke: std({ color: C.spoke, roughness: 0.7 }),
+    wheelBoss: std({ color: C.wheelBoss, roughness: 0.45, metalness: 0.7 }),
     tyre: std({ color: 0x1f2624, roughness: 0.42, metalness: 0.7 }),
     foliage: std({ color: 0x6fa046, roughness: 0.85 }),
     pillow: std({ color: 0xd9a84e, roughness: 1 }),
@@ -561,10 +569,55 @@ trainFx.windowGlow = () =>
     depthTest: false, blending: THREE.AdditiveBlending,
   });
 
+// ------------------------------------------------------- painted interiors
+
+// Rooms are hand-painted inside the enamel model: flat stepped shading, with
+// a coloured fill wherever the lamps and the sun leave a surface dim.
+// fill: [day, dusk, night]; lift: light level under which the fill takes over.
+export const PAINT_LOOK = {
+  fill: [0x6c6ea6, 0x86649c, 0x2c3a78],
+  fillGain: [0.6, 0.95, 0.5],
+  lift: [0.9, 0.8, 0.7],
+  ambient: [0.86, 0.92, 1],
+  warm: [0.1, 0.2, 0.34],
+  saturation: 1.04,
+};
+
+const paintFills = PAINT_LOOK.fill.map((hex, i) => new THREE.Color(hex).multiplyScalar(PAINT_LOOK.fillGain[i]));
+const paints = new WeakMap();
+
+// The painted twin of a train material. Lamps, glass and anything else that
+// glows or fades keeps its own material.
+export function painted(source) {
+  if (source.isPaintMaterial) return source;
+  const glows = source.emissive && source.emissive.getHex() !== 0 && source.emissiveIntensity > 0.5;
+  if (!source.isMeshStandardMaterial || source.transparent || glows) return source;
+  let paint = paints.get(source);
+  if (!paint) {
+    paint = new PaintMaterial({
+      color: source.color, emissive: source.emissive, emissiveIntensity: source.emissiveIntensity,
+      side: source.side, vertexColors: source.vertexColors,
+    });
+    paints.set(source, paint);
+  }
+  return paint;
+}
+
+const tween = (v, dusk, night) => {
+  const d = v[0] + (v[1] - v[0]) * dusk;
+  return d + (v[2] - d) * night;
+};
+
+export function setPaintLight(night, dusk) {
+  PAINT.uPaintFill.value.copy(paintFills[0]).lerp(paintFills[1], dusk).lerp(paintFills[2], night);
+  const L = PAINT_LOOK;
+  PAINT.uPaintLift.value.set(tween(L.lift, dusk, night), L.saturation, tween(L.ambient, dusk, night), tween(L.warm, dusk, night));
+}
+
 export const plantMaterials = {
-  soil: () => std({ color: TRAIN_LOOK.soil, roughness: 1 }),
+  soil: () => new PaintMaterial({ color: TRAIN_LOOK.soil }),
   leaf: (foliage) => {
-    const mat = foliage.clone();
+    const mat = painted(foliage).clone();
     mat.side = THREE.DoubleSide;
     mat.emissive.setHex(TRAIN_LOOK.leafGlow);
     mat.emissiveIntensity = 0.12;
@@ -587,74 +640,215 @@ export function createCharacterMaterials() {
 
 // -------------------------------------------------------------------- map
 
+// A drawn chart laid over the model: unexplored country is bare chart paper,
+// and the known world is a hole in the sheet with the tabletop showing through.
 export const MAP_LOOK = {
-  // the unbuilt tabletop: kraft paper pencilled with a survey grid
-  shroud: '#c9a878',
-  paper: [0.78, 0.63, 0.43],
-  paperDark: [0.62, 0.47, 0.3],
-  ink: [0.3, 0.2, 0.13],
-  route: 0xfff4dc,
-  routeInk: 0x5a2c1e,
-  waypoint: 0xfff0c8,
-  beacon: ['rgba(255,205,120,0.95)', 'rgba(255,205,120,0)'],
+  shroud: '#221a30',
+  paper: 0xf0e2c0,
+  paperNight: 0x7f8cb4,
+  ink: 0x3a2a1c,
+  rhumb: 0xa8482c,
+  rose: [900, -260],
+  route: 0xb5321a,
+  casing: 0xfff3d6,
+  markInk: 0x2b2018,
+  beaconGlow: [1.0, 0.72, 0.3],
 };
 
-const SHROUD_FRAG = /* glsl */ `
-  {
-    float known = 1.0 - sampledDiffuseColor.a;
-    float edge = smoothstep(0.42, 0.5, 1.0 - known);
-    vec2 wp = vShroudPos;
-    float n = fract(sin(dot(floor(wp * 0.9), vec2(12.9898, 78.233))) * 43758.5453);
-    float fibre = fract(sin(dot(floor(wp * vec2(0.12, 2.4)), vec2(39.3, 11.7))) * 24634.63);
-    vec3 paper = mix(uPaperDark, uPaper, 0.72 + 0.16 * n + 0.12 * fibre);
-    vec2 g = abs(fract(wp / 100.0 - 0.5) - 0.5) * 100.0;
-    vec2 g5 = abs(fract(wp / 500.0 - 0.5) - 0.5) * 500.0;
-    float px = max(fwidth(wp.x), 1e-3);
-    float fine = 1.0 - smoothstep(0.0, px * 1.2, min(g.x, g.y));
-    float major = 1.0 - smoothstep(0.0, px * 2.2, min(g5.x, g5.y));
-    paper = mix(paper, uInk, max(fine * 0.16, major * 0.34));
-    float rim = smoothstep(0.34, 0.47, 1.0 - known) * (1.0 - smoothstep(0.5, 0.62, 1.0 - known));
-    paper = mix(paper, uInk, rim * 0.55);
-    float shade = smoothstep(0.1, 0.42, 1.0 - known) * (1.0 - edge);
-    diffuseColor.rgb = mix(uInk * 0.5, paper, edge);
-    diffuseColor.a = opacity * max(edge, shade * 0.38);
+function letteringTexture() {
+  const c = document.createElement('canvas');
+  c.width = 1024;
+  c.height = 512;
+  const ctx = c.getContext('2d');
+  const draw = () => {
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'italic 500 58px Fraunces, Georgia, serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '14px';
+    ctx.fillText('country not yet travelled', 512, 150);
+    ctx.font = '400 30px Fraunces, Georgia, serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '22px';
+    ctx.fillText('TERRA INCOGNITA', 512, 226);
+  };
+  draw();
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 4;
+  const fonts = globalThis.document?.fonts;
+  if (fonts?.load) {
+    fonts.load('italic 500 58px Fraunces').then(() => {
+      draw();
+      tex.needsUpdate = true;
+    }, () => {});
+  }
+  return tex;
+}
+
+// Destination mark: a ringed bullseye in a soft glow, drawn without a canvas.
+function beaconTexture() {
+  const S = 96;
+  const data = new Uint8Array(S * S * 4);
+  const ss = (a, b, x) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  const ink = new THREE.Color(MAP_LOOK.markInk).convertLinearToSRGB();
+  const red = new THREE.Color(MAP_LOOK.route).convertLinearToSRGB();
+  const cream = new THREE.Color(MAP_LOOK.casing).convertLinearToSRGB();
+  const glow = MAP_LOOK.beaconGlow;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const r = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2) / (S / 2);
+      const disc = 1 - ss(0.5, 0.53, r);
+      const rim = ss(0.42, 0.44, r) * disc;
+      const ring = ss(0.24, 0.26, r) * (1 - ss(0.33, 0.35, r));
+      const dot = 1 - ss(0.1, 0.12, r);
+      const mark = Math.max(ring, dot);
+      const o = (y * S + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        const k = 'rgb'[c];
+        let v = cream[k] + (ink[k] - cream[k]) * rim;
+        v += (red[k] - v) * mark;
+        data[o + c] = Math.round(255 * (glow[c] + (v - glow[c]) * disc));
+      }
+      data[o + 3] = Math.round(255 * Math.max(disc, 0.6 * (1 - ss(0.5, 1, r)) ** 2));
+    }
+  }
+  const tex = new THREE.DataTexture(data, S, S, THREE.RGBAFormat);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const SHROUD_VERT = /* glsl */ `
+  varying vec2 vWorld;
+  void main() {
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vWorld = world.xz;
+    gl_Position = projectionMatrix * viewMatrix * world;
   }
 `;
 
+const SHROUD_FRAG = /* glsl */ `
+  uniform sampler2D map;
+  uniform sampler2D tLetters;
+  uniform float uOpacity;
+  uniform float uNight;
+  uniform vec3 uPaper;
+  uniform vec3 uPaperNight;
+  uniform vec3 uInk;
+  uniform vec3 uRhumb;
+  uniform vec2 uRose;
+  uniform vec4 uRect;
+  varying vec2 vWorld;
+  float inkHash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+  }
+  float inkNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(inkHash(i), inkHash(i + vec2(1.0, 0.0)), f.x),
+               mix(inkHash(i + vec2(0.0, 1.0)), inkHash(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
+  // > 0 on the paper, < 0 where travel has cut the sheet away
+  float sheet(vec2 w) {
+    float a = texture2D(map, vec2((w.x - uRect.x) * uRect.z, 1.0 - (w.y - uRect.y) * uRect.w)).a;
+    float n = inkNoise(w * 0.03) * 0.65 + inkNoise(w * 0.1) * 0.35;
+    return a + (n - 0.5) * 0.34 - 0.6;
+  }
+  void main() {
+    float e = sheet(vWorld);
+    float px = max(fwidth(vWorld.x), 1e-4);
+    if (e < 0.0) {
+      // the sheet stands a little proud of the model and shades it along the cut
+      float lifted = sheet(vWorld - vec2(3.2, 3.6));
+      float shade = smoothstep(-0.05, 0.04, lifted) * 0.34 + smoothstep(-0.1, 0.0, e) * 0.2;
+      gl_FragColor = vec4(vec3(0.07, 0.045, 0.06), shade * uOpacity);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+      return;
+    }
+    float fw = max(fwidth(e), 1e-5);
+    vec3 col = uPaper * (1.0 - 0.06 * (inkNoise(vWorld * 0.9) - 0.5));
+    col *= 1.0 - 0.08 * (inkNoise(vWorld * 0.008) - 0.5);
+
+    vec2 g = abs(fract(vWorld / 100.0 - 0.5) - 0.5) * 100.0;
+    col = mix(col, uInk, (1.0 - smoothstep(0.5, 1.4, min(g.x, g.y) / px)) * 0.14);
+
+    vec2 d = vWorld - uRose;
+    float seg = 3.14159265 / 8.0;
+    float spoke = abs(fract(atan(d.y, d.x) / seg - 0.5) - 0.5) * seg * length(d);
+    col = mix(col, uRhumb, (1.0 - smoothstep(0.5, 1.3, spoke / px)) * 0.22);
+    float ring = abs(length(d) - 150.0);
+    col = mix(col, uRhumb, (1.0 - smoothstep(0.5, 1.3, ring / px)) * 0.22);
+
+    vec2 cell = vWorld / vec2(120.0, 60.0);
+    cell.x += floor(cell.y) * 0.37;
+    float letters = texture2D(tLetters, vec2(cell.x, 1.0 - cell.y)).a;
+    letters *= step(0.72, inkHash(floor(cell) + 3.0));
+    col = mix(col, uInk, letters * 0.5 * smoothstep(0.2, 0.3, e));
+
+    float waves = 0.0;
+    waves += (1.0 - smoothstep(0.6, 1.5, abs(e - 0.05) / fw)) * 0.5;
+    waves += (1.0 - smoothstep(0.6, 1.5, abs(e - 0.115) / fw)) * 0.34;
+    waves += (1.0 - smoothstep(0.6, 1.5, abs(e - 0.2) / fw)) * 0.2;
+    waves *= step(0.3, inkNoise(vWorld * 0.05 + 40.0));
+    col = mix(col, uInk, waves);
+    // the cut edge shows the thickness of the sheet, then the inked coast
+    col = mix(col, vec3(1.0, 0.98, 0.92), (1.0 - smoothstep(0.6, 1.6, e / fw)) * 0.7);
+    col = mix(col, uInk, (1.0 - smoothstep(0.9, 2.2, abs(e / fw - 2.6))) * 0.9);
+    col *= 1.0 - 0.08 * (1.0 - smoothstep(0.0, 0.2, e));
+    col *= mix(vec3(1.0), uPaperNight, uNight);
+
+    gl_FragColor = vec4(col, uOpacity);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`;
+
+const overlay = (params) =>
+  new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, fog: false, ...params });
+
 export const mapMaterials = {
-  // The canvas only carries the reveal mask in alpha; paper, grid and the inked
-  // coastline of the known world are drawn in the shader so they stay crisp.
-  shroud: (map) => {
-    const mat = new THREE.MeshBasicMaterial({
-      map, transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false,
-    });
-    const uniforms = {
-      uPaper: { value: new THREE.Color().setRGB(...MAP_LOOK.paper) },
-      uPaperDark: { value: new THREE.Color().setRGB(...MAP_LOOK.paperDark) },
-      uInk: { value: new THREE.Color().setRGB(...MAP_LOOK.ink) },
-    };
-    mat.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, uniforms);
-      shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec2 vShroudPos;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvShroudPos = (modelMatrix * vec4(transformed, 1.0)).xz;');
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying vec2 vShroudPos;\nuniform vec3 uPaper;\nuniform vec3 uPaperDark;\nuniform vec3 uInk;')
-        .replace('#include <map_fragment>', `#include <map_fragment>\n${SHROUD_FRAG}`);
-    };
-    return mat;
-  },
+  // The canvas only carries the reveal mask in alpha; everything drawn on the
+  // chart lives in the shader so it stays crisp at any zoom.
+  shroud: (map, rect) =>
+    new THREE.ShaderMaterial({
+      vertexShader: SHROUD_VERT,
+      fragmentShader: SHROUD_FRAG,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+      fog: false,
+      uniforms: {
+        map: { value: map },
+        tLetters: { value: letteringTexture() },
+        uOpacity: { value: 0 },
+        uNight: { value: 0 },
+        uPaper: { value: new THREE.Color(MAP_LOOK.paper) },
+        uPaperNight: { value: new THREE.Color(MAP_LOOK.paperNight) },
+        uInk: { value: new THREE.Color(MAP_LOOK.ink) },
+        uRhumb: { value: new THREE.Color(MAP_LOOK.rhumb) },
+        uRose: { value: new THREE.Vector2(...MAP_LOOK.rose) },
+        uRect: { value: rect },
+      },
+    }),
   routeLine: () =>
     new THREE.LineDashedMaterial({
-      color: MAP_LOOK.route, dashSize: 7, gapSize: 5, transparent: true, opacity: 0.9, depthTest: false, fog: false,
+      color: MAP_LOOK.markInk, dashSize: 9, gapSize: 6, transparent: true, opacity: 0.9, depthTest: false, fog: false,
     }),
-  waypoint: () => new THREE.MeshBasicMaterial({ color: MAP_LOOK.waypoint, transparent: true, depthTest: false, fog: false }),
-  trainRing: () =>
-    new THREE.MeshBasicMaterial({
-      color: MAP_LOOK.route, transparent: true, depthTest: false, fog: false, side: THREE.DoubleSide,
-    }),
-  beacon: () =>
-    new THREE.SpriteMaterial({
-      map: softDiscTexture(...MAP_LOOK.beacon), transparent: true, depthTest: false, fog: false,
-    }),
+  routeCasing: () => overlay({ color: MAP_LOOK.casing, side: THREE.DoubleSide }),
+  routeDash: () => overlay({ color: MAP_LOOK.route, side: THREE.DoubleSide }),
+  // waypoint and train-ring geometry carries its own casing / ink / colour bands
+  waypoint: () => overlay({ vertexColors: true }),
+  trainRing: () => overlay({ vertexColors: true, side: THREE.DoubleSide }),
+  beacon: () => new THREE.SpriteMaterial({ map: beaconTexture(), transparent: true, depthTest: false, fog: false }),
 };

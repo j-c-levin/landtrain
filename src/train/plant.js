@@ -50,7 +50,6 @@ export class Plant {
     const t = clamp(h, 0, 1);
     this.leafMat.color.lerpColors(this.thirstyGreen, this.wateredGreen, t);
     this.soilMat.color.lerpColors(this.drySoil, this.wetSoil, t);
-    this.soilMat.roughness = lerp(1, 0.7, t);
     for (let i = 0; i < this.leaves.length; i++) {
       const leaf = this.leaves[i];
       this.transform.position.set(leaf.x, leaf.y, leaf.z);

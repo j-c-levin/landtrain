@@ -1,5 +1,5 @@
 import { readdirSync, writeFileSync, existsSync, rmSync, mkdirSync } from 'node:fs';
-import { resolve, join, dirname } from 'node:path';
+import { resolve, join, dirname, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
 import { chromium } from 'playwright-core';
@@ -19,7 +19,7 @@ if (!positional.length || positional.length > 2) {
   process.exit(2);
 }
 const [dirA, dirB] = positional.map((p) => resolve(p));
-const outDir = opts.out ?? dirA;
+const outDir = opts.out ?? (dirB ? join(dirname(dirA), `${basename(dirA)}-vs-${basename(dirB)}`) : dirA);
 mkdirSync(outDir, { recursive: true });
 const list = (dir) => readdirSync(dir).filter((f) => f.endsWith('.png') && !f.startsWith(opts.prefix)).sort();
 let files = list(dirA);

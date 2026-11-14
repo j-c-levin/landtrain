@@ -62,3 +62,24 @@ export function followShadowBox(light, trainPos, keyDir, mapBlend) {
     cam.updateProjectionMatrix();
   }
 }
+
+// Warm light thrown back up off the sunlit ground onto the side of the train
+// that faces the lens. It comes from below the horizon, so the ground itself
+// (and the long shadows lying on it) never receives it.
+export function createBounceLight(scene) {
+  const light = new THREE.DirectionalLight(SKY_LOOK.bounce, 0);
+  scene.add(light);
+  scene.add(light.target);
+  return light;
+}
+
+const _side = new THREE.Vector3();
+
+export function followBounceLight(light, trainPos, heading, intensity, color) {
+  _side.set(Math.sin(heading) * 0.9 + Math.cos(heading) * 0.2, -0.32, Math.cos(heading) * 0.9 - Math.sin(heading) * 0.2);
+  light.position.copy(trainPos).addScaledVector(_side, 80);
+  light.target.position.copy(trainPos);
+  light.target.updateMatrixWorld();
+  light.intensity = intensity;
+  light.color.copy(color);
+}

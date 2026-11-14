@@ -294,8 +294,8 @@ export class Train {
     }
   }
 
-  setNight(night) {
-    setPracticalsNight(this, night);
+  setNight(night, dusk = 0) {
+    setPracticalsNight(this, night, dusk);
   }
 
   // ------------------------------------------------- map overlay rendering

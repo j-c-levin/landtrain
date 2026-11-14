@@ -22,7 +22,7 @@ export class FogOfWar {
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
 
-    this.material = mapMaterials.shroud(this.texture);
+    this.material = mapMaterials.shroud(this.texture, new THREE.Vector4(WORLD.minX, WORLD.minZ, 1 / w, 1 / h));
 
     // y=75 clears the tallest undiscovered ridge rocks (~55) so nothing
     // pokes up through the shroud; only the Great Tree (the destination,
@@ -97,7 +97,11 @@ export class FogOfWar {
   // before the scene's distance fog opens — so undiscovered terrain is
   // never glimpsed mid-transition.
   setBlend(blend) {
-    this.material.opacity = Math.min(1, blend / 0.35) * TUNING.fogOpacity;
+    this.material.uniforms.uOpacity.value = Math.min(1, blend / 0.35) * TUNING.fogOpacity;
     this.mesh.visible = blend > 0.01;
+  }
+
+  setNight(night) {
+    this.material.uniforms.uNight.value = night;
   }
 }

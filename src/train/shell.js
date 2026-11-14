@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CAR_LEN, CAR_CENTERS, LADDERS } from '../constants.js';
+import { painted } from '../look.js';
 import { box, profiledBox, curvedRoof, instancedDetails } from './parts.js';
 
 export function cabinSides(train, g, zone, center, length, base, eave, wall, windows, z = 2.36) {
@@ -28,6 +29,11 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
     const end = center + length / 2;
     panels.push([(edge + end) / 2, (sill + lintel) / 2, sz, end - edge, lintel - sill, 0.2]);
     instancedDetails(panels, train.geometry.detail, side > 0 ? train.nearWallMat(zone, wall) : wall, g, true);
+    if (side < 0) {
+      const lining = panels.map(([x, y, , w, h]) => [x, y, sz + 0.108, w, h, 0.02]);
+      lining.push([center, eave - 0.2, sz + 0.14, length, 0.1, 0.06]);
+      instancedDetails(lining, train.geometry.detail, painted(wall), g).receiveShadow = true;
+    }
     frames.push([center, base + 0.16, sz + side * 0.12, length, 0.18, 0.2]);
     frames.push([center, eave, sz, length + 0.12, 0.16, 0.24]);
     instancedDetails(frames, train.geometry.detail, material(M.woodDark), g, true);
@@ -35,6 +41,16 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
     for (let px = center - length / 2 + 0.45; px < end; px += 0.65) boards.push([px, base + 0.43, sz + side * 0.105, 0.018, 0.55, 0.015]);
     instancedDetails(boards, train.geometry.detail, material(M.wood), g);
   }
+}
+
+// Painted boards laid over the enamel deck, stopping short of the cut edge.
+export function paintedFloor(train, g, center, length, base, z, depth, material = painted(train.materials.wood)) {
+  const boards = [[center, base + 0.008, z, length, 0.012, depth]];
+  instancedDetails(boards, train.geometry.detail, material, g).receiveShadow = true;
+  if (material.transparent) return;
+  const seams = [];
+  for (let x = center - length / 2 + 0.3; x < center + length / 2; x += 0.6) seams.push([x, base + 0.0155, z, 0.03, 0.003, depth]);
+  instancedDetails(seams, train.geometry.detail, painted(train.materials.woodDark), g);
 }
 
 export function buildCarShell(train, g, ci) {
@@ -55,11 +71,13 @@ export function buildCarShell(train, g, ci) {
     const eave = ci === 2 ? 4.75 : 4.67;
     cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, ci === 2 ? M.sage : M.cream,
       ci === 2 ? [[-3.9, 2.5], [0, 2.8], [3.9, 2.5]] : [[-4.6, 2.4], [-0.8, 2.4], [3.7, 3.8]]);
-    for (const x of [-6.9, isCab ? 8.15 : 6.9]) {
-      box(0.22, eave - 1.78, 1.65, M.innerWall, x, (eave + 1.78) / 2, -1.5, g);
+    const front = isCab ? 8.15 : 6.9;
+    for (const x of [-6.9, front]) {
+      box(0.22, eave - 1.78, 1.65, painted(M.innerWall), x, (eave + 1.78) / 2, -1.5, g);
       box(0.22, eave - 1.78, 0.95, train.fadingMat(zone, ci === 2 ? M.sage : M.cream), x, (eave + 1.78) / 2, 1.9, g);
-      box(0.22, 0.35, 2.1, M.woodDark, x, eave - 0.175, 0.35, g);
+      box(0.22, 0.35, 2.1, painted(M.woodDark), x, eave - 0.175, 0.35, g);
     }
+    paintedFloor(train, g, (front - 6.9) / 2, front + 6.9 - 0.22, 1.78, 0, 4.52);
   }
   if (isCab) curvedRoof(15.6, 5.5, 0.6, M.copper, train.fadingMat(zone, M.copper), 0.5, 5.05, g);
 
@@ -72,11 +90,11 @@ export function buildCarShell(train, g, ci) {
         wheel.castShadow = true;
         g.add(wheel);
         train.wheels.push(wheel);
-        const hub = new THREE.Mesh(train.geometry.wheelHub, M.brass);
+        const hub = new THREE.Mesh(train.geometry.wheelHub, M.wheelBoss);
         wheel.add(hub);
         const spokes = [];
         for (let a = 0; a < Math.PI - 0.01; a += Math.PI / 4) spokes.push([0, 0, Math.sign(wz) * 0.24, 1.5, 0.09, 0.06, 0, 0, a]);
-        instancedDetails(spokes, train.geometry.detail, M.cream, wheel);
+        instancedDetails(spokes, train.geometry.detail, M.spoke, wheel);
       }
     }
   }
