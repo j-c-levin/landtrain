@@ -46,7 +46,9 @@ const SHOTS = [
   free('tree-near', 'day', { x: 2262, z: 0, heading: 0 }, [2225, 9, 46], [2450, 54, 0]),
   free('tree-near', 'dusk', { x: 2262, z: 0, heading: 0 }, [2225, 9, 46], [2450, 54, 0]),
   free('tree-near', 'night', { x: 2262, z: 0, heading: 0 }, [2225, 9, 46], [2450, 54, 0]),
-  free('tree-door', 'day', { x: 2262, z: 0, heading: 0 }, [2352, 30, 44], [2440, 26, 0]),
+  free('tree-door', 'day', { x: 2262, z: 0, heading: 0 }, [2350, 30, 20], [2440, 24, -4]),
+  free('arrival-east', 'day', { x: 2262, z: 0, heading: 0 }, [2230, 34, 70], [2700, 0, -120]),
+  free('tree-far-cab', 'day', { x: 700, z: 0, heading: 0 }, [690, 7, 8], [2450, 40, 0]),
   free('tree-crown', 'day', { x: 2262, z: 0, heading: 0 }, [2390, 50, 96], [2452, 78, 0]),
   free('tree-above', 'day', { x: 2262, z: 0, heading: 0 }, [2330, 190, 150], [2450, 30, 0]),
   free('horizon-north', 'day', { x: 900, z: 0, heading: 0 }, [900, 9, 40], [900, 12, -600]),
@@ -118,6 +120,40 @@ const liveFor = (page, ms) => page.evaluate((ms) => new Promise((done) => {
   requestAnimationFrame(f);
 }), ms);
 
+function probe() {
+  const { camera, train } = __game;
+  let scene = train.cars[0].group;
+  while (scene.parent) scene = scene.parent;
+  const M = camera.projectionMatrix.constructor;
+  const vp = new M().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  const rows = new Map();
+  scene.traverseVisible((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    if (o.frustumCulled) {
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      const c = o.geometry.boundingSphere.center.clone().applyMatrix4(o.matrixWorld);
+      const r = o.geometry.boundingSphere.radius * o.matrixWorld.getMaxScaleOnAxis() * 1.5;
+      const e = vp.elements;
+      const w = e[3] * c.x + e[7] * c.y + e[11] * c.z + e[15];
+      const x = e[0] * c.x + e[4] * c.y + e[8] * c.z + e[12];
+      const y = e[1] * c.x + e[5] * c.y + e[9] * c.z + e[13];
+      if (w < -r || Math.abs(x) > w + r * 2 || Math.abs(y) > w + r * 2) return;
+    }
+    const g = o.geometry;
+    const per = (g.index ? g.index.count : g.attributes.position.count) / 3;
+    const tris = per * (o.isInstancedMesh ? o.count : 1);
+    const chain = [];
+    for (let p = o; p; p = p.parent) chain.push(p.name || p.type[0]);
+    const key = `${chain.reverse().join('/')} ${o.material.type?.slice(4, 12)} ${Object.keys(o.material.defines || {}).join('+')} per=${per}`;
+    const row = rows.get(key) || { tris: 0, n: 0 };
+    row.tris += tris;
+    row.n++;
+    rows.set(key, row);
+  });
+  return [...rows.entries()].sort((a, b) => b[1].tris - a[1].tris).slice(0, 28)
+    .map(([k, r]) => `${String(Math.round(r.tris)).padStart(8)} x${String(r.n).padStart(3)}  ${k}`).join('\n');
+}
+
 async function run() {
   const port = await freePort();
   const server = spawn(process.execPath, [join(root, 'node_modules/vite/bin/vite.js'), '--port', String(port), '--strictPort', '--host', '127.0.0.1'], { cwd: root, stdio: 'ignore' });
@@ -180,6 +216,7 @@ async function run() {
         return { calls: i.render.calls, triangles: i.render.triangles };
       });
       metrics[name] = info;
+      if (argv.includes('--probe')) console.log(await page.evaluate(probe));
       await page.screenshot({ path: join(outDir, `${name}.png`) });
       console.log(`ok ${name} ${info.calls} calls ${Math.round(info.triangles / 1000)}k tris`);
     }

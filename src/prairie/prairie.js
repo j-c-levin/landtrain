@@ -56,6 +56,12 @@ export function createPrairie(scene) {
   groundEast.receiveShadow = true;
   chunkAfter.add(groundEast);
 
+  // Until the grassland is built the land must not stop dead at the seam: a sunk apron runs on under where it will lie.
+  const apron = new THREE.Mesh(new THREE.PlaneGeometry(groundMargin, groundDepth), prairieMaterials.ground(region));
+  apron.rotation.x = -Math.PI / 2;
+  apron.position.set(PRAIRIE.maxX + groundMargin / 2 - 1, -10, 0);
+  chunkAfter.add(apron);
+
   // --- ground cover: wraps around the camera, so it lives outside the chunks
   const cover = createGroundCover({
     look: PRAIRIE_LOOK, seed: 5150612, clipX: [PRAIRIE.minX - 400, PRAIRIE.maxX], mask: region,
@@ -166,7 +172,8 @@ export function createPrairie(scene) {
       landmark.userData.tick(time, cameraPos, lamps);
       for (const t of trees) {
         const d = Math.hypot(t.group.position.x - cameraPos.x, t.group.position.z - cameraPos.z);
-        const o = clamp((d - 12) / 16, 0.08, 1);
+        const o = clamp((d - 14) / 16, 0, 1);
+        t.group.visible = o > 0.02;
         for (const m of t.mats) m.opacity = o;
       }
     },

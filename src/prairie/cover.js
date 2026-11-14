@@ -2,20 +2,20 @@ import * as THREE from 'three';
 import { PRAIRIE_LOOK, jitterHSL } from '../look.js';
 
 const COUNTS = {
-  high: { tile: 380, cells: 4, seedGrass: 1500, scrub: 340, aloe: 260 },
-  medium: { tile: 300, cells: 3, seedGrass: 800, scrub: 200, aloe: 150 },
-  low: { tile: 230, cells: 2, seedGrass: 200, scrub: 56, aloe: 48 },
+  high: { tile: 380, cells: 4, blades: 5, seedGrass: 1080, scrub: 150, aloe: 190 },
+  medium: { tile: 300, cells: 3, blades: 5, seedGrass: 640, scrub: 90, aloe: 120 },
+  low: { tile: 230, cells: 2, blades: 3, seedGrass: 200, scrub: 30, aloe: 36 },
 };
 
 // How each standard cover type answers the region map.
 export const PRAIRIE_KINDS = {
   micro: { bias: [1, 0.9, -0.7, 2], grow: 0.3, tint: 1 },
-  tuft: { bias: [1, 0.8, -0.6, 2], grow: 0.35, tint: 1 },
-  flower: { bias: [1, 1.6, -1, 2], grow: 0.2, tint: 0 },
-  pebble: { bias: [0.7, -0.5, 0.6, -0.5], grow: 0, tint: 0 },
-  tussock: { bias: [1.1, 0.8, -0.7, 2], grow: 0.45, tint: 1 },
-  shrub: { bias: [1.15, 0.9, -0.7, 2], grow: 0.3, tint: 0.8 },
-  stone: { bias: [0.6, -0.5, 0.8, -0.3], grow: 0, tint: 0 },
+  tuft: { bias: [1.1, 0.8, -0.7, 2], grow: 0.35, tint: 1 },
+  flower: { bias: [1.3, 1.2, -1.3, 2], grow: 0.2, tint: 0 },
+  pebble: { bias: [0.7, -0.5, 0.6, -1.3], grow: 0, tint: 0 },
+  tussock: { bias: [1.15, 0.8, -0.8, 2], grow: 0.45, tint: 1 },
+  shrub: { bias: [1.9, 0.9, -1.5, 2], grow: 0.3, tint: 0.8 },
+  stone: { bias: [0.6, -0.5, 0.8, -1.1], grow: 0, tint: 0 },
 };
 
 function sheet() {
@@ -67,11 +67,11 @@ function ribbon(s, spine, sideX, sideZ) {
 }
 
 // Tall arching stems, some carrying a pale seed head: the grass the wind is seen in.
-function seedGrassGeometry(rand) {
+function seedGrassGeometry(rand, blades) {
   const s = sheet();
   const head = PRAIRIE_LOOK.seedHead;
-  for (let b = 0; b < 5; b++) {
-    const a = (b / 5) * Math.PI * 2 + rand() * 0.9;
+  for (let b = 0; b < blades; b++) {
+    const a = (b / blades) * Math.PI * 2 + rand() * 0.9;
     const dx = Math.cos(a);
     const dz = Math.sin(a);
     const h = 1.1 + rand() * 0.75;
@@ -108,11 +108,11 @@ function scrubGeometry(rand) {
     ribbon(s, [
       [0, 0, 0, w, grey(0.55)],
       [mx, h * 0.55, mz, w * 0.7, grey(0.8)],
-      [dx * out - dz * kink, h, dz * out + dx * kink, 0, grey(1.5)],
+      [dx * out - dz * kink, h, dz * out + dx * kink, 0, grey(1.25)],
     ], -dz, dx);
     ribbon(s, [
       [mx, h * 0.55, mz, w * 0.6, grey(0.8)],
-      [mx + dx * out * 0.2 + dz * 0.3, h * (0.85 + rand() * 0.3), mz + dz * out * 0.2 - dx * 0.3, 0, grey(1.5)],
+      [mx + dx * out * 0.2 + dz * 0.3, h * (0.85 + rand() * 0.3), mz + dz * out * 0.2 - dx * 0.3, 0, grey(1.25)],
     ], -dz, dx);
   }
   return s.build();
@@ -150,17 +150,17 @@ export function extendPrairieCover({ add, layer, rand, tier, cover }) {
   const meadow = layer(counts.tile, 0.34, [5, 9, 0], 95);
   const look = PRAIRIE_LOOK;
 
-  add(meadow, counts.cells, seedGrassGeometry(rand), cover({ side: THREE.DoubleSide }), counts.seedGrass, 0.05, false, (o, c) => {
+  add(meadow, counts.cells, seedGrassGeometry(rand, counts.blades), cover({ side: THREE.DoubleSide }), counts.seedGrass, 0.05, false, (o, c) => {
     const s = 0.8 + rand() * 0.7;
     o.scale.set(s, s * (0.8 + rand() * 0.5), s);
     jitterHSL(c, rand, look.seedGrass);
   }, { bias: [0.22, 1.5, -0.6, 2], grow: 0.3, tint: 0.5 });
 
   add(meadow, counts.cells, scrubGeometry(rand), cover({ side: THREE.DoubleSide }), counts.scrub, 0.012, false, (o, c) => {
-    const s = 0.9 + rand() * 1.1;
-    o.scale.set(s, s * (0.8 + rand() * 0.5), s);
+    const s = 0.7 + rand() * 0.7;
+    o.scale.set(s, s * (0.8 + rand() * 0.4), s);
     jitterHSL(c, rand, look.scrub);
-  }, { bias: [0.04, -0.4, 1.2, 0.6], grow: 0, tint: 0 });
+  }, { bias: [0, -0.3, 1.1, 0.6], grow: 0, tint: 0 });
 
   add(meadow, counts.cells, aloeGeometry(rand), cover({ side: THREE.DoubleSide }), counts.aloe, 0, false, (o, c) => {
     const s = 0.9 + rand() * 0.9;

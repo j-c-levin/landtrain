@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PRAIRIE, SPLIT_X } from '../constants.js';
-import { PRAIRIE_LOOK, prairieMaterials } from '../look.js';
+import { PRAIRIE_LOOK, prairieMaterials, getLookTier } from '../look.js';
 import { mulberry } from '../prng.js';
 
 const _c = new THREE.Color();
+const ARCS = 6;
 
 // A low swell of flocked ground: straw on the crown, olive in the lee.
 function duneGeometry(rand, rx, rz, height) {
@@ -93,47 +94,63 @@ function rangeGeometry({ cx, ax, az, open, segments, height, seed, palette, inse
     const s = f * f * (3 - 2 * f);
     return lattice[i & 63] * (1 - s) + lattice[(i + 1) & 63] * s;
   };
+  const ROWS = 4;
   for (let i = 0; i <= segments; i++) {
     const u = i / segments;
     const a = open + u * (Math.PI * 2 - open * 2);
     const taper = Math.min(1, Math.sin(u * Math.PI) * 5);
     const peaks = 1 - Math.abs(wave(u * 23) * 2 - 1);
-    const h = height * taper * (0.34 + 0.4 * wave(u * 7 + 20) + 0.42 * peaks * peaks + 0.08 * rand());
+    const h = height * taper * (0.3 + 0.4 * wave(u * 7 + 20) + 0.46 * peaks * peaks + 0.1 * rand());
+    const spur = 1 - Math.abs(wave(u * 41 + 9) * 2 - 1);
     const x = cx + Math.cos(a) * ax;
     const z = Math.sin(a) * az;
     const nx = -Math.cos(a);
     const nz = -Math.sin(a);
-    const jut = (rand() - 0.5) * inset * 0.5;
-    pos.push(x + nx * inset, -6, z + nz * inset);
-    pos.push(x + nx * (inset * 0.45 + jut), h * 0.5, z + nz * (inset * 0.45 + jut));
-    pos.push(x, h, z);
-    foot.toArray(col, col.length);
-    _c.copy(foot).lerp(crest, 0.65).toArray(col, col.length);
-    crest.toArray(col, col.length);
+    const jut = (rand() - 0.5) * inset * 0.4;
+    const tone = (rand() - 0.5) * 0.3;
+    const rows = [
+      [inset * 1.25, -6, 0],
+      [inset * (0.55 + 0.6 * spur), h * (0.1 + 0.26 * spur), 0.25 + tone],
+      [inset * 0.3 + jut, h * (0.56 + 0.12 * rand()), 0.6 + tone],
+      [0, h, 1],
+    ];
+    for (const [out, y, k] of rows) {
+      pos.push(x + nx * out, y, z + nz * out);
+      _c.copy(foot).lerp(crest, Math.min(1, Math.max(0, k))).toArray(col, col.length);
+    }
     if (i < segments) {
-      const b = i * 3;
-      idx.push(b, b + 3, b + 4, b, b + 4, b + 1, b + 1, b + 4, b + 5, b + 1, b + 5, b + 2);
+      for (let j = 0; j < ROWS - 1; j++) {
+        const b = i * ROWS + j;
+        idx.push(b, b + ROWS, b + ROWS + 1, b, b + ROWS + 1, b + 1);
+      }
     }
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  return geo;
+  // cut into arcs so the lens only draws the stretch of horizon it faces
+  const arcs = [];
+  const span = Math.ceil(segments / ARCS);
+  for (let from = 0; from < segments; from += span) {
+    const to = Math.min(segments, from + span);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos.slice(from * ROWS * 3, (to + 1) * ROWS * 3), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col.slice(from * ROWS * 3, (to + 1) * ROWS * 3), 3));
+    geo.setIndex(idx.slice(from * (ROWS - 1) * 6, to * (ROWS - 1) * 6).map((i) => i - from * ROWS));
+    geo.computeVertexNormals();
+    arcs.push(geo);
+  }
+  return arcs;
 }
 
 // Painted backscene flats: a sandstone escarpment, then a pale far range, open to the east.
 export function buildRanges(root) {
   const cx = 1000;
   const specs = [
-    { ax: 3500, az: 2500, height: 250, seed: 630117, palette: PRAIRIE_LOOK.rangeNear, inset: 200, segments: 84, haze: 0.26 },
-    { ax: 4700, az: 3500, height: 620, seed: 630118, palette: PRAIRIE_LOOK.rangeFar, inset: 380, segments: 64, haze: 0.2 },
+    { ax: 3500, az: 2500, height: 105, seed: 630117, palette: PRAIRIE_LOOK.rangeNear, inset: 200, segments: 110, haze: 0.26, pitch: 0.07 },
+    { ax: 4700, az: 3500, height: 205, seed: 630118, palette: PRAIRIE_LOOK.rangeFar, inset: 380, segments: 96, haze: 0.2, pitch: 0.04 },
   ];
   for (const spec of specs) {
     const open = Math.acos((PRAIRIE.maxX - cx) / spec.ax);
-    const mesh = new THREE.Mesh(rangeGeometry({ cx, open, ...spec }), prairieMaterials.range(spec.haze));
-    mesh.frustumCulled = false;
-    root.add(mesh);
+    const mat = prairieMaterials.range(spec.haze, spec.pitch);
+    const segments = Math.round(spec.segments * (getLookTier() === 'low' ? 0.5 : 1));
+    for (const geo of rangeGeometry({ cx, open, ...spec, segments })) root.add(new THREE.Mesh(geo, mat));
   }
 }

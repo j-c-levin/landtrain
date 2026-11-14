@@ -3,13 +3,14 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { LANDMARK } from '../constants.js';
 import { PRAIRIE_LOOK, prairieMaterials, jitterHSL, getLookTier } from '../look.js';
 import { mulberry } from '../prng.js';
-import { terraceGeometry } from './rocks.js';
+import { terraceGeometry, TERRACE } from './rocks.js';
 
 export const MESA_RADIUS = 96;
 const MESA_HEIGHT = 17;
 const TOP = MESA_HEIGHT - 0.5;
 const FORK = 58;
 const FAR_FROM = 640;
+const LEVELS = TERRACE.map(([t]) => t * MESA_HEIGHT - 0.5);
 
 const DETAIL = {
   high: { radial: 12, rings: 9, boughRadial: 7, clumps: [4, 3, 6], roots: 9, lanterns: 18, pennants: 16, shrubs: 26 },
@@ -67,8 +68,8 @@ function tube(points, r0, r1, radial, rings, shape, tone) {
   return { geo, curve };
 }
 
-function clump(rand, x, y, z, r, squash, base, shade) {
-  const geo = new THREE.IcosahedronGeometry(1, 1);
+function clump(rand, x, y, z, r, squash, base, shade, detail = 1) {
+  const geo = new THREE.IcosahedronGeometry(1, detail);
   geo.deleteAttribute('uv');
   const p = geo.attributes.position;
   const col = new Float32Array(p.count * 3);
@@ -210,6 +211,32 @@ function timber(rand, boughs, detail) {
   return { geo: merged(parts), curves };
 }
 
+// The terrace's plan at each row of its profile, foot to rim: (row, angle) => radius.
+function outline(mesa) {
+  const p = mesa.attributes.position;
+  const rows = new Map();
+  for (let i = 0; i < p.count; i++) {
+    const r = Math.hypot(p.getX(i), p.getZ(i));
+    if (r < 1) continue;
+    const key = Math.round(p.getY(i) * 10);
+    if (!rows.has(key)) rows.set(key, []);
+    rows.get(key).push([Math.atan2(p.getZ(i), p.getX(i)), r]);
+  }
+  const levels = [...rows.keys()].sort((a, b) => a - b).map((key) => rows.get(key));
+  return (row, a) => {
+    let best = levels[row][0];
+    let gap = 9;
+    for (const point of levels[row]) {
+      const d = Math.abs(Math.atan2(Math.sin(point[0] - a), Math.cos(point[0] - a)));
+      if (d < gap) {
+        gap = d;
+        best = point;
+      }
+    }
+    return best[1];
+  };
+}
+
 // Rows of the terrace along the west face, foot to rim: [radius, height].
 function westFace(mesa) {
   const p = mesa.attributes.position;
@@ -225,7 +252,7 @@ function westFace(mesa) {
   return [...rows.values()].sort((a, b) => a.y - b.y);
 }
 
-function dressing(rand, mesa, detail, lights) {
+function dressing(rand, mesa, ring, detail, lights) {
   const look = PRAIRIE_LOOK.greatTree;
   const parts = [];
 
@@ -241,9 +268,50 @@ function dressing(rand, mesa, detail, lights) {
   for (let i = 0; i < steps; i++) {
     const h = (TOP + 0.5) * ((i + 1) / steps);
     const r = radiusAt(h + 0.5 - (TOP + 0.5) / steps) + 1.2;
-    const box = new THREE.BoxGeometry(4.6, h + 2, 8.5 - (i / steps) * 2);
+    const wide = 11.5 - (i / steps) * 3;
+    const box = new THREE.BoxGeometry(4.6, h + 2, wide);
     box.translate(-r + 1.6, h / 2 - 1.5, 0);
-    parts.push(tinted(box, look.stone, i % 2 ? 0.92 : 1.04));
+    parts.push(tinted(box, look.stair, i % 2 ? 0.93 : 1.05));
+    for (const side of [-1, 1]) {
+      const cheek = new THREE.BoxGeometry(4.6, h + 3.3, 1.3);
+      cheek.translate(-r + 1.6, h / 2 - 0.85, side * (wide / 2 + 0.6));
+      parts.push(tinted(cheek, look.stone, 0.9));
+    }
+  }
+
+  const foot = radiusAt(0) + 3.5;
+  for (const side of [-1, 1]) {
+    const pillar = new THREE.BoxGeometry(2.2, 7, 2.2);
+    pillar.translate(-foot, 3, side * 8.2);
+    parts.push(tinted(pillar, look.stone, 0.96));
+    const cap = new THREE.ConeGeometry(2.3, 1.6, 4);
+    cap.rotateY(Math.PI / 4);
+    cap.translate(-foot, 9.6, side * 8.2);
+    parts.push(tinted(cap, look.timber, 1.4));
+    lights.push(v(-foot, 7.8, side * 8.2));
+  }
+
+  const head = radiusAt(TOP) - 4;
+  for (let i = 0; i < 7; i++) {
+    const t = i / 6;
+    const stone = new THREE.CylinderGeometry(1.5 + rand() * 0.7, 1.7 + rand() * 0.7, 0.5, 6);
+    stone.rotateY(rand() * Math.PI);
+    stone.translate(-head + (head - 22) * t, TOP + 0.1, Math.sin(t * 5 + 1) * 1.6);
+    parts.push(tinted(stone, look.stair, 0.9 + rand() * 0.2));
+  }
+
+  for (let i = 0; i < detail.shrubs; i++) {
+    const a = rand() * Math.PI * 2;
+    const row = [0, 1, 3][i % 3];
+    const r = ring(row, a) + (row === 0 ? 2 + rand() * 9 : -2 - rand() * 6);
+    const size = 0.9 + rand() * rand() * 2.6;
+    const turn = rand() * Math.PI;
+    if (Math.abs(Math.abs(a) - Math.PI) < 0.24) continue;
+    const block = new THREE.IcosahedronGeometry(size, 0);
+    block.scale(1, 0.62, 1);
+    block.rotateY(turn);
+    block.translate(Math.cos(a) * r, LEVELS[row] + size * 0.3, Math.sin(a) * r);
+    parts.push(tinted(block, look.mesaBands[i % look.mesaBands.length], 0.86 + rand() * 0.2));
   }
 
   const porch = new THREE.BoxGeometry(5, 10.5, 7.4);
@@ -359,9 +427,10 @@ function windows(lights) {
   return { panes: merged(panes), frames: merged(frames) };
 }
 
-function turf(rand, count) {
+function turf(rand, count, ring) {
   const parts = [];
   const base = new THREE.Color();
+  const onStair = (a) => Math.abs(Math.abs(a) - Math.PI) < 0.22;
   for (let i = 0; i < count; i++) {
     const a = rand() * Math.PI * 2;
     const d = 15 + rand() * 20;
@@ -369,6 +438,23 @@ function turf(rand, count) {
     jitterHSL(base, rand, PRAIRIE_LOOK.bush);
     parts.push(clump(rand, Math.cos(a) * d, TOP + 0.3, Math.sin(a) * d, 1.6 + rand() * 2.4, 0.7, base, 1));
   }
+  const local = mulberry(8101);
+  const sod = new THREE.Color(PRAIRIE_LOOK.greatTree.turf);
+  const scatter = (n, row, inset, spread, size, look) => {
+    for (let i = 0; i < n; i++) {
+      const a = ((i + local()) / n) * Math.PI * 2;
+      const r = ring(row, a) + inset + local() * spread;
+      const s = size * (0.6 + local() * 0.9);
+      if (look) jitterHSL(base, local, look);
+      else base.copy(sod).multiplyScalar(0.82 + local() * 0.3);
+      if (onStair(a)) continue;
+      parts.push(clump(local, Math.cos(a) * r, LEVELS[row] + (look ? 0.2 : -s * 0.25), Math.sin(a) * r, s, look ? 0.7 : 0.5, base, 1, 0));
+    }
+  };
+  scatter(Math.round(count * 1.5), 5, -1.6, 1.6, 2.6, null);
+  scatter(Math.round(count * 0.6), 3, -11, 8, 1.7, PRAIRIE_LOOK.bush);
+  scatter(Math.round(count * 0.7), 1, -11, 8, 2, PRAIRIE_LOOK.bush);
+  scatter(Math.round(count * 0.7), 0, 1, 9, 2.3, PRAIRIE_LOOK.bush);
   return merged(parts);
 }
 
@@ -419,6 +505,7 @@ export function buildLandmark(root) {
   mesa.castShadow = true;
   group.add(mesa);
 
+  const ring = outline(mesaGeo);
   const boughs = skeleton(rand);
   const anchors = crownAnchors(boughs);
   const lights = [];
@@ -437,9 +524,9 @@ export function buildLandmark(root) {
   const hung = lanterns(rand, wood.curves, detail, lights);
   const lit = windows(lights);
   near.add(new THREE.Mesh(hung.bodies, lanternMat), new THREE.Mesh(lit.panes, lanternMat));
-  const trim = merged([dressing(rand, mesaGeo, detail, lights), hung.fittings, lit.frames]);
+  const trim = merged([dressing(rand, mesaGeo, ring, detail, lights), hung.fittings, lit.frames]);
   near.add(new THREE.Mesh(trim, dressMat));
-  near.add(new THREE.Mesh(turf(rand, detail.shrubs), leafMat));
+  near.add(new THREE.Mesh(turf(rand, detail.shrubs, ring), leafMat));
 
   const farRand = mulberry(82);
   const farWood = timber(farRand, boughs, { radial: 6, rings: 4, boughRadial: 4, roots: 0 });
@@ -454,6 +541,7 @@ export function buildLandmark(root) {
   group.add(birds);
 
   const halo = new THREE.Sprite(prairieMaterials.halo());
+  halo.material.blending = THREE.AdditiveBlending;
   halo.scale.setScalar(190);
   halo.position.y = 84;
   group.add(halo);
@@ -468,7 +556,7 @@ export function buildLandmark(root) {
     lanternMat.emissiveIntensity = 1.5 + 1.6 * glowing;
     // a beacon from afar, a faint bloom up close
     const away = Math.hypot(eye.x - LANDMARK.x, eye.z - LANDMARK.z);
-    halo.material.opacity = (0.75 + 0.25 * glowing) * Math.min(1, Math.max(0.16, (away - 180) / 700));
+    halo.material.opacity = (0.3 + 0.4 * glowing) * Math.min(1, Math.max(0.2, (away - 180) / 700));
   };
   group.userData.tick(0, { x: 0, z: 0 });
 

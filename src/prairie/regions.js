@@ -89,8 +89,14 @@ export function regionAt(x, z, clearings = null) {
 
   let pale = 0;
   const ragged = (fbm(x * 0.045 + 7, z * 0.045 + 3) - 0.5) * 16;
-  const wash = 1 - smooth(clamp((Math.abs(x - washX(z)) + ragged - WASH.half * 0.55) / (WASH.half * 0.9), 0, 1));
-  pale = Math.max(pale, wash * edge);
+  const swell = fbm(z * 0.0075 + 3.3, 8.1);
+  const girth = WASH.half * (0.25 + 4.4 * swell * swell);
+  const flow = clamp(fbm(z * 0.0052 + 21.7, 4.4) * 3.4 - 1.05, 0.22, 1);
+  const off = x - washX(z);
+  const bed = 1 - clamp((Math.abs(off) + ragged - girth * 0.4) / (girth * 0.9 + 5), 0, 1);
+  const braidAt = (26 + 22 * Math.sin(z * 0.011 + 1.4)) * Math.sign(Math.sin(z * 0.0031 + 0.5));
+  const braid = (1 - clamp((Math.abs(off - braidAt) + ragged * 0.6 - 2) / 9, 0, 1)) * clamp(fbm(z * 0.012 + 60, 2.2) * 3 - 1, 0, 1);
+  pale = Math.max(pale, smooth(Math.max(bed, braid * 0.8)) * flow * edge);
   for (const p of PANS) {
     const c = Math.cos(p.turn);
     const s = Math.sin(p.turn);
@@ -98,6 +104,11 @@ export function regionAt(x, z, clearings = null) {
     const dz = z - p.z;
     const d = Math.hypot((dx * c + dz * s) / p.rx, (dz * c - dx * s) / p.rz) + ragged * 0.012;
     pale = Math.max(pale, 1 - smooth(clamp((d - 0.72) / 0.36, 0, 1)));
+  }
+  const west = LANDMARK.x - x;
+  if (west > 80 && west < 250) {
+    const across = Math.abs(z - LANDMARK.z - 10 * Math.sin((west - 96) * 0.03));
+    pale = Math.max(pale, 0.62 * (1 - smooth(clamp((across - 1) / 6, 0, 1))) * (1 - smooth(clamp((west - 170) / 60, 0, 1))));
   }
   lush *= 1 - pale;
   bare = Math.max(bare * (1 - pale), 0);
