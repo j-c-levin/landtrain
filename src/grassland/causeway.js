@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GRASSLAND_LOOK, grasslandMaterials, floraMaterials, softDiscTexture, jitterHSL } from '../look.js';
+import { GRASSLAND_LOOK, grasslandMaterials, floraMaterials, softDiscTexture, jitterHSL, getLookTier } from '../look.js';
 import { mulberry } from '../prng.js';
 import { DEPTH, WATER_Y } from './layout.js';
 
@@ -16,6 +16,7 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
   const L = GRASSLAND_LOOK.causeway;
   const group = new THREE.Group();
   const X = axis === 'x';
+  const low = getLookTier() === 'low';
   const boxes = [], stones = [], piles = [], glass = [], roofs = [], rings = [], pools = [];
   const box = (list, u, y, v, lu, h, lv, color, ry = 0) =>
     list.push(X ? [u, y, v, lu, h, lv, ry, color] : [v, y, u, lv, h, lu, -ry, color]);
@@ -59,7 +60,7 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
   for (const side of [-1, 1]) {
     box(boxes, uCenter, 0.24, vCenter + side * kerb, uSpan + 1.2, 0.56, 0.74, beam);
     const straps = Math.round(uSpan / 8);
-    for (let i = 0; i <= straps; i++) {
+    for (let i = 0; !low && i <= straps; i++) {
       box(boxes, u0 + (i / straps) * uSpan, 0.26, vCenter + side * kerb, 0.26, 0.62, 0.82, iron);
     }
     const posts = Math.round(uSpan / 7);
@@ -67,7 +68,7 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
       box(boxes, u0 + (i / posts) * uSpan, 0.85, vCenter + side * edge, 0.34, 1.7, 0.34, post);
     }
     box(boxes, uCenter, 1.62, vCenter + side * edge, uSpan + 0.8, 0.17, 0.2, rail);
-    box(boxes, uCenter, 0.95, vCenter + side * edge, uSpan, 0.13, 0.13, rail);
+    if (!low) box(boxes, uCenter, 0.95, vCenter + side * edge, uSpan, 0.13, 0.13, rail);
   }
 
   // pile bents down into the channel, each ringed where it breaks the water
@@ -169,7 +170,7 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
     o.rotation.y = Math.PI / 4;
   });
   const foam = new THREE.Color(GRASSLAND_LOOK.waterFoam);
-  const ringGeo = new THREE.RingGeometry(0.5, 0.82, 12);
+  const ringGeo = new THREE.RingGeometry(0.5, 0.82, low ? 7 : 12);
   ringGeo.rotateX(-Math.PI / 2);
   instanced(ringGeo, grasslandMaterials.lilyPads(), rings, (o, [x, z, s]) => {
     o.position.set(x, WATER_Y + 0.07, z);

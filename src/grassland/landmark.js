@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
+import { GRASSLAND_LOOK, grasslandMaterials, getLookTier } from '../look.js';
 import { mulberry } from '../prng.js';
 import { GRASS_LANDMARK } from './layout.js';
 import { sheetGeometry } from './water.js';
@@ -91,6 +91,7 @@ const BLOSSOM = [
 export function buildGrassLandmark(root) {
   const S = GRASSLAND_LOOK.silverTree;
   const rand = mulberry(60616);
+  const low = getLookTier() === 'low';
   const group = new THREE.Group();
   group.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
 
@@ -127,7 +128,7 @@ export function buildGrassLandmark(root) {
   trunk.castShadow = true;
   group.add(trunk);
 
-  const puffs = CROWN.map(([x, y, z, r]) => blob(rand, x, y, z, r, 2));
+  const puffs = CROWN.map(([x, y, z, r]) => blob(rand, x, y, z, r, low ? 1 : 2));
   for (let i = 0; i < 40; i++) {
     const [x, y, z, r] = CROWN[i % CROWN.length];
     const a = rand() * TAU;
@@ -135,7 +136,7 @@ export function buildGrassLandmark(root) {
     const flat = Math.sqrt(Math.max(0, 1 - Math.min(1, lift) ** 2));
     const reach = r * (0.72 + rand() * 0.25);
     puffs.push(blob(rand, x + Math.cos(a) * flat * reach, y + lift * reach * 0.78, z + Math.sin(a) * flat * reach,
-      r * (0.3 + rand() * 0.2), 1));
+      r * (0.3 + rand() * 0.2), low ? 0 : 1));
   }
   const crownGeo = paint(mergeGeometries(puffs), (_x, y, _z, up) => {
     const lift = Math.min(1, Math.max(0, (y - 58) / 56));
@@ -166,12 +167,14 @@ export function buildGrassLandmark(root) {
     flowers.setMatrixAt(i, dot.matrix);
     flowers.setColorAt(i, c1.set(S.flower[Math.floor(rand() * S.flower.length)]));
   }
+  if (low) flowers.count = 70;
   group.add(flowers);
 
   // strands of blossom trail from the crown's skirt; some end in a lantern
   const STRANDS = 72;
   const strandGeo = new THREE.LatheGeometry(
-    [[0, -1], [0.7, -0.7], [1, -0.4], [0.5, -0.12], [0, 0]].map(([r, y]) => new THREE.Vector2(r, y)), 5
+    (low ? [[0, -1], [1, -0.4], [0, 0]] : [[0, -1], [0.7, -0.7], [1, -0.4], [0.5, -0.12], [0, 0]])
+      .map(([r, y]) => new THREE.Vector2(r, y)), low ? 4 : 5
   );
   const strands = new THREE.InstancedMesh(strandGeo, grasslandMaterials.treeBlossom(), STRANDS);
   const lamps = [];

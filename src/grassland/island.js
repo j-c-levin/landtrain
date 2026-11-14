@@ -17,6 +17,7 @@ const nearCrossing = (a, margin) =>
 export function buildIsland(root) {
   const S = GRASSLAND_LOOK.silverTree;
   const rand = mulberry(77031);
+  const low = getLookTier() === 'low';
   const group = new THREE.Group();
   group.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
   const tint = new THREE.Color();
@@ -87,7 +88,7 @@ export function buildIsland(root) {
     stem.translate(x, h / 2, z);
     barks.push(colour(stem, () => c1.set(S.barkPale)));
     for (const [lx, ly, lz, lr] of lobes) {
-      const puff = new THREE.IcosahedronGeometry(lr, 1);
+      const puff = new THREE.IcosahedronGeometry(lr, low ? 0 : 1);
       puff.deleteAttribute('uv');
       puff.scale(1, 0.82, 1);
       puff.translate(x + lx, ly, z + lz);
@@ -103,7 +104,7 @@ export function buildIsland(root) {
   }
 
   const flowers = [];
-  const drifts = getLookTier() === 'low' ? 22 : 44;
+  const drifts = low ? 12 : 44;
   for (let d = 0; d < drifts; d++) {
     const a = rand() * TAU;
     const r = 76 + rand() * (ISLAND_R - 84);
