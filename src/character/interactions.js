@@ -1,5 +1,6 @@
 import { TUNING, CAB_FROM_X, clamp } from '../constants.js';
 import { STATIONS, REST_SPOTS } from '../train/stations.js';
+import { Affordances } from './affordances.js';
 
 // Stepping up into the cab swings the camera to the forward driving view on
 // its own — no button. Hysteresis keeps it from flapping at the threshold:
@@ -20,6 +21,7 @@ export class Interactions {
     this.holdChimed = false;
     this.restExit = 'set the book down';
     this.toldCabinView = false;
+    this.affordances = new Affordances(train, player.figure.materials.brass);
   }
 
   #findStation() {
@@ -31,6 +33,35 @@ export class Interactions {
   }
 
   update(dt, input) {
+    this.#act(dt, input);
+    const { rig, player } = this;
+    const walking = rig.mode === 'inhabit' && !rig.busy && !rig.soft;
+    this.affordances.update(dt, walking, walking ? this.activeStation : null, player.level);
+  }
+
+  #ladderHint() {
+    const { player, ui } = this;
+    const ladder = player.climbing ? null : player.nearestLadder();
+    const at = ladder ? ladder.levels.indexOf(player.level) : -1;
+    if (at < 0) {
+      ui.hidePrompt();
+      return;
+    }
+    const up = at < ladder.levels.length - 1;
+    const down = at > 0;
+    if (this.hintUp !== up || this.hintDown !== down) {
+      this.hintUp = up;
+      this.hintDown = down;
+      const way = up && down ? 'up or down' : up ? 'up' : 'down';
+      const how = ui.isTouch
+        ? `tap ${up && down ? 'top or bottom' : up ? 'top' : 'bottom'} centre`
+        : up && down ? 'W / S' : up ? 'W' : 'S';
+      this.hint = `ladder — ${how} to climb ${way}`;
+    }
+    ui.showPrompt(this.hint, null, true);
+  }
+
+  #act(dt, input) {
     const { rig, train, player, ui } = this;
     player.action = null;
 
@@ -91,7 +122,7 @@ export class Interactions {
     const s = this.#findStation();
     if (!s) {
       this.activeStation = null;
-      ui.hidePrompt();
+      this.#ladderHint();
       return;
     }
     if (this.activeStation !== s) {

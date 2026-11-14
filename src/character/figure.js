@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { damp } from '../constants.js';
+import { TUNING, damp } from '../constants.js';
 import { createFigureMaterials } from '../look.js';
 
 const K = [
@@ -7,12 +7,13 @@ const K = [
   'hipL', 'kneeL', 'hipR', 'kneeR',
   'armL', 'armLx', 'armLy', 'elbowL', 'armR', 'armRx', 'armRy', 'elbowR',
   'hat', 'scarf', 'pack', 'book', 'can', 'tool',
+  'footL', 'footR', 'liftL', 'liftR', 'ik', 'squash',
 ];
 const I = Object.fromEntries(K.map((k, i) => [k, i]));
 const N = K.length;
 
 // Angles swing forward when positive; `turn` is measured toward the camera side.
-const REST = { armL: 0.06, armLx: -0.1, elbowL: 0.16, armR: 0.06, armRx: 0.1, elbowR: 0.16, pack: 1 };
+const REST = { armL: 0.06, armLx: -0.1, elbowL: 0.16, armR: 0.06, armRx: 0.1, elbowR: 0.16, pack: 1, ik: 1 };
 function pose(values) {
   const out = new Float32Array(N);
   for (const [k, v] of Object.entries({ ...REST, ...values })) out[I[k]] = v;
@@ -20,36 +21,40 @@ function pose(values) {
 }
 
 const POSES = {
-  idle: pose({ turn: 0.5, hipL: 0.05, hipR: -0.05 }),
-  walk: pose({ turn: 0.18, lean: -0.08, elbowL: 0.45, elbowR: 0.45, scarf: -0.45 }),
-  climb: pose({ turn: 0.12, bodyX: -0.3, lean: -0.05, armL: 1.9, armR: 1.9, elbowL: 0.45, elbowR: 0.45, armLx: 0, armRx: 0, headPitch: 0.3 }),
+  idle: pose({ turn: 0.75, footL: 0.045, footR: -0.045 }),
+  walk: pose({ turn: 0.18, lean: -0.1, scarf: -0.5 }),
+  climb: pose({
+    turn: 0.12, bodyX: -0.3, lean: -0.05, armL: 1.75, armR: 1.75, elbowL: 0.5, elbowR: 0.5, armLx: 0, armRx: 0, headPitch: 0.3,
+    hipL: 0.7, hipR: 0.7, kneeL: -1, kneeR: -1, ik: 0,
+  }),
   tend: pose({
-    turn: -0.25, lean: -0.24, hipL: 0.42, kneeL: -0.4, hipR: -0.12, kneeR: -0.12, headPitch: -0.1,
+    turn: -0.3, lean: -0.2, bodyY: -0.07, footL: 0.2, footR: -0.17, headPitch: -0.08,
     armL: 1.15, elbowL: 0.5, armLx: 0, armR: 1.2, elbowR: 0.7, armRx: 0, tool: 1,
   }),
   tread: pose({
-    turn: -0.15, bodyY: -0.27, lean: -0.34, chest: -0.6, hipL: 1.45, kneeL: -2.1, hipR: 0.9, kneeR: -2.0, headPitch: 0.55,
-    armL: 0.9, elbowL: 0.6, armLx: 0, armR: 1.0, elbowR: 0.8, armRx: 0, tool: 1,
+    turn: -0.2, bodyY: -0.28, chest: -1.1, headPitch: 0.6, squash: 1,
+    hipL: 1.5, kneeL: -1.5, hipR: -0.2, kneeR: -1.4, ik: 0,
+    armL: 0.75, elbowL: 0.5, armLx: 0, armR: 0.9, elbowR: 0.7, armRx: 0, tool: 1,
   }),
   water: pose({
-    turn: -0.08, lean: -0.1, hipL: 0.2, kneeL: -0.15, hipR: -0.1, headPitch: -0.18,
-    armL: -0.35, elbowL: 0.7, armLx: 0.25, armR: 1.42, elbowR: 0.2, armRx: 0, armRy: -0.12, can: 1,
+    turn: -1.0, lean: -0.1, bodyY: -0.04, footL: 0.15, footR: -0.11, headPitch: -0.12,
+    armL: -0.25, elbowL: 1.0, armLx: 0.35, armR: 1.8, elbowR: 0.25, armRx: 0, armRy: -0.1, can: 1,
   }),
   sit: pose({
     turn: Math.PI / 2, bodyY: -0.28, bodyZ: -0.45, lean: 0.2, headPitch: -0.34,
     hipL: 1.5, kneeL: -0.3, hipR: 1.38, kneeR: -0.55,
     armL: 0.7, elbowL: 1.3, armLx: 0, armLy: 0.25, armR: 0.7, elbowR: 1.3, armRx: 0, armRy: -0.25,
-    pack: 0, book: 1,
+    pack: 0, book: 1, ik: 0,
   }),
   lie: pose({
     turn: Math.PI, bodyX: -0.3, bodyY: 0.3, bodyZ: -0.3, lean: Math.PI / 2 - 0.1, headPitch: -0.1,
     hipL: 0.05, kneeL: -0.05, hipR: 0.65, kneeR: -1.2,
     armL: 0.5, elbowL: 1.5, armLx: 0, armLy: 0.5, armR: 0.5, elbowR: 1.5, armRx: 0, armRy: -0.5,
-    pack: 0, hat: -1.25,
+    pack: 0, hat: -1.25, ik: 0,
   }),
   wheel: pose({
-    lean: -0.15, hipL: 0.12, hipR: -0.12,
-    armL: 1.8, elbowL: 0.12, armLx: 0, armLy: -0.42, armR: 1.8, elbowR: 0.12, armRx: 0, armRy: 0.42,
+    lean: -0.12, footL: 0.1, footR: -0.1,
+    armL: 1.45, elbowL: 0.4, armLx: 0, armLy: -0.42, armR: 1.45, elbowR: 0.4, armRx: 0, armRy: 0.42,
   }),
 };
 
@@ -57,9 +62,54 @@ const RATE = new Float32Array(N).fill(11);
 for (const k of ['bodyX', 'bodyY', 'bodyZ', 'lean']) RATE[I[k]] = 7;
 for (const k of ['hipL', 'kneeL', 'hipR', 'kneeR', 'armL', 'armR', 'elbowL', 'elbowR']) RATE[I[k]] = 20;
 for (const k of ['pack', 'book', 'can', 'tool']) RATE[I[k]] = 14;
+for (const k of ['footL', 'footR', 'liftL', 'liftR', 'ik', 'squash']) RATE[I[k]] = 12;
 
 const HIP_Y = 0.58;
+const THIGH = 0.28;
+const SHIN = 0.3;
 const TWO_PI = Math.PI * 2;
+
+// One stride lands each foot for STANCE of the cycle; the rest is flight.
+export const STRIDE_TIME = 0.44;
+const STANCE = 0.35;
+const REACH = (TUNING.walkSpeed * STRIDE_TIME * STANCE) / 2;
+const SWING_SLOPE = -TUNING.walkSpeed * STRIDE_TIME * (1 - STANCE);
+const HIP_SLIDE = 0.1;
+
+const foot = { x: 0, lift: 0 };
+function gaitFoot(q) {
+  q -= Math.floor(q);
+  if (q < STANCE) {
+    foot.x = REACH * (1 - (2 * q) / STANCE);
+    foot.lift = 0;
+    return;
+  }
+  const s = (q - STANCE) / (1 - STANCE);
+  const s2 = s * s;
+  const s3 = s2 * s;
+  foot.x = (2 * s3 - 3 * s2 + 1) * -REACH + (s3 - 2 * s2 + s) * SWING_SLOPE + (3 * s2 - 2 * s3) * REACH + (s3 - s2) * SWING_SLOPE;
+  foot.lift = Math.sin(Math.PI * s) * 0.15;
+}
+
+const leg = { hip: 0, knee: 0 };
+function solveLeg(x, y) {
+  let d = Math.hypot(x, y);
+  const max = THIGH + SHIN - 0.004;
+  if (d > max) {
+    x *= max / d;
+    y *= max / d;
+    d = max;
+  } else if (d < 0.12) d = 0.12;
+  const inner = Math.acos((THIGH * THIGH + SHIN * SHIN - d * d) / (2 * THIGH * SHIN));
+  leg.knee = inner - Math.PI;
+  leg.hip = Math.atan2(x, -y) + Math.acos((THIGH * THIGH + d * d - SHIN * SHIN) / (2 * THIGH * d));
+}
+const mix = (a, b, t) => a + (b - a) * t;
+// 1 at the top of a reach, easing down through the grip, then a quick reach back up
+function climbStroke(q) {
+  q -= Math.floor(q);
+  return q < 0.7 ? 1 - q / 0.7 : 0.5 - 0.5 * Math.cos(((q - 0.7) / 0.3) * Math.PI);
+}
 
 export class Figure {
   constructor() {
@@ -71,6 +121,9 @@ export class Figure {
     this.work = 0;
     this.bob = 0;
     this.duck = 0;
+    this.gait = 0;
+    this.phase = 0;
+    this.pour = 0;
     this.lastFacing = 1;
     this.holdingCan = false;
     this.root = new THREE.Group();
@@ -128,11 +181,12 @@ export class Figure {
     this.coat.scale.x = 0.86;
     const hem = mesh(new THREE.TorusGeometry(0.236, 0.022, 6, 20), M.trim, 0, -0.075, 0, this.chest, false);
     hem.rotation.x = Math.PI / 2;
-    hem.scale.y = 0.86;
+    hem.scale.x = 0.86;
     for (const y of [0.16, 0.31]) blob(M.brass, 0.028, 0.2 - (y - 0.16) * 0.12, y, 0, this.chest);
-    const belt = mesh(new THREE.TorusGeometry(0.212, 0.024, 6, 20), M.leather, 0, 0.07, 0, this.chest, false);
+    const belt = mesh(new THREE.TorusGeometry(0.242, 0.022, 6, 20), M.leather, 0, 0.07, 0, this.chest, false);
     belt.rotation.x = Math.PI / 2;
-    belt.scale.y = 0.86;
+    belt.scale.x = 0.86;
+    mesh(new THREE.BoxGeometry(0.03, 0.075, 0.09), M.brass, 0.212, 0.07, 0, this.chest, false);
 
     const scarf = mesh(new THREE.TorusGeometry(0.125, 0.062, 8, 16), M.scarf, 0, 0.555, 0, this.chest);
     scarf.rotation.x = Math.PI / 2;
@@ -183,6 +237,15 @@ export class Figure {
       blob(M.blush, 0.045, 0.19, 0.155, z * 1.45, this.neck).scale.set(0.02, 0.035, 0.045);
     }
 
+    const smile = mesh(new THREE.TorusGeometry(0.042, 0.011, 4, 8, Math.PI), M.hair, 0.208, 0.125, 0, this.neck, false);
+    smile.rotation.y = -Math.PI / 2;
+    smile.scale.y = -1;
+    blob(M.hair, 0.1, 0.145, 0.35, 0, this.neck).scale.set(0.11, 0.06, 0.2);
+    this.tail = pivot(-0.27, 0.17, 0, this.neck);
+    blob(M.hair, 0.085, -0.01, -0.05, 0, this.tail, true);
+    blob(M.hair, 0.06, -0.03, -0.15, 0, this.tail, true);
+    blob(M.scarf, 0.04, 0.02, 0.02, 0, this.tail).scale.set(0.04, 0.03, 0.075);
+
     this.hat = pivot(0, 0.215, 0, this.neck);
     const hatTilt = pivot(0, 0.185, 0, this.hat);
     hatTilt.rotation.z = 0.14;
@@ -190,6 +253,9 @@ export class Figure {
     mesh(new THREE.CylinderGeometry(0.17, 0.215, 0.2, 18), M.hat, 0, 0.11, 0, hatTilt);
     blob(M.hat, 0.17, 0, 0.2, 0, hatTilt).scale.set(0.17, 0.07, 0.17);
     mesh(new THREE.CylinderGeometry(0.212, 0.222, 0.06, 18), M.trim, 0, 0.05, 0, hatTilt, false);
+    const feather = mesh(new THREE.ConeGeometry(0.035, 0.2, 5), M.scarf, -0.07, 0.115, 0.215, hatTilt, false);
+    feather.rotation.set(0.25, 0, 1.0);
+    feather.scale.z = 0.4;
 
     this.book = pivot(0.3, 0.27, 0, this.chest);
     this.book.rotation.z = -0.45;
@@ -212,8 +278,8 @@ export class Figure {
     rose.rotation.z = -0.95;
     this.stream = pivot(0.38, -0.06, 0, this.canTilt);
     this.stream.rotation.z = 0.62;
-    for (const [x, z] of [[0, 0], [0.03, 0.03], [0.03, -0.03]]) {
-      mesh(new THREE.CylinderGeometry(0.008, 0.014, 0.5, 5), M.water, x, -0.25, z, this.stream, false);
+    for (const [x, z] of [[0, 0], [0.04, 0.045], [0.04, -0.045], [-0.035, 0]]) {
+      mesh(new THREE.CylinderGeometry(0.009, 0.018, 0.4, 5), M.water, x, -0.2, z, this.stream, false);
     }
 
     this.tool = pivot(0, 0, 0, this.hands[1]);
@@ -233,68 +299,69 @@ export class Figure {
       this.lastFacing = facing;
     }
     this.mode = mode;
+    this.phase = phase / TWO_PI;
     tgt.set(POSES[mode]);
     tgt[I.turn] *= -facing;
-    let bob = 0;
     const live = time * motion;
 
     if (mode === 'walk') {
-      const s = Math.sin(phase);
-      const c = Math.cos(phase);
-      tgt[I.hipL] = s * 0.72;
-      tgt[I.hipR] = -s * 0.72;
-      tgt[I.kneeL] = -0.15 - Math.max(0, c) * 0.95;
-      tgt[I.kneeR] = -0.15 - Math.max(0, -c) * 0.95;
-      tgt[I.armL] = -s * 0.62;
-      tgt[I.armR] = s * 0.62;
-      tgt[I.elbowL] = 0.4 + Math.max(0, -s) * 0.4;
-      tgt[I.elbowR] = 0.4 + Math.max(0, s) * 0.4;
-      tgt[I.roll] = s * 0.035;
       tgt[I.scarf] += Math.sin(phase * 2 + 1) * 0.16;
-      bob = Math.abs(c) * (0.035 + 0.03 * motion);
     } else if (mode === 'climb') {
-      const s = Math.sin(phase);
-      tgt[I.armL] += s * 0.55;
-      tgt[I.armR] -= s * 0.55;
-      tgt[I.elbowL] += Math.max(0, -s) * 0.9;
-      tgt[I.elbowR] += Math.max(0, s) * 0.9;
-      tgt[I.hipL] = 0.7 - s * 0.55;
-      tgt[I.hipR] = 0.7 + s * 0.55;
-      tgt[I.kneeL] = -1.0 + s * 0.7;
-      tgt[I.kneeR] = -1.0 - s * 0.7;
+      const p = this.phase - Math.floor(this.phase);
+      const a = climbStroke(p);
+      const b = climbStroke(p + 0.5);
+      tgt[I.armL] += a * 0.5;
+      tgt[I.armR] += b * 0.5;
+      tgt[I.elbowL] += (1 - a) * 0.35;
+      tgt[I.elbowR] += (1 - b) * 0.35;
+      tgt[I.hipL] += b * 0.5;
+      tgt[I.hipR] += a * 0.5;
+      tgt[I.kneeL] -= b * 0.6;
+      tgt[I.kneeR] -= a * 0.6;
+      tgt[I.roll] = (a - b) * 0.04;
     } else if (mode === 'tend' || mode === 'tread') {
       this.work += dt * 8;
       const s = Math.sin(this.work);
-      tgt[I.armR] += s * 0.5;
-      tgt[I.elbowR] -= s * 0.45;
-      tgt[I.armL] -= s * 0.12;
-      tgt[I.lean] += s * 0.05;
+      tgt[I.armR] += s * 0.4;
+      tgt[I.elbowR] -= s * 0.4;
+      tgt[I.armL] -= s * 0.1;
+      tgt[I.chest] += s * 0.04;
       tgt[I.headPitch] += s * 0.05;
     } else if (mode === 'water') {
       this.work += dt * 2.4;
       const s = Math.sin(this.work);
       tgt[I.armR] += s * 0.07;
-      tgt[I.armRy] += Math.sin(this.work * 0.5) * 0.12;
+      tgt[I.armRy] += Math.sin(this.work * 0.5) * 0.14;
       tgt[I.lean] += s * 0.015;
+      tgt[I.headYaw] = Math.sin(this.work * 0.5) * 0.12;
     } else if (mode === 'sit') {
       const turnPage = Math.max(0, Math.sin(live * 0.9) - 0.94) * 16;
       tgt[I.armR] += turnPage * 0.25;
       tgt[I.elbowR] -= turnPage * 0.3;
       tgt[I.headPitch] += Math.sin(live * 0.45) * 0.05;
       tgt[I.headYaw] = Math.sin(live * 0.3) * 0.1;
-      tgt[I.kneeR] += Math.sin(live * 1.1) * 0.12;
+      tgt[I.kneeR] += Math.sin(live * 1.1) * 0.14;
+      tgt[I.kneeL] += Math.sin(live * 1.1 + 2.2) * 0.08;
     } else if (mode === 'wheel') {
       const steer = Math.sin(live * 0.6) * 0.22;
       tgt[I.armL] += steer;
       tgt[I.armR] -= steer;
+      tgt[I.elbowL] -= steer * 0.6;
+      tgt[I.elbowR] += steer * 0.6;
       tgt[I.roll] = steer * 0.12;
       tgt[I.headYaw] = Math.sin(live * 0.23) * 0.3;
     } else if (mode === 'idle') {
       const shift = Math.sin(live * 0.55);
       tgt[I.roll] = shift * 0.035;
-      tgt[I.hipL] += shift * 0.04;
-      tgt[I.hipR] += shift * 0.04;
+      tgt[I.bodyY] -= 0.012 + shift * shift * 0.012;
+      tgt[I.footL] += shift * 0.012;
+      tgt[I.footR] += shift * 0.012;
       tgt[I.headYaw] = (0.15 + Math.sin(live * 0.37) * 0.2 + Math.sin(live * 0.83) * 0.08) * -facing;
+      const rock = Math.max(0, Math.sin(live * 0.57 + 2) - 0.9) * 10;
+      tgt[I.bodyY] += rock * 0.035;
+      tgt[I.armLx] -= rock * 0.3;
+      tgt[I.armRx] += rock * 0.3;
+      tgt[I.headPitch] = Math.sin(live * 0.29 + 1) * 0.05 + rock * 0.14;
       tgt[I.armL] += Math.sin(live * 1.7) * 0.03;
       tgt[I.armR] -= Math.sin(live * 1.7) * 0.03;
       tgt[I.scarf] = Math.sin(live * 1.3) * 0.05;
@@ -305,17 +372,16 @@ export class Figure {
     this.duck = damp(this.duck, low && (mode === 'idle' || mode === 'walk') ? 1 : 0, 9, dt);
     const duck = this.duck;
     if (duck > 0.001) {
-      tgt[I.chest] -= 1.1 * duck;
-      tgt[I.headPitch] += 0.85 * duck;
-      tgt[I.bodyY] -= 0.24 * duck;
-      tgt[I.hipL] += 0.95 * duck;
-      tgt[I.hipR] += 0.95 * duck;
-      tgt[I.kneeL] -= 1.8 * duck;
-      tgt[I.kneeR] -= 1.8 * duck;
+      tgt[I.chest] -= 1.2 * duck;
+      tgt[I.headPitch] += 0.8 * duck;
+      tgt[I.bodyY] -= 0.33 * duck;
+      tgt[I.squash] = duck;
+      tgt[I.lean] *= 1 - duck;
     }
 
     for (let i = 0; i < N; i++) cur[i] = damp(cur[i], tgt[i], RATE[i], dt);
-    this.bob = damp(this.bob, bob, 22, dt);
+    this.gait = damp(this.gait, mode === 'walk' ? 1 : 0, 18, dt);
+    this.pour = damp(this.pour, mode === 'water' ? 1 : 0, 8, dt);
 
     const breath = Math.sin(live * (mode === 'lie' ? 1.2 : 1.8)) * motion;
     this.coat.scale.set(0.86 + breath * 0.012, 1 + breath * 0.012, 1 + breath * 0.008);
@@ -323,36 +389,62 @@ export class Figure {
     const shut = mode === 'lie' || (motion > 0 && live % 4.3 < 0.13);
     const blink = shut ? 0.12 : 1;
     this.eyes[0].scale.y = this.eyes[1].scale.y = 0.036 * blink;
-    this.canTilt.rotation.z = -Math.PI / 2 - 0.55 - Math.sin(this.work) * 0.08;
-    this.#apply(mode === 'water' ? 1 : 0);
+    this.tail.rotation.z = -0.1 - this.gait * 0.5 + Math.sin(live * 1.1) * 0.04 + Math.sin(phase * 2 + 2.4) * 0.14 * this.gait;
+    this.#apply(mode === 'water' ? 1 : 0, facing);
   }
 
-  #apply(pouring) {
+  #apply(pouring, facing = 1) {
     const c = this.cur;
-    this.root.position.set(c[I.bodyX], c[I.bodyY] + this.bob, c[I.bodyZ]);
+    const g = this.gait;
+    const p = this.phase;
+    const swing = Math.cos(TWO_PI * (p - 0.03));
+    const bounce = -Math.cos(2 * TWO_PI * (p - STANCE / 2));
+    const rise = g * (bounce * 0.03 - 0.08 * (1 - this.duck));
+    const late = -Math.cos(2 * TWO_PI * (p - STANCE / 2 - 0.07)) * g;
+
+    this.root.position.set(c[I.bodyX], c[I.bodyY] + rise, c[I.bodyZ]);
     let turn = c[I.turn] % TWO_PI;
     if (turn > Math.PI) turn -= TWO_PI;
     else if (turn < -Math.PI) turn += TWO_PI;
     c[I.turn] = turn;
-    this.root.rotation.set(c[I.roll], turn, c[I.lean]);
+    this.root.rotation.set(c[I.roll] + g * swing * 0.03, turn - g * swing * 0.07, c[I.lean]);
     this.chest.rotation.z = c[I.chest];
-    this.neck.rotation.set(0, c[I.headYaw], c[I.headPitch]);
-    this.hips[0].rotation.z = c[I.hipL];
-    this.knees[0].rotation.z = c[I.kneeL];
-    this.hips[1].rotation.z = c[I.hipR];
-    this.knees[1].rotation.z = c[I.kneeR];
-    this.shoulders[0].rotation.set(c[I.armLx], c[I.armLy], c[I.armL]);
-    this.elbows[0].rotation.z = c[I.elbowL];
-    this.shoulders[1].rotation.set(c[I.armRx], c[I.armRy], c[I.armR]);
-    this.elbows[1].rotation.z = c[I.elbowR];
+    this.neck.rotation.set(0, c[I.headYaw] + g * swing * 0.05, c[I.headPitch] - late * 0.03);
+
+    const ground = -(HIP_Y + c[I.bodyY] + rise);
+    const ik = c[I.ik];
+    for (let i = 0; i < 2; i++) {
+      gaitFoot(p + i * 0.5);
+      const slide = (foot.x / REACH) * HIP_SLIDE * g;
+      const x = mix(c[I.footL + i], foot.x, g) - slide;
+      const y = ground + mix(c[I.liftL + i], foot.lift, g) - (x + slide) * c[I.lean];
+      solveLeg(x, Math.min(y, -0.1));
+      this.hips[i].position.x = slide * ik;
+      this.hips[i].rotation.z = mix(c[I.hipL + i * 2], leg.hip, ik);
+      this.knees[i].rotation.z = mix(c[I.kneeL + i * 2], leg.knee, ik);
+    }
+
+    this.shoulders[0].rotation.set(c[I.armLx], c[I.armLy], mix(c[I.armL], 0.1 - swing * 0.75, g));
+    this.elbows[0].rotation.z = mix(c[I.elbowL], 0.95 - swing * 0.3, g);
+    this.shoulders[1].rotation.set(c[I.armRx], c[I.armRy], mix(c[I.armR], 0.1 + swing * 0.75, g));
+    this.elbows[1].rotation.z = mix(c[I.elbowR], 0.95 + swing * 0.3, g);
+
     this.hat.rotation.z = c[I.hat];
+    this.hat.position.y = 0.215 + late * 0.012;
+    this.hat.scale.y = 1 - c[I.squash] * 0.5;
+    this.pack.position.y = 0.3 - late * 0.018;
     this.scarfTail.rotation.z = c[I.scarf];
     this.#prop(this.pack, c[I.pack]);
     this.#prop(this.book, c[I.book]);
     this.#prop(this.can, c[I.can]);
     this.#prop(this.tool, c[I.tool]);
     this.holdingCan = c[I.can] > 0.5;
-    this.stream.visible = pouring === 1 && c[I.can] > 0.9;
+    const near = facing > 0 ? 0 : 1;
+    const reach = this.shoulders[near].rotation.z + this.elbows[near].rotation.z + c[I.lean] + c[I.chest];
+    const tip = this.pour * (0.5 + Math.sin(this.work) * 0.08);
+    this.canTilt.rotation.z = -reach - tip;
+    this.stream.rotation.z = tip;
+    this.stream.visible = pouring === 1 && this.pour > 0.8 && c[I.can] > 0.9;
   }
 
   #useNearHand(facing) {

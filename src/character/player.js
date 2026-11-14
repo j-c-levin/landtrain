@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { LEVELS, LADDERS, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from '../constants.js';
 import { figureShadow } from '../look.js';
-import { Figure } from './figure.js';
+import { Figure, STRIDE_TIME } from './figure.js';
 
 const LEVEL_ORDER = ['under', 'deck', 'roof'];
 const WHEEL_X = CAR_CENTERS[0] + 2.5;
 const WHEEL_Z = -1.02;
 const WALK_Z = 0.35;
 const CLIMB_Z = 1.85;
-const REACH_Z = { plants: -0.3, engine: 0.15 };
+const REACH_Z = { plants: -0.5, engine: 0.15, tread: 1.0, tread2: 1.0 };
+const STRIDE_RATE = (Math.PI * 2) / STRIDE_TIME;
 const ACTION_POSE = { engine: 'tend', plants: 'water', tread: 'tread', tread2: 'tread' };
 
 // The character lives in TRAIN-ARC space: `x` is a position along the
@@ -32,6 +33,7 @@ export class Player {
     this.action = null;
     this.walkPhase = 0;
     this.moving = false;
+    this.settle = 0;
     this.motionQuery = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
 
     this.group = new THREE.Group();
@@ -64,6 +66,7 @@ export class Player {
   }
 
   update(dt, input, time = 0) {
+    this.settle = damp(this.settle, 0, 9, dt);
     this.#move(dt, input);
     this.#sync();
     const f = this.figure;
@@ -117,7 +120,7 @@ export class Player {
         this.climbing = false;
       }
       this.moving = true;
-      this.walkPhase += dt * 7;
+      this.walkPhase += dt * 11;
       return;
     }
 
@@ -143,7 +146,7 @@ export class Player {
     if (move !== 0) {
       this.facing = move;
       this.x = clamp(this.x + move * TUNING.walkSpeed * dt, -TRAIN_HALF + 0.4, this.#maxX());
-      this.walkPhase += dt * 11;
+      this.walkPhase += dt * STRIDE_RATE;
     }
     this.z = damp(this.z, (move === 0 && REACH_Z[this.action]) || WALK_Z, 6, dt);
   }
@@ -157,7 +160,7 @@ export class Player {
       // the per-frame judder is gone. Train-arc X maps to car-local X by simply
       // subtracting the car centre; Y (height) and Z (depth) are already the
       // car's local axes; the parent group supplies the heading.
-      this.group.position.set(this.x - CAR_CENTERS[this.docked], this.y, this.z);
+      this.group.position.set(this.x - CAR_CENTERS[this.docked], this.y + this.settle, this.z);
       this.group.rotation.set(0, this.facing > 0 ? 0 : Math.PI, 0);
     } else {
       // Free on the train: map train-arc coordinates onto the world through the
@@ -165,7 +168,7 @@ export class Player {
       const f = this.train.frameAt(this.x);
       const sin = Math.sin(f.theta);
       const cos = Math.cos(f.theta);
-      this.group.position.set(f.x + this.z * sin, this.y, f.z + this.z * cos);
+      this.group.position.set(f.x + this.z * sin, this.y + this.settle, f.z + this.z * cos);
       this.group.rotation.y = f.theta + (this.facing > 0 ? 0 : Math.PI);
     }
   }
@@ -210,6 +213,7 @@ export class Player {
   }
 
   stand() {
+    if (this.sitting) this.settle += this.y - LEVELS.deck;
     this.sitting = false;
     this.atWheel = false;
     this.y = LEVELS.deck;
