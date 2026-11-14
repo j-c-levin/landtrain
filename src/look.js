@@ -104,8 +104,9 @@ const FLOCK_FRAG = /* glsl */ `
       fc = mix(fc, uFlockParched * fTone, fParched * 0.6);
       fc = mix(fc, uFlockLush * fTone, fLush * 0.78);
       // a scald on the plain is pale ochre; only the pans run to red earth
-      vec3 fEarth = mix(uFlockD * 1.06, uFlockBare, smoothstep(0.4, 0.85, fRegion.b)) * mix(1.0, fTone, 0.7);
-      fEarth *= mix(vec3(1.0), vec3(0.9, 0.84, 0.8), smoothstep(0.44, 0.62, fBig * 0.5 + fBare * 0.5));
+      float fRed = smoothstep(0.4, 0.85, fRegion.b);
+      vec3 fEarth = mix(uFlockD * 1.12, uFlockBare, fRed) * mix(1.0, fTone, 0.7);
+      fEarth *= mix(vec3(1.0), vec3(0.9, 0.84, 0.8), smoothstep(0.44, 0.62, fBig * 0.5 + fBare * 0.5) * fRed);
       fc = mix(fc, fEarth, fBareness * 0.86);
       // cracked pan floor: darker rim where the sand meets the earth
       float fRim = fPaleness * (1.0 - smoothstep(0.5, 0.74, fRegion.a + fTorn * 0.5));
@@ -113,7 +114,7 @@ const FLOCK_FRAG = /* glsl */ `
       fc *= 1.0 - fRim * 0.2;
       // dried mud: a net of fine cracks across pans and scalds, close to the lens
       float fClose = 1.0 - smoothstep(50.0, 240.0, length(vViewPosition));
-      float fDry = fClose * (0.34 * fPaleness + 0.2 * smoothstep(0.5, 0.9, fRegion.b) * (1.0 - fPaleness));
+      float fDry = fClose * (0.34 * fPaleness + 0.2 * fRed * (1.0 - fPaleness));
       #if FLOCK_OCTAVES > 2
       if (fDry > 0.004) {
         vec2 fCell = fp * 0.27 + (fNoise(fp * 0.09) - 0.5) * 1.6;

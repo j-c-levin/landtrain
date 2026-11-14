@@ -221,7 +221,7 @@ const WRAP_PROJECT = /* glsl */ `
         + sin(dot(world, vec2(-uCoverGust.y, uCoverGust.x)) * 0.019 + uCoverTime * 0.2) * 1.8;
       gust = 0.5 + 0.5 * sin(front);
       gust *= gust * (0.6 + 0.4 * sin(front * 0.37 + 1.7));
-      shape.xz += uCoverGust.xy * min(bend, shape.y * 0.6) * uCoverGust.z * (0.3 + gust);
+      shape.xz += uCoverGust.xy * min(bend * uCoverGust.z * (0.3 + gust), shape.y * 0.5);
       gust *= step(1e-4, uCoverSway) * smoothstep(0.05, 0.5, shape.y);
     }
     #ifdef COVER_TINT

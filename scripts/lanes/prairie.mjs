@@ -22,7 +22,7 @@ const HIGH = { id: 'high', width: 1440, height: 900, quality: 'high', touch: fal
 const LOW = { id: 'low', width: 844, height: 390, quality: 'low', touch: true };
 
 // eye/look are world coordinates; a free lens replaces the rig for that shot
-const free = (name, time, train, eye, look, extra = {}) => ({ name, time, train, eye, look, ...extra });
+const free = (name, time, train, eye, look) => ({ name, time, train, eye, look });
 const cab = (name, time, x, z = 0) => ({ name, time, train: { x, z, heading: 0 }, cab: true });
 const TREE = [2450, 60, 0];
 const SHOTS = [
@@ -42,7 +42,7 @@ const SHOTS = [
   free('rocks-near', 'day', { x: 300, z: 0, heading: 0 }, [262, 9, 22], [350, 6, 70]),
   free('ground-near', 'day', { x: 800, z: 20, heading: 0 }, [828, 2.6, 46], [850, 0.6, 22]),
   free('tree-far', 'day', { x: 1500, z: 0, heading: 0 }, [1480, 14, 30], TREE),
-  free('tree-mid', 'day', { x: 2060, z: 250, heading: 0 }, [2080, 12, 268], [2450, 52, 0]),
+  free('tree-mid', 'day', { x: 2060, z: 250, heading: 0 }, [2185, 12, 150], [2450, 52, 0]),
   free('tree-near', 'day', { x: 2262, z: 0, heading: 0 }, [2225, 9, 46], [2450, 54, 0]),
   free('tree-near', 'dusk', { x: 2262, z: 0, heading: 0 }, [2225, 9, 46], [2450, 54, 0]),
   free('tree-near', 'night', { x: 2262, z: 0, heading: 0 }, [2225, 9, 46], [2450, 54, 0]),
@@ -52,8 +52,8 @@ const SHOTS = [
   free('horizon-north', 'day', { x: 900, z: 0, heading: 0 }, [900, 9, 40], [900, 12, -600]),
   free('horizon-west', 'dusk', { x: 300, z: 0, heading: 0 }, [330, 8, 30], [-600, 30, -200]),
   free('edge-south', 'day', { x: 1000, z: 700, heading: 0 }, [990, 12, 660], [1040, 14, 1000]),
-  free('wind-a', 'day', { x: 800, z: 20, heading: 0 }, [800, 7, 62], [870, 1, -10], { clock: 10 }),
-  free('wind-b', 'day', { x: 800, z: 20, heading: 0 }, [800, 7, 62], [870, 1, -10], { clock: 11.2 }),
+  free('wind-a', 'day', { x: 800, z: 20, heading: 0 }, [800, 7, 62], [870, 1, -10]),
+  free('wind-b', 'day', { x: 800, z: 20, heading: 0 }, [800, 7, 62], [870, 1, -10]),
 ];
 
 async function freePort() {
@@ -110,9 +110,6 @@ function installPins({ skyTimes }) {
       Object.defineProperty(rig, 'autoOrbit', { configurable: true, get: () => false, set() {} });
     },
   });
-  // the prairie's own clock (cover wind, birds) is pinned through performance-independent time
-  const raf = window.requestAnimationFrame.bind(window);
-  window.__raf = raf;
 }
 
 const liveFor = (page, ms) => page.evaluate((ms) => new Promise((done) => {

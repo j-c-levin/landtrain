@@ -4,7 +4,7 @@ import { PRAIRIE_LOOK, jitterHSL } from '../look.js';
 const COUNTS = {
   high: { tile: 380, cells: 4, seedGrass: 1500, scrub: 340, aloe: 260 },
   medium: { tile: 300, cells: 3, seedGrass: 800, scrub: 200, aloe: 150 },
-  low: { tile: 230, cells: 2, seedGrass: 240, scrub: 70, aloe: 60 },
+  low: { tile: 230, cells: 2, seedGrass: 200, scrub: 56, aloe: 48 },
 };
 
 // How each standard cover type answers the region map.

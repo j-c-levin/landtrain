@@ -190,7 +190,7 @@ export function ridge(rand, x1, z1, x2, z2, root, obstacles) {
   const sun = new THREE.Color(PRAIRIE_LOOK.rockSun);
   const tones = PRAIRIE_LOOK.ridgeBands.map((c) => new THREE.Color(c));
   const talus = [];
-  const count = Math.round(steps * (getLookTier() === 'low' ? 0.6 : 1.1));
+  const count = Math.round(steps * (getLookTier() === 'low' ? 0.6 : 1.5));
   for (let i = 0; i < count; i++) {
     const t = local();
     const side = local() > 0.5 ? 1 : -1;
