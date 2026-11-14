@@ -2,7 +2,7 @@
 // node scripts/lanes/train.mjs --out captures/<name> [--only a,b]
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdir, writeFile, rmdir } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, rmdir } from 'node:fs/promises';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,7 @@ const argv = process.argv.slice(2);
 const arg = (name) => (argv.includes(`--${name}`) ? argv[argv.indexOf(`--${name}`) + 1] : null);
 const outDir = resolve(arg('out') ?? 'captures/lane-train-extra');
 const only = arg('only')?.split(',');
+const evalFile = arg('eval');
 
 const SKY = { day: 14.4, dusk: 52.8, night: 79.2 };
 const LEVEL = { under: 0.06, deck: 1.78, roof: 5.05 };
@@ -131,6 +132,11 @@ async function main() {
         if (turn) train.addWaypoint(train.headPos.x + 150, 60);
       }, !!shot.turn);
       await wait(shot.drive * 1000);
+    }
+    for (const [i, file] of (evalFile?.split(',') ?? []).entries()) {
+      console.log('eval', JSON.stringify(await page.evaluate(await readFile(file, 'utf8'))));
+      await wait(400);
+      await writeFile(join(outDir, `${shot.name}--eval${i}.png`), await page.screenshot({ animations: 'disabled' }));
     }
     await writeFile(join(outDir, `${shot.name}.png`), await page.screenshot({ animations: 'disabled' }));
     const speed = await page.evaluate(() => __game.train.speed);

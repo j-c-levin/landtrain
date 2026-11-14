@@ -96,10 +96,11 @@ function buildHouse(train, g) {
   arm.scale.set(0.42, 0.04, 0.06);
   arm.position.x = 0.2;
   const bob = new THREE.Mesh(train.geometry.drum, M.brass);
-  bob.scale.set(0.09, 0.14, 0.09);
-  bob.position.x = 0.42;
+  bob.scale.set(0.13, 0.2, 0.13);
+  bob.position.set(0.42, -0.08, 0);
   train.stackFlap.add(flap, arm, bob);
   g.add(train.stackFlap);
+  instancedDetails([[STACK.x + 0.62, 7.42, STACK.z, 0.12, 0.2, 0.3], [STACK.x + 0.56, 7.3, STACK.z, 0.1, 0.1, 0.22]], train.geometry.detail, M.brass, g);
 }
 
 function buildLining(k, M) {
@@ -347,7 +348,7 @@ export function animateEngine(train, dt, speed01) {
   train.pistonRod.position.x = (head + gland) / 2;
   train.pistonRod.scale.x = gland - head;
 
-  const lift = 0.1 + speed01 * 0.95 + Math.sin(wheel.rotation.z * 2) * 0.12 * speed01;
+  const lift = 0.06 + speed01 * 0.22 + Math.sin(wheel.rotation.z * 2) * 0.08 * speed01;
   train.stackFlap.rotation.z = damp(train.stackFlap.rotation.z, -lift, 9, dt);
 
   train.governor.rotation.y += train.speed * dt * 2.4;

@@ -603,6 +603,8 @@ export function createTrainMaterials() {
     book: std({ color: 0x4f74aa, roughness: 0.8 }),
     sootGrime: std({ color: 0x5a4035, roughness: 0.98 }),
     paintBase: std({ color: 0xffffff, roughness: 1, vertexColors: true }),
+    pane: new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+    paneGlint: new THREE.MeshBasicMaterial({ color: 0xf2fbff, transparent: true, opacity: 0.2, depthWrite: false }),
   };
 }
 

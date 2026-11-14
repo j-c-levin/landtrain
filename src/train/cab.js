@@ -131,8 +131,8 @@ export function buildFrontCar(train, g) {
   k.mesh(new THREE.CylinderGeometry(0.1, 0.3, 0.22, 24, 1, true), M.teal, 6.24, 7.07, -1.24);
   round(0.14, 0.025, 0.14, M.glow, 6.24, 6.97, -1.24);
   k.finish(M.paintBase);
-  const light = new THREE.PointLight(TRAIN_LOOK.cabLight, 9, 6.5, 2);
-  light.position.set(5.4, 7.0, -0.2);
+  const light = new THREE.PointLight(TRAIN_LOOK.cabLight, 12, 8, 2);
+  light.position.set(3.8, 7.3, -0.6);
   g.add(light);
   train.cabLight = light;
 }

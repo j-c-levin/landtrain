@@ -11,7 +11,7 @@ export const CAR_WINDOWS = [
 ];
 
 // trim: { stripe, studs } materials for a coach line under the windows and pins along the rails.
-export function cabinSides(train, g, zone, center, length, base, eave, wall, windows, z = 2.36, trim = null) {
+export function cabinSides(train, g, zone, center, length, base, eave, wall, windows, z = 2.36, trim = null, tone = [0.93, 1, 0.95, 0.07]) {
   const M = train.materials;
   const sheet = train.weathered(wall);
   const sill = base + 0.85;
@@ -40,8 +40,17 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
     const end = center + length / 2;
     panels.push([(edge + end) / 2, (sill + lintel) / 2, sz, end - edge, lintel - sill, 0.2]);
     shadeInstances(instancedDetails(panels, train.geometry.panel, side > 0 ? train.nearWallMat(zone, sheet) : sheet, g, true),
-      (i) => (i === 0 ? 0.93 : i === 1 ? 1 : 0.95 + hash(i + center) * 0.07));
+      (i) => (i === 0 ? tone[0] : i === 1 ? tone[1] : tone[2] + hash(i + center) * tone[3]));
     instancedDetails(panes, train.geometry.detail, train.zoneGlass(zone, side < 0), g).renderOrder = 3;
+    if (side > 0 && getLookTier() !== 'low') {
+      const glints = [];
+      for (const [wx, width] of windows) {
+        const left = wx - width / 2;
+        glints.push([left + 0.42, lintel - 0.4, sz + 0.02, 0.56, 0.05, 0.004, 0, 0, 0.95]);
+        glints.push([left + 0.66, lintel - 0.5, sz + 0.02, 0.3, 0.035, 0.004, 0, 0, 0.95]);
+      }
+      instancedDetails(glints, train.geometry.detail, train.zoneGlass(zone, false, true), g).renderOrder = 4;
+    }
     if (side < 0) {
       const lining = panels.map(([x, y, , w, h]) => [x, y, sz + 0.108, w, h, 0.02]);
       lining.push([center, eave - 0.2, sz + 0.14, length, 0.1, 0.06]);
@@ -90,8 +99,9 @@ export function buildCarShell(train, g, ci) {
 
   const eave = ci === 2 ? 4.75 : 4.67;
   const wall = [M.cream, M.engineHull, M.sage][ci];
-  const trim = [{ stripe: M.hull, studs: M.brass }, null, { stripe: M.cream, studs: M.brass }][ci];
-  cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, wall, CAR_WINDOWS[ci], 2.36, trim);
+  const trim = [{ stripe: M.hull, studs: M.brass }, { stripe: M.brass, studs: M.brass }, { stripe: M.cream, studs: M.brass }][ci];
+  cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, wall, CAR_WINDOWS[ci], 2.36, trim,
+    ci === 1 ? [0.8, 0.9, 1.08, 0.14] : undefined);
   const front = isCab ? 8.15 : 6.9;
   for (const x of [-6.9, front]) {
     box(0.22, eave - 1.78, 1.65, shaded(M.endWall), x, (eave + 1.78) / 2, -1.5, g);

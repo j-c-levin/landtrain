@@ -73,8 +73,8 @@ export function buildLivingInterior(g, M, { createPlant }) {
   for (const [r, y] of [[0.49, 3.6], [0.23, 4.04]]) ring(r, 0.022, M.brass, -1.65, y, -1.4).rotation.x = Math.PI / 2;
   round(0.23, 0.015, 0.23, M.glow, -1.65, 3.61, -1.4);
   round(0.56, 0.004, 0.47, M.lightPool, -1.7, 2.731, -1.03);
-  const readingLight = new THREE.PointLight(TRAIN_LOOK.readingLight, 15, 9, 2);
-  readingLight.position.set(-0.6, 3.8, 0.3);
+  const readingLight = new THREE.PointLight(TRAIN_LOOK.readingLight, 11, 7.5, 2);
+  readingLight.position.set(-1.7, 3.4, -0.9);
   k.root.add(readingLight);
 
   block(2.6, 0.67, 0.61, M.woodDark, 0.58, 2.135, -1.88);
@@ -151,8 +151,8 @@ export function buildBunkInterior(g, M) {
   k.pipe([[5.62, 3.98, -1.75], [5.62, 3.65, -1.75], [5.9, 3.65, -1.66]], 0.025, M.brass);
   k.mesh(new THREE.CylinderGeometry(0.12, 0.27, 0.2, 24, 1, true), M.teal, 5.9, 3.6, -1.65);
   round(0.13, 0.03, 0.13, M.glow, 5.9, 3.5, -1.65);
-  const light = new THREE.PointLight(TRAIN_LOOK.bunkLight, 8, 8.5, 2);
-  light.position.set(1.7, 3.9, -0.3);
+  const light = new THREE.PointLight(TRAIN_LOOK.bunkLight, 9, 8.5, 2);
+  light.position.set(2.9, 4.35, 0.9);
   k.root.add(light);
   k.finish(M.paintBase);
   buildVestibule(g, M);

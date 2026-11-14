@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CAR_LEN } from '../constants.js';
-import { CHART, TRAIN_LOOK, trainFx, getLookTier } from '../look.js';
+import { CHART, TRAIN_LOOK, trainFx, getLookTier, painted } from '../look.js';
 import { CAR_WINDOWS } from './shell.js';
 
 // Night practicals and grounding: a soft contact shadow under every car, warm
@@ -53,7 +53,7 @@ export function buildPracticals(train, g, ci) {
   };
   flat(P.contactMat, 0, 0.05, 0, 9.4, 3.9, 1);
   // By night the lamps reach the ground through the floor; a second shadow keeps the underside dark.
-  flat(P.nightContactMat, 0, 0.055, 0, 9.8, 5.2, 1);
+  flat(P.nightContactMat, 0, 0.055, 0, 10, 6.4, 1);
   P.planMat.uniforms.uSize.value.set(CAR_LEN + 1.4, 5.6);
   const plan = new THREE.Mesh(P.plan, P.planMat);
   plan.rotation.x = -Math.PI / 2;
@@ -64,8 +64,8 @@ export function buildPracticals(train, g, ci) {
   // Each window throws its own pool, starting at the car's side so nothing glows beneath the floor.
   const pools = POOLS[ci].slice();
   for (const [wx, width] of CAR_WINDOWS[ci]) {
-    pools.push([wx, CAR_HALF_WIDTH + 2.6, width / 2 + 2.3, 2.6, 0.8]);
-    pools.push([wx, -CAR_HALF_WIDTH - 2.0, width / 2 + 1.9, 2.0, 0.45]);
+    pools.push([wx, CAR_HALF_WIDTH + 2.0, width / 2 + 0.6, 2.0, 0.7]);
+    pools.push([wx, -CAR_HALF_WIDTH - 1.7, width / 2 + 0.5, 1.7, 0.4]);
   }
   const spill = new THREE.InstancedMesh(P.disc, P.spillMat, pools.length);
   const matrix = new THREE.Matrix4();
@@ -99,7 +99,7 @@ export function buildPracticals(train, g, ci) {
   // The four interior lamps are the whole point-light budget. Their reach stays
   // tight so each one pools; the spill discs carry the light out of the windows.
   g.traverse((object) => {
-    if (object.isPointLight) P.lights.push({ light: object, distance: object.distance, intensity: object.intensity });
+    if (object.isPointLight) P.lights.push({ light: object, intensity: object.intensity });
   });
   if (ci === 0 && getLookTier() === 'high') {
     const beam = new THREE.SpotLight(TRAIN_LOOK.spillLight, 0, 70, 0.5, 0.85, 1.3);
@@ -118,13 +118,13 @@ export function setPracticalsNight(train, night, dusk = 0) {
   P.dusk = dusk;
   P.night = night;
   P.lamp = lamp;
-  P.spillMat.opacity = 0.3 * night;
+  P.spillMat.opacity = 0.26 * night;
   P.haloMat.opacity = 0.05 + 0.24 * lamp;
-  for (const { light, distance, intensity } of P.lights) {
-    if (light === train.fireLight) continue;
-    light.distance = distance * (1 + 0.3 * lamp);
-    light.intensity = intensity * (1.2 + 0.8 * lamp);
+  for (const { light, intensity } of P.lights) {
+    if (light !== train.fireLight) light.intensity = intensity * (1.2 + 0.8 * lamp);
   }
+  painted(train.materials.lampshade).emissiveIntensity = 0.32 + 0.3 * lamp;
+  for (const puff of train.smoke) puff.sprite.material.color.setRGB(1 - 0.66 * night, 1 - 0.62 * night, 1 - 0.52 * night);
   if (P.beam) P.beam.intensity = 260 * night;
   train.materials.glow.emissiveIntensity = 1.5 + 0.7 * lamp;
   const sage = train.materials.sage;
@@ -134,7 +134,7 @@ export function setPracticalsNight(train, night, dusk = 0) {
   train.zoneMats.car2.emissiveIntensity = sage.emissiveIntensity;
   for (const { source, mat } of train.fadeMats) if (source === sage || source === sageSheet) mat.emissiveIntensity = sage.emissiveIntensity;
   train.materials.headlamp.emissiveIntensity = 2.2 + 1.6 * night;
-  train.glassGlow = 0.75 * night + 0.12 * dusk;
+  train.glassGlow = Math.max(night * 0.42, dusk * 0.75);
 }
 
 // A window's bloom belongs to the outside of a lit car; it clears off the one being looked into.

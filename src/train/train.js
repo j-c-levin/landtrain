@@ -60,6 +60,7 @@ export class Train {
     this.tuckedAway = false;
     this.glassMats = [];
     this.glassGlow = 0;
+    this._paneGlow = new THREE.Color(TRAIN_LOOK.spillLight);
     this.weatheredMats = new Map();
     this.rods = [];
     this.spinners = [];
@@ -130,12 +131,10 @@ export class Train {
   }
 
   // Glazing per zone: lit panes glow from outside, and clear for whoever is looking out through them.
-  zoneGlass(zone, far) {
-    let entry = this.glassMats.find((e) => e.zone === zone && e.far === far);
+  zoneGlass(zone, far, glint = false) {
+    let entry = this.glassMats.find((e) => e.zone === zone && e.far === far && e.glint === glint);
     if (!entry) {
-      entry = { zone, far, mat: this.materials.glass.clone(), fade: 1 };
-      entry.mat.emissive.setHex(TRAIN_LOOK.spillLight);
-      entry.mat.emissiveIntensity = 0;
+      entry = { zone, far, glint, mat: (glint ? this.materials.paneGlint : this.materials.pane).clone(), fade: 1 };
       this.glassMats.push(entry);
     }
     return entry.mat;
@@ -349,8 +348,8 @@ export class Train {
     for (let i = 0; i < this.glassMats.length; i++) {
       const entry = this.glassMats[i];
       entry.fade = damp(entry.fade, allOpaque || entry.zone !== zone ? 1 : 0, 7, dt);
-      entry.mat.opacity = this.materials.glass.opacity * (entry.far ? 1 : entry.fade * 0.75);
-      entry.mat.emissiveIntensity = this.glassGlow * entry.fade;
+      if (entry.glint) entry.mat.opacity = this.materials.paneGlint.opacity * entry.fade * (1 - 0.6 * this.glassGlow);
+      else entry.mat.color.copy(this._paneGlow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.12 : 0.34));
     }
     setPracticalsFocus(this);
   }
