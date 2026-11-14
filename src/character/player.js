@@ -1,8 +1,14 @@
 import * as THREE from 'three';
 import { LEVELS, LADDERS, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from '../constants.js';
-import { createCharacterMaterials } from '../look.js';
+import { Figure } from './figure.js';
 
 const LEVEL_ORDER = ['under', 'deck', 'roof'];
+const WHEEL_X = CAR_CENTERS[0] + 2.5;
+const WHEEL_Z = -1.02;
+const WALK_Z = 0.35;
+const CLIMB_Z = 1.85;
+const REACH_Z = { plants: -0.3, engine: 0.15 };
+const ACTION_POSE = { engine: 'tend', plants: 'water', tread: 'tread', tread2: 'tread' };
 
 // The character lives in TRAIN-ARC space: `x` is a position along the
 // train's length, mapped onto the world through the same trail the cars
@@ -20,8 +26,12 @@ export class Player {
     this.climbing = false;
     this.climbTarget = null;
     this.sitting = false;
+    this.sitKind = null;
+    this.atWheel = false;
+    this.action = null;
     this.walkPhase = 0;
     this.moving = false;
+    this.motionQuery = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
 
     this.group = new THREE.Group();
     this.#buildMesh();
@@ -30,52 +40,8 @@ export class Player {
   }
 
   #buildMesh() {
-    const { body: bodyMat, skin: skinMat, scarf: scarfMat, boot: bootMat, hat: hatMat, eye: eyeMat } = createCharacterMaterials();
-
-    this.body = new THREE.Group();
-
-    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.46, 6, 12), bodyMat);
-    torso.position.y = 0.66;
-    torso.castShadow = true;
-
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), skinMat);
-    head.position.y = 1.42;
-    head.castShadow = true;
-
-    const hood = new THREE.Mesh(
-      new THREE.SphereGeometry(0.26, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
-      bodyMat
-    );
-    hood.position.y = 1.46;
-
-    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.08, 8, 14), scarfMat);
-    scarf.rotation.x = Math.PI / 2;
-    scarf.position.y = 1.18;
-
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), skinMat);
-    nose.position.set(0.23, 1.4, 0);
-
-    for (const lz of [-0.12, 0.12]) {
-      const boot = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.12, 4, 8), bootMat);
-      boot.position.set(0, 0.16, lz);
-      this.body.add(boot);
-    }
-
-    // a painted figurine: conductor's cap and two dots of gloss black for eyes
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.16, 14), hatMat);
-    cap.position.y = 1.7;
-    cap.castShadow = true;
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 14), hatMat);
-    brim.scale.set(1.3, 1, 1);
-    brim.position.set(0.14, 1.63, 0);
-    this.body.add(cap, brim);
-    for (const ez of [-0.09, 0.09]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), eyeMat);
-      eye.position.set(0.215, 1.47, ez);
-      this.body.add(eye);
-    }
-
-    this.body.add(torso, head, hood, scarf, nose);
+    this.figure = new Figure();
+    this.body = this.figure.root;
     this.group.add(this.body);
   }
 
@@ -91,15 +57,29 @@ export class Player {
     return this.level === 'roof' ? 22.6 : TRAIN_HALF - 0.4;
   }
 
-  update(dt, input, time) {
+  update(dt, input, time = 0) {
+    this.#move(dt, input);
+    this.#sync();
+    const f = this.figure;
+    f.update(dt, time, this.#pose(), this.facing, this.walkPhase, this.motionQuery?.matches ? 0 : 1, this.level === 'under' && !this.climbing);
+    if (this.train.wateringCan) this.train.wateringCan.visible = !f.holdingCan;
+  }
+
+  #pose() {
+    if (this.sitting) return this.sitKind === 'rest' ? 'lie' : 'sit';
+    if (this.atWheel) return 'wheel';
+    if (this.climbing) return 'climb';
+    if (this.moving) return 'walk';
+    return ACTION_POSE[this.action] ?? 'idle';
+  }
+
+  #move(dt, input) {
     if (this.sitting) {
       this.x = damp(this.x, this.sitPose.x, 8, dt);
       this.y = damp(this.y, this.sitPose.y, 8, dt);
       this.z = damp(this.z, this.sitPose.z, 8, dt);
       this.facing = 1;
-      this.body.rotation.z = 0;
       this.moving = false;
-      this.#sync();
       return;
     }
 
@@ -108,11 +88,22 @@ export class Player {
     const up = input.down('KeyW') || input.down('ArrowUp');
     const down = input.down('KeyS') || input.down('ArrowDown');
 
+    if (this.atWheel) {
+      if (left || right || this.level !== 'roof') this.atWheel = false;
+      else {
+        this.x = damp(this.x, WHEEL_X, 5, dt);
+        this.z = damp(this.z, WHEEL_Z, 5, dt);
+        this.facing = 1;
+        this.moving = false;
+        return;
+      }
+    }
+
     if (this.climbing) {
       const target = LEVELS[this.climbTarget];
       const dir = Math.sign(target - this.y);
       this.y += dir * TUNING.climbSpeed * dt;
-      this.z = damp(this.z, 0.55, 10, dt);
+      this.z = damp(this.z, CLIMB_Z, 10, dt);
       if ((dir > 0 && this.y >= target) || (dir < 0 && this.y <= target)) {
         this.y = target;
         this.level = this.climbTarget;
@@ -120,7 +111,6 @@ export class Player {
       }
       this.moving = true;
       this.walkPhase += dt * 7;
-      this.#sync();
       return;
     }
 
@@ -134,7 +124,6 @@ export class Player {
         this.climbing = true;
         this.climbTarget = nextLevel;
         this.x = ladder.x;
-        this.#sync();
         return;
       }
     }
@@ -149,11 +138,10 @@ export class Player {
       this.x = clamp(this.x + move * TUNING.walkSpeed * dt, -TRAIN_HALF + 0.4, this.#maxX());
       this.walkPhase += dt * 11;
     }
-    this.z = damp(this.z, 0.35, 6, dt);
-    this.#sync(time);
+    this.z = damp(this.z, (move === 0 && REACH_Z[this.action]) || WALK_Z, 6, dt);
   }
 
-  #sync(time = 0) {
+  #sync() {
     if (this.docked != null) {
       // Riding inside a car: express the pose in that car's LOCAL frame so the
       // player is a rigid part of the car group — inheriting its trail position,
@@ -172,14 +160,6 @@ export class Player {
       const cos = Math.cos(f.theta);
       this.group.position.set(f.x + this.z * sin, this.y, f.z + this.z * cos);
       this.group.rotation.y = f.theta + (this.facing > 0 ? 0 : Math.PI);
-    }
-
-    if (this.moving) {
-      this.body.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.07;
-      this.body.rotation.z = this.climbing ? 0 : Math.sin(this.walkPhase) * 0.05;
-    } else {
-      this.body.position.y = Math.sin(time * 1.8) * 0.015;
-      this.body.rotation.z = 0;
     }
   }
 
@@ -210,14 +190,21 @@ export class Player {
                   // recompute the pose in the new frame this same frame or it teleports
   }
 
-  sit(pose) {
+  sit(pose, kind = 'book') {
     this.sitPose = pose || { x: this.train.chairX, y: LEVELS.deck + 0.42, z: -0.55 };
+    this.sitKind = kind;
     this.sitting = true;
+    this.atWheel = false;
     this.climbing = false;
+  }
+
+  takeWheel() {
+    this.atWheel = true;
   }
 
   stand() {
     this.sitting = false;
+    this.atWheel = false;
     this.y = LEVELS.deck;
   }
 }

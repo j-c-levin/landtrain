@@ -32,6 +32,7 @@ export class Interactions {
 
   update(dt, input) {
     const { rig, train, player, ui } = this;
+    player.action = null;
 
     if (rig.busy) {
       ui.hidePrompt();
@@ -73,7 +74,10 @@ export class Interactions {
         );
       }
       ui.showPrompt(train.route.length ? 're-plot the route' : 'plot the route', null);
-      if (input.pressed('KeyE') && rig.enterMap()) this.audio.chime('rise');
+      if (input.pressed('KeyE') && rig.enterMap()) {
+        player.takeWheel();
+        this.audio.chime('rise');
+      }
       return;
     }
 
@@ -102,6 +106,7 @@ export class Interactions {
       case 'cab': {
         ui.showPrompt(s.label, null);
         if (tapped && rig.enterMap()) {
+          player.takeWheel();
           this.audio.chime('rise');
           ui.firstCabVisit();
         }
@@ -112,7 +117,7 @@ export class Interactions {
         ui.showPrompt(s.label, null);
         if (tapped && rig.enterBook()) {
           const spot = REST_SPOTS[s.id];
-          player.sit(spot.pose);
+          player.sit(spot.pose, s.id);
           this.restExit = spot.exit;
           ui.setReadingLine(spot.line);
           this.audio.chime('soft');
@@ -131,6 +136,7 @@ export class Interactions {
           ui.showPrompt('the engine hums, content', null, true);
         } else {
           if (holding) {
+            player.action = s.id;
             train.eff = clamp(train.eff + TUNING.serviceRate * dt, 0, 100);
             this.audio.tendTick(dt);
             if (train.eff >= 99.5 && !this.holdChimed) {
@@ -150,6 +156,7 @@ export class Interactions {
           ui.showPrompt('the treads are freshly trued', null, true);
         } else {
           if (holding) {
+            player.action = s.id;
             train.wear = clamp(train.wear - TUNING.repairRate * dt, 0, 100);
             this.audio.tendTick(dt);
             if (train.wear <= 0.5 && !this.holdChimed) {
@@ -168,6 +175,7 @@ export class Interactions {
           ui.showPrompt('the plants are perky and pleased', null, true);
         } else {
           if (holding) {
+            player.action = s.id;
             train.plants = clamp(train.plants + TUNING.waterRate * dt, 0, 100);
             this.audio.waterTick(dt);
             if (train.plants >= 99.5 && !this.holdChimed) {
