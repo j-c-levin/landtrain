@@ -6,12 +6,18 @@
   "scripts": {
     "dev": "vite --strictPort",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "capture": "node scripts/capture.mjs",
+    "capture:compare": "node scripts/capture-compare.mjs",
+    "capture:sheet": "node scripts/capture-sheet.mjs"
   },
   "dependencies": {
     "three": "0.170.0"
   },
   "devDependencies": {
+    "pixelmatch": "^8.0.0",
+    "playwright-core": "^1.65.1",
+    "pngjs": "^7.0.0",
     "vite": "^6.0.0"
   }
 }
