@@ -47,11 +47,14 @@ const SHOTS = [
   { profile: 'high', name: 'coast', time: 'day', zoom: 190, pan: [-95, -75] },
   { profile: 'high', name: 'corner', time: 'day', zoom: 420, pan: [-200, 620] },
   { profile: 'high', name: 'start', time: 'dusk' },
+  { profile: 'high', name: 'journey', time: 'dusk', journey: true },
   { profile: 'medium', name: 'journey', time: 'day', journey: true },
   { profile: 'phone', name: 'journey', time: 'day', journey: true },
   { profile: 'phone', name: 'journey', time: 'night', journey: true },
   { profile: 'phone', name: 'journey-far', time: 'day', journey: true, zoom: 760 },
   { profile: 'phone', name: 'start', time: 'night' },
+  { profile: 'phone', name: 'start', time: 'day' },
+  { profile: 'phone', name: 'key-open', time: 'day', journey: true, openKey: true },
   { profile: 'wide', name: 'journey', time: 'day', journey: true },
   { profile: 'wide', name: 'journey', time: 'night', journey: true },
 ];
@@ -208,6 +211,7 @@ async function runShot(page, spec) {
     rig.pan.set(pan?.[0] ?? 0, pan?.[1] ?? 0);
   }, { zoom: spec.zoom ?? null, pan: spec.pan ?? null });
   await liveFor(page, 2600);
+  if (spec.openKey) await page.locator('.chart-cartouche').tap();
   if (spec.hover) {
     const at = await page.evaluate(([x, z]) => {
       const { pos } = __game.train;
@@ -223,6 +227,8 @@ async function runShot(page, spec) {
     return !toast.classList.contains('visible') && Number(getComputedStyle(toast).opacity) === 0;
   }, null, { timeout: 15000 });
   await shoot(page, fileName(spec));
+  if (spec.openKey) await page.locator('.chart-cartouche').tap();
+  if (spec.hover) await page.locator('#btn-exit').hover();
 }
 
 async function main() {

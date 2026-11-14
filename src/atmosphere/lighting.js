@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { lerp, smootherstep } from '../constants.js';
-import { SKY_LOOK } from '../look.js';
+import { SKY_LOOK, chartLight } from '../look.js';
 
 const HAZE_NEAR = 70;
 const HAZE_FAR = 1250;
 const SHADOW_HALF = 62;
 const SHADOW_HALF_MAP = 330;
 const KEY_DISTANCE = 260;
+const CHART_HEMI = 2;
 
 // Colours and intensities are driven per-frame by the SkyCycle.
 export function createHaze(scene) {
@@ -91,7 +92,10 @@ export function followBounceLight(light, trainPos, heading, intensity, color, du
 export function applyChartLight(sunLight, hemi, scene, chart) {
   if (chart <= 0 && sunLight.shadow.intensity === 1) return;
   sunLight.intensity *= 1 - 0.85 * chart;
-  sunLight.shadow.intensity = 1 - chart;
-  hemi.intensity *= 1 + 2.6 * chart;
+  sunLight.shadow.intensity = 1 - smootherstep(chart / 0.3);
+  hemi.intensity = lerp(hemi.intensity * (1 + 2.6 * chart), CHART_HEMI, chart);
+  hemi.color.lerp(chartLight, chart);
+  hemi.groundColor.lerp(chartLight, chart);
+  sunLight.color.lerp(chartLight, chart);
   scene.environmentIntensity *= 1 - 0.8 * chart;
 }

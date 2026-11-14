@@ -37,6 +37,11 @@ export function createChart({ renderer, canvas, train, fog }) {
         setRouteGhost(train, false);
       }
       furniture.update(rig.mapBlend, rig.mapHeight, camera.fov, train.pos, goal);
+      const dpr = renderer.getPixelRatio();
+      const { box } = furniture;
+      fog.material.uniforms.uKeep.value.set(
+        box.left * dpr, (window.innerHeight - box.bottom) * dpr, box.right * dpr, (window.innerHeight - box.top) * dpr
+      );
     },
     // false when the frame needs no pen, so the caller draws it plainly
     render(scene, camera) {

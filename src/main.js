@@ -189,10 +189,10 @@ function tick(frameTime) {
   world.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
   if (journey.grassland) journey.grassland.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
-  setChart(rig.mapBlend, sky.nightness);
+  setChart(rig.mapBlend, sky.nightness, sky.duskness);
   applyChartLight(sunLight, sky.hemi, scene, CHART.uChart.value);
   followShadowBox(sunLight, train.pos, sky.keyDir, rig.mapBlend);
-  followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity, sunLight.color, sky.duskness);
+  followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity * (1 - CHART.uChart.value), sunLight.color, sky.duskness);
   setPaintLight(sky.nightness, sky.duskness);
   train.setNight(sky.nightness, sky.duskness);
   fog.setNight(sky.nightness);

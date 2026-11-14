@@ -57,6 +57,9 @@ export const SHEET_FRAG = /* glsl */ `
   uniform vec3 uRhumb;
   uniform vec4 uRose;
   uniform vec3 uLamp;
+  uniform float uDusk;
+  uniform vec3 uDesk;
+  uniform vec4 uKeep;
   varying vec2 vWorld;
   ${SHEET_GLSL}
 
@@ -120,21 +123,32 @@ export const SHEET_FRAG = /* glsl */ `
 
     col = mix(col, uRhumb, max(rhumbs(vWorld - uRose.xy, px), rhumbs(vWorld - uRose.zw, px)) * 0.24);
 
-    vec2 cell = vWorld / vec2(120.0, 60.0);
-    cell.x += floor(cell.y) * 0.37;
-    float letters = texture2D(tLetters, vec2(cell.x, 1.0 - cell.y)).a;
-    letters *= step(0.8, inkHash(floor(cell) + 3.0));
-    col = mix(col, uInk, letters * 0.55 * smoothstep(0.2, 0.3, e));
-
-    // neat line with a league bar round the edge of the sheet
     vec2 bd = min(vWorld - uRect.xy, uRect.xy + 1.0 / uRect.zw - vWorld);
     float b = min(bd.x, bd.y);
+
+    // one legend to a stretch of country, kept clear of the border and the cartouche
+    vec2 cell = vWorld / vec2(560.0, 330.0);
+    cell.x += floor(cell.y) * 0.37;
+    vec2 id = floor(cell);
+    vec2 at = (fract(cell) - 0.12 - 0.5 * vec2(inkHash(id + 5.0), inkHash(id + 9.0))) / vec2(0.214, 0.182);
+    float letters = texture2D(tLetters, vec2(at.x, 1.0 - at.y)).a;
+    letters *= step(0.0, min(min(at.x, at.y), min(1.0 - at.x, 1.0 - at.y))) * step(0.3, inkHash(id + 3.0));
+    // a legend any part of which would run under the cartouche is left out whole
+    vec2 mid = gl_FragCoord.xy + (0.5 - at) * vec2(120.0, -60.0) / px;
+    vec2 gap = max(uKeep.xy - mid, mid - uKeep.zw) - vec2(60.0, 30.0) / px;
+    letters *= step(12.0, max(gap.x, gap.y)) * smoothstep(40.0, 90.0, b);
+    col = mix(col, uInk, letters * 0.55 * smoothstep(0.2, 0.3, e));
+
+    // neat line: a heavy rule, a quarter-league bar inside it, a hairline inside that
     float along = bd.x < bd.y ? vWorld.y : vWorld.x;
-    float bar = step(0.5, fract(along / 50.0)) * step(14.0, b) * step(b, 19.0) * 0.7;
-    float neat = max(stroke(abs(b - 14.0), px, 0.5), stroke(abs(b - 19.0), px, 0.5));
-    neat = max(neat, stroke(abs(b - 24.0), px, 0.3) * 0.7);
-    col = mix(col, uInk, max(neat, bar) * 0.8);
-    col *= 1.0 - 0.07 * step(b, 14.0);
+    float bar = step(0.5, fract(along / 50.0)) * step(13.0, b) * step(b, 16.0) * 0.75;
+    float neat = max(stroke(abs(b - 12.0), px, 1.1), stroke(abs(b - 16.0), px, 0.45));
+    neat = max(neat, stroke(abs(b - 21.0), px, 0.3) * 0.7);
+    col = mix(col, uInk, max(neat, bar) * 0.85 * step(11.0, b));
+    // past the rule the sheet ends and the desk begins
+    float off = 1.0 - smoothstep(9.5, 10.5, b);
+    col = mix(col, uDesk * (0.9 + 0.2 * fibre) * (1.0 - 0.35 * smoothstep(-14.0, 10.0, b)), off);
+    col = mix(col, vec3(1.0, 0.98, 0.92), stroke(abs(b - 10.8), px, 0.6) * 0.6);
 
     // shore: waterlining, with hatching packed against the coast
     float breakup = inkNoise(vWorld * 0.05 + 40.0);
@@ -150,10 +164,40 @@ export const SHEET_FRAG = /* glsl */ `
     float wobble = 0.75 + 0.5 * inkNoise(vWorld * 0.21);
     col = mix(col, uInk, (1.0 - smoothstep(0.9 * wobble, 2.2 * wobble, abs(e / fw - 2.6))) * 0.92);
     col *= 1.0 - 0.08 * (1.0 - smoothstep(0.0, 0.2, e));
+    col *= mix(vec3(1.0), vec3(1.0, 0.86, 0.68), uDusk);
     float lamp = smoothstep(0.0, 0.72, 1.0 - length(vWorld - uLamp.xy) * uLamp.z) * uNight;
-    col *= mix(vec3(1.0), uPaperNight, uNight - lamp * 0.88);
+    col *= mix(vec3(1.0), uPaperNight, uNight - lamp * 0.7);
     col *= 1.0 - lamp * vec3(0.04, 0.12, 0.3);
 
+    gl_FragColor = vec4(col, uOpacity);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`;
+
+// The way you came: a dotted line whose weight holds on screen as the view pulls back.
+export const TRAIL_VERT = /* glsl */ `
+  attribute vec2 aOff;
+  uniform float uScale;
+  varying vec2 vWorld;
+  void main() {
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    world.xz += aOff * uScale;
+    vWorld = world.xz;
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+export const TRAIL_FRAG = /* glsl */ `
+  uniform vec3 uDay;
+  uniform vec3 uDark;
+  uniform vec3 uLamp;
+  uniform float uNight;
+  uniform float uOpacity;
+  varying vec2 vWorld;
+  void main() {
+    float lamp = smoothstep(0.0, 0.72, 1.0 - length(vWorld - uLamp.xy) * uLamp.z) * uNight;
+    vec3 col = mix(uDay, uDark, smoothstep(0.42, 0.62, uNight - lamp * 0.7));
     gl_FragColor = vec4(col, uOpacity);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -192,7 +236,9 @@ export const PEN_FRAG = /* glsl */ `
     float zc = linearZ(vUv);
     float lap = abs(linearZ(vUv - vec2(o.x, 0.0)) + linearZ(vUv + vec2(o.x, 0.0)) - 2.0 * zc)
               + abs(linearZ(vUv - vec2(0.0, o.y)) + linearZ(vUv + vec2(0.0, o.y)) - 2.0 * zc);
-    float m = lap / (zc * uPxAngle * uReach);
+    // a 24-bit depth step is this coarse at range; unsubtracted, its banding gets inked as a grid
+    float grain = zc * zc * (uFar - uNear) / (uNear * uFar) * 9e-7;
+    float m = max(lap - grain, 0.0) / (zc * uPxAngle * uReach);
     float line = smoothstep(0.6, 2.4, m) * (0.72 + 0.28 * inkNoise(px * 0.05 + 11.0));
     float fibre = inkNoise(px * vec2(0.9, 0.35));
     vec3 drawn = mix(col, uInk, line * 0.9) * (1.0 - (fibre - 0.5) * 0.05);

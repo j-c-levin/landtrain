@@ -23,6 +23,7 @@ export class FogOfWar {
     this.cols = Math.ceil(w / CELL);
     this.rows = Math.ceil(h / CELL);
     this.known = new Uint8Array(this.cols * this.rows);
+    this.epoch = 0;
 
     this.#shroud();
 
@@ -66,6 +67,7 @@ export class FogOfWar {
 
   // Re-shroud everything when entering a fresh biome.
   reset() {
+    this.epoch++;
     this.#shroud();
     this.texture.needsUpdate = true;
   }

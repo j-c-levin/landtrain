@@ -3,8 +3,8 @@ import { GRASSLAND, ARRIVE_RADIUS } from '../constants.js';
 export const LEAGUE = 100;
 
 const BEARINGS = ['east', 'north-east', 'north', 'north-west', 'west', 'south-west', 'south', 'south-east'];
-const BAR_LEAGUES = [4, 2, 1, 0.5, 0.25];
-const BAR_LABELS = ['4 leagues', '2 leagues', '1 league', '½ league', '¼ league'];
+const BAR_LEAGUES = [8, 4, 2, 1, 0.5, 0.25, 0.125];
+const BAR_LABELS = ['8 leagues', '4 leagues', '2 leagues', '1 league', '½ league', '¼ league', '⅛ league'];
 const BAR_MAX_PX = 118;
 
 // Screen north is world -z, east is world +x.
@@ -52,6 +52,7 @@ const CSS = `
 .chart-key svg { width: 30px; height: 14px; display: block; }
 .chart-scale { display: flex; align-items: center; gap: 8px; margin: 10px 2px 0; font-size: 11px; letter-spacing: 0.06em; white-space: nowrap; }
 .chart-bar { height: 7px; border: 1px solid ${INK}; background: linear-gradient(90deg, ${INK} 0 25%, transparent 25% 50%, ${INK} 50% 75%, transparent 75%); }
+.chart-more { display: none; text-align: center; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.6; margin-top: 6px; }
 .chart-rose { position: absolute; left: 22px; bottom: 22px; width: 112px; height: 112px; }
 @media (pointer: coarse) {
   .chart-cartouche { top: 14px; left: 12px; width: 190px; padding: 8px 9px 9px; }
@@ -64,10 +65,17 @@ const CSS = `
   .chart-rose { width: 76px; height: 76px; left: 12px; bottom: 92px; }
 }
 @media (pointer: coarse) and (max-width: 600px) {
-  .chart-cartouche { top: 78px; }
+  .chart-cartouche { top: 78px; width: 168px; }
+  .chart-goal { font-size: 10.5px; }
+}
+@media (max-height: 520px), (pointer: coarse) and (max-width: 600px) {
+  #chart-furniture.on .chart-cartouche { pointer-events: auto; }
+  .chart-key { display: none; }
+  .chart-more { display: block; }
+  #chart-furniture.open .chart-key { display: grid; }
+  #chart-furniture.open .chart-cartouche { width: 190px; }
 }
 @media (max-height: 520px) {
-  .chart-key { display: none; }
   .chart-rose { bottom: 14px; }
 }
 `;
@@ -122,6 +130,7 @@ export function createChartFurniture() {
       <div class="chart-goal"></div>
       <div class="chart-key">${KEY}</div>
       <div class="chart-scale"><div class="chart-bar"></div><span class="chart-bar-label"></span></div>
+      <div class="chart-more">key</div>
     </div>
     ${roseSvg()}`;
   hud.appendChild(root);
@@ -130,19 +139,40 @@ export function createChartFurniture() {
   const goalEl = root.querySelector('.chart-goal');
   const bar = root.querySelector('.chart-bar');
   const barLabel = root.querySelector('.chart-bar-label');
+  const cartouche = root.querySelector('.chart-cartouche');
+  const more = root.querySelector('.chart-more');
+  const box = { left: -1, top: -1, right: -1, bottom: -1, stale: true };
+  cartouche.addEventListener('click', () => {
+    more.textContent = root.classList.toggle('open') ? 'close' : 'key';
+    box.stale = true;
+  });
+  window.addEventListener('resize', () => {
+    box.stale = true;
+  });
   let on = false;
   let region = -1;
   let goalKey = NaN;
   let barKey = NaN;
 
   return {
+    // where the cartouche sits on screen, so the sheet can keep its lettering out from under it
+    box,
     update(mapBlend, mapHeight, fov, pos, goal) {
       const show = mapBlend > 0.5;
       if (show !== on) {
         on = show;
         root.classList.toggle('on', on);
+        box.stale = true;
       }
       if (mapBlend < 0.05) return;
+      if (box.stale) {
+        box.stale = false;
+        const r = cartouche.getBoundingClientRect();
+        box.left = r.left;
+        box.top = r.top;
+        box.right = r.right;
+        box.bottom = r.bottom;
+      }
 
       const nextRegion = pos.x >= GRASSLAND.minX ? 1 : 0;
       if (nextRegion !== region) {

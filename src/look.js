@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PAINT, PaintMaterial } from './paint.js';
-import { SHEET_VERT, SHEET_FRAG, SHEET_DEPTH_FRAG } from './map/chart-glsl.js';
+import { SHEET_VERT, SHEET_FRAG, SHEET_DEPTH_FRAG, TRAIL_VERT, TRAIL_FRAG } from './map/chart-glsl.js';
 
 const std = (params) => new THREE.MeshStandardMaterial(params);
 
@@ -22,14 +22,24 @@ export const CHART = {
   uChart: { value: 0 },
   uChartNight: { value: 0 },
   uChartInk: { value: new THREE.Color(0x3a2a1c) },
-  uChartIndigo: { value: new THREE.Color(0x4a4e74) },
+  uChartIndigo: { value: new THREE.Color(0x565470) },
   uChartLamp: { value: new THREE.Vector3(0, 0, 1) },
+  uChartDusk: { value: 0 },
+  uChartPaper: { value: new THREE.Color(0xf0e2c0) },
+  uChartPaperNight: { value: new THREE.Color(0x8a86a6) },
 };
 
-export function setChart(mapBlend, night) {
+// What the chart's standing symbols are lit by: paper white, amber at dusk, ink-indigo at night.
+export const chartLight = new THREE.Color(1, 1, 1);
+const CHART_DUSK = new THREE.Color(1.0, 0.8, 0.6);
+const CHART_NIGHT = new THREE.Color(0.5, 0.5, 0.62);
+
+export function setChart(mapBlend, night, dusk = 0) {
   const t = Math.min(1, Math.max(0, (mapBlend - 0.25) / 0.5));
   CHART.uChart.value = t * t * (3 - 2 * t);
   CHART.uChartNight.value = night;
+  CHART.uChartDusk.value = dusk;
+  chartLight.setRGB(1, 1, 1).lerp(CHART_DUSK, dusk).lerp(CHART_NIGHT, night);
 }
 
 const FLOCK_PARS = /* glsl */ `
@@ -39,6 +49,9 @@ const FLOCK_PARS = /* glsl */ `
   uniform vec3 uChartInk;
   uniform vec3 uChartIndigo;
   uniform vec3 uChartLamp;
+  uniform float uChartDusk;
+  uniform vec3 uChartPaper;
+  uniform vec3 uChartPaperNight;
   vec3 fChart;
   uniform vec3 uFlockA;
   uniform vec3 uFlockB;
@@ -111,9 +124,14 @@ const FLOCK_FRAG = /* glsl */ `
       wash = mix(wash, uFlockSand, vShore.y * 0.85);
       wash = mix(wash, uFlockMud, vShore.x * 0.85);
     #endif
+    // thin colour over cream paper, never poster paint
+    wash = mix(wash, uChartPaper * (0.5 + 0.62 * dot(wash, vec3(0.3, 0.59, 0.11))), 0.34);
     wash *= 1.0 - 0.07 * (fNoise(fp * 0.9) - 0.5) - 0.08 * (fNoise(fp * 0.016) - 0.5);
+    wash *= mix(vec3(1.0), vec3(1.0, 0.86, 0.68), uChartDusk);
     float fLamp = smoothstep(0.0, 0.72, 1.0 - length(fp - uChartLamp.xy) * uChartLamp.z) * uChartNight;
-    wash = mix(wash, uChartIndigo * (0.55 + 0.9 * dot(wash, vec3(0.3, 0.59, 0.11))), uChartNight - fLamp * 0.88);
+    // the same sheet in the dark: the paper's night tone, with a little indigo pooled in the washes
+    vec3 fDark = mix(wash * uChartPaperNight * 0.84, uChartIndigo * (0.5 + 0.95 * dot(wash, vec3(0.3, 0.59, 0.11))), 0.4);
+    wash = mix(wash, fDark, uChartNight - fLamp * 0.7);
     wash *= 1.0 - fLamp * vec3(0.04, 0.12, 0.3);
     // pen stipple: a short dry stroke in the odd cell
     vec2 sc = fp / 19.0;
@@ -746,7 +764,6 @@ export const plantMaterials = {
 export const MAP_LOOK = {
   shroud: '#221a30',
   paper: 0xf0e2c0,
-  paperNight: 0x7f86b4,
   fox: 0xc9a56e,
   ink: 0x3a2a1c,
   rhumb: 0xa8482c,
@@ -756,7 +773,9 @@ export const MAP_LOOK = {
   markInk: 0x2b2018,
   trail: 0x4a3524,
   trailNight: 0xf3e3bd,
-  lampRadius: 150,
+  beyond: 0x6a5a4c,
+  desk: 0x5a4636,
+  lampRadius: 115,
   beaconGlow: [1.0, 0.72, 0.3],
 };
 
@@ -851,13 +870,16 @@ export const mapMaterials = {
         uNight: { value: 0 },
         uGrow: { value: 0 },
         uPaper: { value: new THREE.Color(MAP_LOOK.paper) },
-        uPaperNight: { value: new THREE.Color(MAP_LOOK.paperNight) },
+        uPaperNight: CHART.uChartPaperNight,
         uFox: { value: new THREE.Color(MAP_LOOK.fox) },
         uInk: { value: new THREE.Color(MAP_LOOK.ink) },
         uRhumb: { value: new THREE.Color(MAP_LOOK.rhumb) },
         uRose: { value: new THREE.Vector4(...MAP_LOOK.roses) },
         uRect: { value: rect },
         uLamp: CHART.uChartLamp,
+        uDusk: CHART.uChartDusk,
+        uDesk: { value: new THREE.Color(MAP_LOOK.desk) },
+        uKeep: { value: new THREE.Vector4(-1, -1, -1, -1) },
       },
     }),
   sheetDepth: (map, rect, grow) =>
@@ -870,6 +892,26 @@ export const mapMaterials = {
       uniforms: { map: { value: map }, uRect: { value: rect }, uGrow: grow },
     }),
   trail: () => overlay({ color: MAP_LOOK.trail, side: THREE.DoubleSide }),
+  // dark ink in lamplight and daylight, light ink out on the night's indigo
+  trailInk: () =>
+    new THREE.ShaderMaterial({
+      vertexShader: TRAIL_VERT,
+      fragmentShader: TRAIL_FRAG,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      fog: false,
+      side: THREE.DoubleSide,
+      uniforms: {
+        uScale: { value: 1 },
+        uOpacity: { value: 0 },
+        uDay: { value: new THREE.Color(MAP_LOOK.trail) },
+        uDark: { value: new THREE.Color(MAP_LOOK.trailNight) },
+        uLamp: CHART.uChartLamp,
+        uNight: CHART.uChartNight,
+      },
+    }),
+  routeBeyond: () => overlay({ color: MAP_LOOK.beyond, side: THREE.DoubleSide }),
   routeLine: () =>
     new THREE.LineDashedMaterial({
       color: MAP_LOOK.markInk, dashSize: 9, gapSize: 6, transparent: true, opacity: 0.9, depthTest: false, fog: false,

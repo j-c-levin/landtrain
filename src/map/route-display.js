@@ -10,12 +10,16 @@ export const ROUTE_Y = 0;
 
 const MAX_POINTS = 64;
 const MAX_DASHES = 640;
-const CASING_HALF = 2.9;
-const DASH_HALF = 1.5;
-const DASH = 10;
-const GAP = 7;
+const CASING_HALF = 1.9;
+const DASH_HALF = 0.95;
+const DASH = 9;
+const GAP = 6;
 const TRAIL_MAX = 1536;
-const CRUMB = 9;
+const CRUMB = 7;
+// crumbs held back so the line stops short of the last car
+const HOLD = 4;
+// clear of the cab's nose: lines are drawn up to the train, never across it
+const NOSE = 27;
 const GHOST_DASHES = 96;
 const MAX_BLOCKS = 6;
 const BLOCK_LEGS = 16;
@@ -52,14 +56,26 @@ function quadStrip(count, material, order) {
   return mesh;
 }
 
+function offsetStrip(count, material, order) {
+  const mesh = quadStrip(count, material, order);
+  const offsets = new Float32Array(count * 8);
+  mesh.geometry.setAttribute('aOff', new THREE.BufferAttribute(offsets, 2));
+  mesh.userData.offsets = offsets;
+  return mesh;
+}
+
+// A barbed pen arrowhead: tip, two swept barbs and a notch at the back.
 function arrowGeometry(bands) {
   const color = new THREE.Color();
   const pos = [];
   const col = [];
   for (const [size, shift, hex] of bands) {
     color.set(hex);
-    pos.push(size + shift, 0, 0, shift - size * 0.62, 0, -size * 0.78, shift - size * 0.62, 0, size * 0.78);
-    for (let i = 0; i < 3; i++) col.push(color.r, color.g, color.b);
+    const back = shift - size * 0.86;
+    const notch = shift - size * 0.3;
+    pos.push(size + shift, 0, 0, back, 0, -size * 0.66, notch, 0, 0);
+    pos.push(size + shift, 0, 0, notch, 0, 0, back, 0, size * 0.66);
+    for (let i = 0; i < 6; i++) col.push(color.r, color.g, color.b);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -96,6 +112,11 @@ function writeQuad(positions, q, ax, az, bx, bz, nx, nz, half) {
   positions[o + 9] = bx - nx * half; positions[o + 10] = ROUTE_Y; positions[o + 11] = bz - nz * half;
 }
 
+const wob = (n) => {
+  const s = Math.sin(n * 127.1) * 43758.5453;
+  return s - Math.floor(s);
+};
+
 // Returns the overlay's fields; the owner (the train) holds them and passes
 // itself back to updateRouteDisplay.
 export function createRouteDisplay(scene) {
@@ -115,7 +136,9 @@ export function createRouteDisplay(scene) {
   routeGroup.add(routeCasing, routeDashes);
 
   const { casing, markInk, route } = MAP_LOOK;
-  const dotGeo = bandGeometry([[0, 6.4, casing], [0, 5.2, markInk], [0, 4.1, route], [0, 1.5, casing]], 24);
+  const routeBeyond = quadStrip(MAX_DASHES / 2, mapMaterials.routeBeyond(), 58);
+  routeGroup.add(routeBeyond);
+  const dotGeo = bandGeometry([[0, 5.0, casing], [0, 4.4, markInk], [0, 3.5, route], [0, 1.3, casing]], 24);
   const dotMat = mapMaterials.waypoint();
 
   const ringGeo = bandGeometry([[9.2, 13.6, casing], [10.2, 12.6, markInk]], 48);
@@ -129,19 +152,18 @@ export function createRouteDisplay(scene) {
   beacon.scale.setScalar(64);
   routeGroup.add(beacon);
 
-  const trail = quadStrip(TRAIL_MAX, mapMaterials.trail(), 56);
-  const trailCasing = quadStrip(TRAIL_MAX, mapMaterials.routeCasing(), 55);
-  routeGroup.add(trail, trailCasing);
+  const trail = offsetStrip(TRAIL_MAX, mapMaterials.trailInk(), 56);
+  routeGroup.add(trail);
 
   const heading = new THREE.Mesh(
-    arrowGeometry([[6.0, 0, casing], [4.9, 0, markInk], [3.3, -0.15, route]]),
+    arrowGeometry([[7.4, 0, casing], [6.2, 0.1, markInk], [3.4, -0.5, route]]),
     mapMaterials.trainRing()
   );
   heading.renderOrder = 60;
   heading.frustumCulled = false;
   routeGroup.add(heading);
 
-  const ghostLeg = quadStrip(GHOST_DASHES, mapMaterials.trail(), 57);
+  const ghostLeg = quadStrip(GHOST_DASHES, mapMaterials.trailInk(), 57);
   const ghostDot = new THREE.Mesh(
     bandGeometry([[3.4, 6.6, casing], [4.2, 5.8, markInk]], 24),
     mapMaterials.waypoint()
@@ -163,15 +185,15 @@ export function createRouteDisplay(scene) {
   }
 
   return {
-    routeGroup, linePositions, routeLine, routeCasing, routeDashes, dotGeo, dotMat, dots: [], trainRing, beacon,
+    routeGroup, linePositions, routeLine, routeCasing, routeDashes, routeBeyond, dotGeo, dotMat, dots: [], trainRing, beacon,
     beaconPos: new THREE.Vector3(2450, 80, 0),
     routeMarks: {
-      trail, trailCasing, heading, ghostLeg, ghostDot, blocks,
-      blockCount: 0, blockKey: NaN, obstacles: null, fog: null,
+      trail, heading, ghostLeg, ghostDot, blocks,
+      blockCount: 0, blockLeg: 0, blockKey: NaN, obstacles: null, fog: null, epoch: 0,
+      pend: new Float32Array(HOLD * 4), pendN: 0, pendHead: 0,
       scale: 1, night: 0,
       ghostOn: false, ghostX: 0, ghostZ: 0,
       crumbs: 0, lastX: 0, lastZ: 0, seeded: false, dirty: false,
-      trailDay: new THREE.Color(MAP_LOOK.trail), trailNight: new THREE.Color(MAP_LOOK.trailNight),
     },
   };
 }
@@ -192,7 +214,35 @@ export function setRouteGhost(d, on, x = 0, z = 0) {
   d.routeMarks.ghostZ = z;
 }
 
+function commitCrumb(m, o) {
+  const p = m.pend;
+  const len = Math.hypot(p[o + 2] - p[o], p[o + 3] - p[o + 1]) || 1;
+  const nx = (-(p[o + 3] - p[o + 1]) / len) * 0.62;
+  const nz = ((p[o + 2] - p[o]) / len) * 0.62;
+  const q = m.crumbs % TRAIL_MAX;
+  const pos = m.trail.userData.positions;
+  const off = m.trail.userData.offsets;
+  for (let v = 0; v < 4; v++) {
+    const end = v < 2 ? 0 : 2;
+    const side = v % 2 ? -1 : 1;
+    pos[q * 12 + v * 3] = p[o + end];
+    pos[q * 12 + v * 3 + 1] = ROUTE_Y;
+    pos[q * 12 + v * 3 + 2] = p[o + end + 1];
+    off[q * 8 + v * 2] = nx * side;
+    off[q * 8 + v * 2 + 1] = nz * side;
+  }
+  m.crumbs++;
+  m.dirty = true;
+}
+
 function recordTrail(m, x, z) {
+  if (m.fog && m.fog.epoch !== m.epoch) {
+    m.epoch = m.fog.epoch;
+    m.crumbs = 0;
+    m.pendN = 0;
+    m.seeded = false;
+    m.dirty = true;
+  }
   const dist = Math.hypot(x - m.lastX, z - m.lastZ);
   if (!m.seeded || dist > 80) {
     m.seeded = true;
@@ -203,18 +253,17 @@ function recordTrail(m, x, z) {
   if (dist < CRUMB) return;
   const ux = (x - m.lastX) / dist;
   const uz = (z - m.lastZ) / dist;
-  writeQuad(
-    m.trail.userData.positions, m.crumbs % TRAIL_MAX,
-    m.lastX + ux * dist * 0.2, m.lastZ + uz * dist * 0.2, m.lastX + ux * dist * 0.8, m.lastZ + uz * dist * 0.8,
-    -uz, ux, 0.85
-  );
-  writeQuad(
-    m.trailCasing.userData.positions, m.crumbs % TRAIL_MAX,
-    m.lastX + ux * dist * 0.12, m.lastZ + uz * dist * 0.12, m.lastX + ux * dist * 0.88, m.lastZ + uz * dist * 0.88,
-    -uz, ux, 1.9
-  );
-  m.crumbs++;
-  m.dirty = true;
+  if (m.pendN === HOLD) {
+    commitCrumb(m, m.pendHead * 4);
+    m.pendHead = (m.pendHead + 1) % HOLD;
+    m.pendN--;
+  }
+  const o = ((m.pendHead + m.pendN) % HOLD) * 4;
+  m.pend[o] = m.lastX + ux * dist * 0.27;
+  m.pend[o + 1] = m.lastZ + uz * dist * 0.27;
+  m.pend[o + 2] = m.lastX + ux * dist * 0.73;
+  m.pend[o + 3] = m.lastZ + uz * dist * 0.73;
+  m.pendN++;
   m.lastX = x;
   m.lastZ = z;
 }
@@ -234,6 +283,7 @@ function findBlocks(m, pos, route) {
       const sx = px + ((x - px) * t) / len;
       const sz = pz + ((z - pz) * t) / len;
       if (m.fog.isKnown(sx, sz) && blockedAt(m.obstacles, sx, sz, TUNING.obstaclePad)) {
+        if (n === 0) m.blockLeg = i;
         m.blocks[n++].position.set(sx, ROUTE_Y, sz);
         break;
       }
@@ -270,7 +320,12 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
   const count = Math.min(route.length + 1, MAX_POINTS);
   const casing = d.routeCasing.userData.positions;
   const dashes = d.routeDashes.userData.positions;
+  const faded = d.routeBeyond.userData.positions;
+  const period = (DASH + GAP) * k;
+  let casingCount = 0;
   let dashCount = 0;
+  let fadedCount = 0;
+  let beyond = false;
   let px = pos.x;
   let pz = pos.z;
   for (let i = 0; i < count; i++) {
@@ -283,12 +338,41 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
       const len = Math.hypot(x - px, z - pz) || 1;
       const ux = (x - px) / len;
       const uz = (z - pz) / len;
-      const lead = i === 1 ? Math.min(RING_OUTER * k, len) : 0;
-      writeQuad(casing, i - 1, px + ux * lead, pz + uz * lead, x, z, -uz, ux, CASING_HALF * k);
-      for (let t = lead + (GAP / 2) * k; t < len && dashCount < MAX_DASHES; t += (DASH + GAP) * k) {
-        const end = Math.min(t + DASH * k, len);
-        writeQuad(dashes, dashCount++, px + ux * t, pz + uz * t, px + ux * end, pz + uz * end, -uz, ux, DASH_HALF * k);
+      // a leg leaving off the bow starts beside the train; one dead ahead starts past the arrowhead
+      const bow = Math.min(1, Math.max(0, (ux * Math.cos(d.heading) - uz * Math.sin(d.heading) - 0.6) / 0.3));
+      const lead = i === 1 ? Math.min(NOSE + 4 + (15 * k - 4) * bow, len) : 0;
+      if (i === 1) {
+        d.linePositions[0] = px + ux * lead;
+        d.linePositions[2] = pz + uz * lead;
       }
+      let stop = len;
+      if (!beyond && m.blockCount > 0 && i - 1 === m.blockLeg) {
+        const mark = m.blocks[0].position;
+        stop = Math.min(len, Math.max(lead, Math.hypot(mark.x - px, mark.z - pz)));
+      }
+      if (!beyond && stop > lead) {
+        writeQuad(casing, casingCount++, px + ux * lead, pz + uz * lead, px + ux * stop, pz + uz * stop, -uz, ux, CASING_HALF * k);
+      }
+      // dashes are counted back from the waypoint so they hold still as the train eats the leg
+      for (let n = Math.floor((len - lead) / period); n >= 0; n--) {
+        const j = wob(n * 7 + i * 13);
+        const end = len - (GAP / 2 + (wob(n * 3 + i) - 0.5) * 1.4) * k - n * period;
+        const start = Math.max(end - DASH * k * (0.9 + 0.2 * j), lead);
+        if (end - start < 2.5 * k) continue;
+        if (beyond || (start + end) / 2 > stop) {
+          if (fadedCount < MAX_DASHES / 2) {
+            writeQuad(faded, fadedCount++, px + ux * (start + k), pz + uz * (start + k), px + ux * (end - k), pz + uz * (end - k), -uz, ux, 0.55 * k);
+          }
+        } else if (dashCount < MAX_DASHES) {
+          const slip = (j - 0.5) * 0.5 * k;
+          writeQuad(
+            dashes, dashCount++,
+            px + ux * start - uz * slip, pz + uz * start + ux * slip, px + ux * end - uz * slip, pz + uz * end + ux * slip,
+            -uz, ux, DASH_HALF * k * (0.84 + 0.32 * wob(n * 5 + i * 3))
+          );
+        }
+      }
+      if (stop < len) beyond = true;
     }
     px = x;
     pz = z;
@@ -296,13 +380,16 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
   d.routeLine.geometry.setDrawRange(0, count);
   d.routeLine.geometry.attributes.position.needsUpdate = true;
   d.routeLine.computeLineDistances();
-  d.routeLine.material.opacity = 0.35 * mapBlend;
-  d.routeCasing.geometry.setDrawRange(0, (count - 1) * 6);
+  d.routeLine.material.opacity = 0.3 * mapBlend;
+  d.routeCasing.geometry.setDrawRange(0, casingCount * 6);
   d.routeCasing.geometry.attributes.position.needsUpdate = true;
-  d.routeCasing.material.opacity = 0.82 * mapBlend;
+  d.routeCasing.material.opacity = 0.7 * mapBlend;
   d.routeDashes.geometry.setDrawRange(0, dashCount * 6);
   d.routeDashes.geometry.attributes.position.needsUpdate = true;
   d.routeDashes.material.opacity = mapBlend;
+  d.routeBeyond.geometry.setDrawRange(0, fadedCount * 6);
+  d.routeBeyond.geometry.attributes.position.needsUpdate = true;
+  d.routeBeyond.material.opacity = 0.75 * mapBlend;
 
   while (d.dots.length < route.length) {
     const dot = new THREE.Mesh(d.dotGeo, d.dotMat.clone());
@@ -316,7 +403,8 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
     d.dots[i].visible = visible;
     if (visible) {
       d.dots[i].position.set(route[i].x, ROUTE_Y, route[i].y);
-      d.dots[i].material.opacity = mapBlend * (i === route.length - 1 ? 1 : 0.8);
+      const past = m.blockCount > 0 && i >= m.blockLeg ? 0.45 : 1;
+      d.dots[i].material.opacity = mapBlend * past * (i === route.length - 1 ? 1 : 0.8);
       d.dots[i].scale.setScalar((i === route.length - 1 ? 1.25 : 0.85) * k);
     }
   }
@@ -328,7 +416,7 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
 
   const fx = Math.cos(d.heading);
   const fz = -Math.sin(d.heading);
-  const reach = 27 + 7 * k + Math.sin(time * 2.4) * 1.2;
+  const reach = NOSE + 7 * k + Math.sin(time * 2.4) * 1.2;
   m.heading.position.set(pos.x + fx * reach, ROUTE_Y, pos.z + fz * reach);
   m.heading.rotation.y = d.heading;
   m.heading.scale.setScalar(k);
@@ -336,14 +424,12 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
 
   if (m.dirty) {
     m.dirty = false;
-    for (const strip of [m.trail, m.trailCasing]) {
-      strip.geometry.attributes.position.needsUpdate = true;
-      strip.geometry.setDrawRange(0, Math.min(m.crumbs, TRAIL_MAX) * 6);
-    }
+    m.trail.geometry.attributes.position.needsUpdate = true;
+    m.trail.geometry.attributes.aOff.needsUpdate = true;
+    m.trail.geometry.setDrawRange(0, Math.min(m.crumbs, TRAIL_MAX) * 6);
   }
-  m.trail.material.opacity = mapBlend * 0.72;
-  m.trailCasing.visible = m.night > 0.01;
-  m.trailCasing.material.opacity = mapBlend * m.night * 0.6;
+  m.trail.material.uniforms.uOpacity.value = mapBlend * 0.78;
+  m.trail.material.uniforms.uScale.value = k;
 
   CHART.uChartLamp.value.set(pos.x, pos.z, 1 / MAP_LOOK.lampRadius);
 
@@ -363,8 +449,7 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
     }
     m.ghostLeg.geometry.setDrawRange(0, n * 6);
     m.ghostLeg.geometry.attributes.position.needsUpdate = true;
-    m.ghostLeg.material.color.lerpColors(m.trailDay, m.trailNight, m.night);
-    m.ghostLeg.material.opacity = mapBlend * 0.6;
+    m.ghostLeg.material.uniforms.uOpacity.value = mapBlend * 0.6;
     m.ghostDot.position.set(m.ghostX, ROUTE_Y, m.ghostZ);
     m.ghostDot.scale.setScalar(k);
     m.ghostDot.material.opacity = mapBlend * 0.8;

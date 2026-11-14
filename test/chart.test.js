@@ -19,8 +19,9 @@ test('goal line counts whole leagues until the tree is reached', () => {
 });
 
 test('scale bar picks the longest bar that fits', () => {
-  assert.equal(scaleBar(0.28), 4);
-  assert.equal(scaleBar(0.65), 3);
-  assert.equal(scaleBar(5), 0);
-  assert.equal(scaleBar(0.01), 4);
+  assert.equal(scaleBar(0.28), 5);
+  assert.equal(scaleBar(0.65), 4);
+  assert.equal(scaleBar(0.128), 6);
+  assert.equal(scaleBar(9), 0);
+  assert.equal(scaleBar(0.01), 6);
 });
