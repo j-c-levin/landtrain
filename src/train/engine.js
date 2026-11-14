@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { damp } from '../constants.js';
-import { TRAIN_LOOK } from '../look.js';
+import { TRAIN_LOOK, getLookTier } from '../look.js';
 import { box, profiledBox, curvedRoof, instancedDetails } from './parts.js';
 import { CAR_WINDOWS } from './shell.js';
-import { interiorKit } from './interior-kit.js';
+import { interiorKit, exteriorKit } from './interior-kit.js';
 
 const ZONE = 'car1';
 const BOILER = { x: 0.5, y: 3.25, r: 1.25, face: -0.55 };
@@ -14,7 +14,8 @@ const HALF_PI = Math.PI / 2;
 function buildHouse(train, g) {
   const M = train.materials;
   const fade = (source) => train.fadingMat(ZONE, source);
-  curvedRoof(14.6, 5.5, 0.6, M.iron, fade(M.iron), 0, 5.05, g);
+  const sheet = train.weathered(M.iron);
+  curvedRoof(14.6, 5.5, 0.6, sheet, fade(sheet), 0, 5.05, g, { soot: [STACK.x, STACK.z, 1.7] });
   const seams = [];
   for (let x = -6.6; x < 7; x += 2.2) seams.push([x, 5.06, -0.6, 0.05, 0.03, 0.6]);
   instancedDetails(seams, train.geometry.detail, M.copper, g);
@@ -61,6 +62,44 @@ function buildHouse(train, g) {
   const louvres = [];
   for (let x = 3.85; x < 5.4; x += 0.25) louvres.push([x, 5.13, -1.09, 0.16, 0.2, 0.03]);
   instancedDetails(louvres, train.geometry.detail, M.iron, g);
+
+  const stays = [];
+  for (const side of [-1, 1]) stays.push([STACK.x + side * 0.8, 5.78, STACK.z, 2.2, 0.035, 0.035, 0, 0, -side * 0.75]);
+  if (getLookTier() !== 'low') for (let x = -6.4; x < 6.6; x += 0.45) stays.push([x, 5.068, 0.35, 0.05, 0.012, 0.96]);
+  instancedDetails(stays, train.geometry.detail, M.iron, g);
+
+  const k = exteriorKit(g, 'engine-roof');
+  const { block, round } = k;
+  block(13.5, 0.03, 1.0, M.iron, 0, 5.05, 0.35);
+  for (const z of [-0.15, 0.85]) block(13.5, 0.05, 0.05, M.brass, 0, 5.06, z);
+  round(0.52, 0.12, 0.52, M.iron, -3.4, 5.03, -1.45);
+  const dome = k.mesh(new THREE.SphereGeometry(0.46, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2), M.brass, -3.4, 5.08, -1.45);
+  dome.scale.y = 1.15;
+  round(0.09, 0.1, 0.09, M.brass, -3.4, 5.64, -1.45);
+  for (const dx of [-0.16, 0.16]) {
+    round(0.045, 0.34, 0.045, M.brass, -5.0 + dx, 5.2, -1.5);
+    round(0.075, 0.06, 0.075, M.copper, -5.0 + dx, 5.38, -1.5);
+  }
+  block(0.62, 0.1, 0.3, M.iron, -5.0, 5.03, -1.5);
+  const roofKit = k.finish();
+  if (getLookTier() === 'low') roofKit.traverse((object) => { object.castShadow = false; });
+
+  train.stackFlap = new THREE.Group();
+  train.stackFlap.name = 'stack-flap';
+  train.stackFlap.position.set(STACK.x + 0.62, 7.5, STACK.z);
+  train.stackFlap.rotation.z = -0.1;
+  const flap = new THREE.Mesh(train.geometry.drum, M.iron);
+  flap.scale.set(0.66, 0.04, 0.66);
+  flap.position.x = -0.62;
+  flap.castShadow = true;
+  const arm = new THREE.Mesh(train.geometry.detail, M.iron);
+  arm.scale.set(0.42, 0.04, 0.06);
+  arm.position.x = 0.2;
+  const bob = new THREE.Mesh(train.geometry.drum, M.brass);
+  bob.scale.set(0.09, 0.14, 0.09);
+  bob.position.x = 0.42;
+  train.stackFlap.add(flap, arm, bob);
+  g.add(train.stackFlap);
 }
 
 function buildLining(k, M) {
@@ -286,9 +325,10 @@ export function buildEngine(train, g) {
   buildFeed(train, k, M);
   buildStores(k, M);
   buildMotion(train, k, M);
-  k.finish();
-  train.fireLight = new THREE.PointLight(TRAIN_LOOK.fireLight, 8, 7, 2);
-  train.fireLight.position.set(BOILER.x, 3.0, 0.95);
+  k.finish(M.paintBase);
+  train.tuck(k.root);
+  train.fireLight = new THREE.PointLight(TRAIN_LOOK.fireLight, 8, 6.4, 2);
+  train.fireLight.position.set(BOILER.x, 3.4, 0.8);
   g.add(train.fireLight);
   animateEngine(train, 0, 0);
 }
@@ -306,6 +346,9 @@ export function animateEngine(train, dt, speed01) {
   train.connectingRod.rotation.z = Math.atan2(y - pinY, reach);
   train.pistonRod.position.x = (head + gland) / 2;
   train.pistonRod.scale.x = gland - head;
+
+  const lift = 0.1 + speed01 * 0.95 + Math.sin(wheel.rotation.z * 2) * 0.12 * speed01;
+  train.stackFlap.rotation.z = damp(train.stackFlap.rotation.z, -lift, 9, dt);
 
   train.governor.rotation.y += train.speed * dt * 2.4;
   const spread = 0.28 + speed01 * 0.8;

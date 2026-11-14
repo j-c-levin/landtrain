@@ -2,18 +2,19 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { painted } from '../look.js';
 
-export function interiorKit(parent, name) {
+// coarse: props small enough on screen to take half the tessellation
+export function interiorKit(parent, name, skin = painted, coarse = false) {
   const root = new THREE.Group();
   root.name = name;
   parent.add(root);
   const cube = new THREE.BoxGeometry(1, 1, 1);
-  const cylinder = new THREE.CylinderGeometry(1, 1, 1, 24);
+  const cylinder = new THREE.CylinderGeometry(1, 1, 1, coarse ? 12 : 24);
   const sources = new Set([cube, cylinder]);
   const statics = [];
   const retained = new Set();
 
   function mesh(geometry, source, x = 0, y = 0, z = 0, live = false) {
-    const material = painted(source);
+    const material = skin(source);
     const object = new THREE.Mesh(geometry, material);
     object.position.set(x, y, z);
     object.castShadow = !material.transparent;
@@ -38,7 +39,7 @@ export function interiorKit(parent, name) {
   }
 
   function cushion(w, h, d, material, x, y, z) {
-    const geometry = new THREE.SphereGeometry(1, 20, 12);
+    const geometry = coarse ? new THREE.SphereGeometry(1, 12, 8) : new THREE.SphereGeometry(1, 20, 12);
     const p = geometry.attributes.position;
     const puff = (v) => Math.sign(v) * Math.abs(v) ** 0.38;
     for (let i = 0; i < p.count; i++) {
@@ -50,11 +51,11 @@ export function interiorKit(parent, name) {
 
   function pipe(points, radius, material) {
     const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)));
-    return mesh(new THREE.TubeGeometry(curve, Math.max(8, points.length * 5), radius, 6, false), material);
+    return mesh(new THREE.TubeGeometry(curve, Math.max(8, points.length * (coarse ? 3 : 5)), radius, coarse ? 5 : 6, false), material);
   }
 
   function ring(radius, tube, material, x, y, z, live = false) {
-    return mesh(new THREE.TorusGeometry(radius, tube, 8, 32), material, x, y, z, live);
+    return mesh(new THREE.TorusGeometry(radius, tube, coarse ? 5 : 8, coarse ? 16 : 32), material, x, y, z, live);
   }
 
   function arch(w, rise, thickness, depth, material, x, y, z) {
@@ -85,7 +86,7 @@ export function interiorKit(parent, name) {
   }
 
   function curtain(w, h, material, x, y, z) {
-    const geometry = new THREE.PlaneGeometry(w, h, 18, 16);
+    const geometry = new THREE.PlaneGeometry(w, h, coarse ? 12 : 18, coarse ? 6 : 16);
     const p = geometry.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const u = p.getX(i), v = p.getY(i);
@@ -119,17 +120,40 @@ export function interiorKit(parent, name) {
     return needle;
   }
 
-  function finish() {
+  // base: a white vertex-coloured material; every plain flat paint is baked into it, one draw per half of the car so each half still culls.
+  function finish(base) {
     const batches = new Map();
+    const shared = base ? skin(base) : null;
+    const halves = [{}, {}];
     for (const object of statics) {
       object.updateMatrix();
       const geometry = object.geometry.index ? object.geometry.toNonIndexed() : object.geometry.clone();
       geometry.applyMatrix4(object.matrix);
-      if (!batches.has(object.material)) batches.set(object.material, []);
-      batches.get(object.material).push(geometry);
+      let material = object.material;
+      const plain = shared && material.isPaintMaterial && !material.transparent && !material.shade
+        && material.side === THREE.FrontSide && (material.emissiveIntensity === 0 || material.emissive.getHex() === 0);
+      if (plain) {
+        const { r, g, b } = material.color;
+        const colors = new Float32Array(geometry.attributes.position.count * 3);
+        for (let i = 0; i < colors.length; i += 3) {
+          colors[i] = r;
+          colors[i + 1] = g;
+          colors[i + 2] = b;
+        }
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        material = shared;
+      }
+      let key = material;
+      if (plain) {
+        geometry.computeBoundingBox();
+        key = geometry.boundingBox.min.x + geometry.boundingBox.max.x < 0 ? halves[0] : halves[1];
+      }
+      if (!batches.has(key)) batches.set(key, []);
+      batches.get(key).push(geometry);
       root.remove(object);
     }
-    for (const [material, geometries] of batches) {
+    for (const [key, geometries] of batches) {
+      const material = halves.includes(key) ? shared : key;
       const object = new THREE.Mesh(mergeGeometries(geometries), material);
       object.name = `${name}-${material.name || material.type}`;
       object.castShadow = !material.transparent;
@@ -143,6 +167,9 @@ export function interiorKit(parent, name) {
 
   return { root, mesh, block, round, cushion, pipe, ring, arch, cloth, curtain, pivot, dial, finish };
 }
+
+const asIs = (material) => material;
+export const exteriorKit = (parent, name) => interiorKit(parent, name, asIs, true);
 
 export function plantLeafGeometry() {
   const geometry = new THREE.PlaneGeometry(1, 1, 6, 10);

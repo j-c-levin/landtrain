@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { TRAIN_LOOK, painted } from '../look.js';
+import { TRAIN_LOOK, painted, getLookTier } from '../look.js';
 import { box, profiledBox, curvedRoof, instancedDetails } from './parts.js';
 import { cabinSides, paintedFloor } from './shell.js';
-import { interiorKit } from './interior-kit.js';
+import { interiorKit, exteriorKit } from './interior-kit.js';
 import { buildBunkInterior } from './interiors.js';
 
 // Front car: cargo vestibule at deck level, raised driver's cab perched
@@ -33,11 +33,19 @@ export function buildFrontCar(train, g) {
   g.add(headlamp);
   const grille = [];
   for (let z = -1.5; z <= 1.5; z += 0.5) grille.push([9.22, 2.83, z, 0.09, 0.72, 0.12, 0, 0, 0.12]);
+  // pilot: a slatted wedge under the buffer beam
+  for (let z = -1.8; z <= 1.81; z += 0.45) grille.push([9.42, 0.8, z, 1.16, 0.07, 0.1, 0, 0, -Math.PI / 4]);
+  grille.push([9.84, 0.38, 0, 0.1, 0.1, 4.3], [9.0, 1.22, 0, 0.1, 0.1, 4.3]);
+  for (const z of [-2.1, 2.1]) grille.push([9.42, 0.38, z, 0.9, 0.09, 0.09], [9.0, 0.8, z, 0.09, 0.85, 0.09], [9.42, 0.8, z, 1.16, 0.09, 0.09, 0, 0, -Math.PI / 4]);
   instancedDetails(grille, train.geometry.detail, M.iron, g);
+  const lampRing = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.05, 6, 20), M.brass);
+  lampRing.rotation.y = Math.PI / 2;
+  lampRing.position.set(9.44, 3.75, 0);
+  g.add(lampRing);
 
   buildBunkInterior(g, M);
+  for (const name of ['bunk-interior', 'vestibule']) train.tuck(g.getObjectByName(name));
   profiledBox(2.6, 1.05, 1.3, 0.12, painted(M.wood), -3.7, 2.305, -1.55, g);
-  instancedDetails([[-4.45, 2.43, -0.88, 0.5, 0.06, 0.06], [-3, 2.43, -0.88, 0.5, 0.06, 0.06]], train.geometry.detail, painted(M.iron), g);
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 1.15, 12), painted(M.woodDark));
   barrel.position.set(-1.3, 2.355, -1.65);
   barrel.castShadow = true;
@@ -45,7 +53,7 @@ export function buildFrontCar(train, g) {
 
   box(12.0, 0.14, 1.275, M.wood, 2, 4.98, -1.5875, g);
   box(12.0, 0.14, 1.275, train.fadingMat('car0', M.wood), 2, 4.98, 1.5875, g);
-  cabinSides(train, g, 'cab', 2.075, 12.15, 5.05, 7.61, M.cream, [[-1.65, 3.5], [4, 5.6]], 2.13);
+  cabinSides(train, g, 'cab', 2.075, 12.15, 5.05, 7.61, M.cream, [[-1.65, 3.5], [4, 5.6]], 2.13, { stripe: M.hull, studs: M.brass });
   paintedFloor(train, g, 2.075, 11.9, 5.05, -1.12, 1.9);
   paintedFloor(train, g, 2.075, 11.9, 5.05, 0.96, 2.2, train.fadingMat('car0', painted(M.wood)));
   for (const side of [-1, 1]) {
@@ -56,10 +64,13 @@ export function buildFrontCar(train, g) {
   }
   box(0.23, 0.38, 4.3, M.woodDark, 7.96, 7.44, 0, g);
   box(0.18, 0.3, 4.4, M.woodDark, -4, 7.46, 0, g);
-  curvedRoof(13.3, 5.55, 0.72, M.copper, train.fadingMat('cab', M.copper), 2, 7.92, g);
+  const sheet = train.weathered(M.copper);
+  curvedRoof(13.3, 5.55, 0.72, sheet, train.fadingMat('cab', sheet), 2, 7.92, g);
   const seams = [];
   for (const x of [-3.7, -1.2, 1.3, 3.8, 6.3]) seams.push([x, 7.935, 0, 0.045, 0.035, 1.85]);
   instancedDetails(seams, train.geometry.detail, M.hullDark, g);
+
+  buildRoofFurniture(train, g);
 
   const k = interiorKit(g, 'cab-interior');
   const { block, round, cushion, pipe, ring } = k;
@@ -78,7 +89,7 @@ export function buildFrontCar(train, g) {
   dash.block(0.36, 0.08, 0.04, M.brass, 0.14, -0.39, 0.18);
   for (let i = 0; i < 3; i++) dash.round(0.039, 0.036, 0.039, i === 0 ? M.glow : M.copper,
     0.81, -0.17 + i * 0.18, 0.18).rotation.x = Math.PI / 2;
-  dash.finish();
+  dash.finish(M.paintBase);
 
   train.cabWheel = k.pivot('cab-wheel', 3.11, 6.22, -1.02);
   train.cabWheel.rotation.y = Math.PI / 2;
@@ -112,17 +123,63 @@ export function buildFrontCar(train, g) {
   for (let i = -3; i <= 3; i++) chart.block(0.012, 0.006, 0.81, M.sage, i * 0.2, 0.078, 0);
   chart.pipe([[-0.6, 0.087, 0.29], [-0.31, 0.087, 0.2], [-0.17, 0.087, -0.09], [0.21, 0.087, 0.02], [0.57, 0.087, -0.31]], 0.022, M.hull);
   chart.round(0.052, 0.013, 0.052, M.brass, 0.57, 0.086, -0.31);
-  chart.finish();
+  chart.finish(M.paintBase);
   for (const x of [-0.7, 0.77]) block(0.09, 0.94, 0.09, M.woodDark, x, 5.52, -1.67);
-  for (const [x, w] of [[-1.65, 3.5], [4, 5.6]]) block(w - 0.14, 1.24, 0.012, M.glass, x, 6.6, -2.12);
-  for (const z of [-1.05, 1.05]) block(0.012, 1.3, 1.95, M.glass, 8.045, 6.59, z).rotation.z = 0.1;
+  for (const z of [-1.05, 1.05]) block(0.012, 1.3, 1.95, train.zoneGlass('cab', true), 8.045, 6.59, z).rotation.z = 0.1;
   block(0.08, 1.46, 0.075, M.woodDark, 8.04, 6.59, 0).rotation.z = 0.1;
   pipe([[5.87, 7.38, -1.85], [6.23, 7.28, -1.55], [6.24, 7.12, -1.24]], 0.025, M.brass);
   k.mesh(new THREE.CylinderGeometry(0.1, 0.3, 0.22, 24, 1, true), M.teal, 6.24, 7.07, -1.24);
   round(0.14, 0.025, 0.14, M.glow, 6.24, 6.97, -1.24);
-  k.finish();
+  k.finish(M.paintBase);
   const light = new THREE.PointLight(TRAIN_LOOK.cabLight, 9, 6.5, 2);
   light.position.set(5.4, 7.0, -0.2);
   g.add(light);
   train.cabLight = light;
+}
+
+// Vents, a bell that swings with the road and a wind gauge on the cab roof, which nobody walks.
+function buildRoofFurniture(train, g) {
+  const M = train.materials;
+  const k = exteriorKit(g, 'cab-roof');
+  const { block, round } = k;
+  for (const x of [0.2, 4.6]) {
+    round(0.14, 0.24, 0.14, M.iron, x, 8.02, 0);
+    const cap = k.mesh(new THREE.SphereGeometry(0.3, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), M.brass, x, 8.12, 0);
+    cap.scale.y = 0.6;
+  }
+  for (const z of [-0.26, 0.26]) block(0.07, 0.62, 0.07, M.iron, 7.3, 8.2, z);
+  block(0.09, 0.07, 0.66, M.iron, 7.3, 8.5, 0);
+  round(0.03, 1.1, 0.03, M.iron, -3.9, 8.45, -0.6);
+  round(0.07, 0.05, 0.07, M.brass, -3.9, 7.93, -0.6);
+  const roofKit = k.finish();
+  if (getLookTier() === 'low') roofKit.traverse((object) => { object.castShadow = false; });
+
+  const bell = new THREE.Group();
+  bell.name = 'cab-bell';
+  bell.position.set(7.3, 8.47, 0);
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), M.brass);
+  crown.position.y = -0.2;
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.25, 0.16, 12, 1, true), M.brass);
+  skirt.position.y = -0.28;
+  const clapper = new THREE.Mesh(train.geometry.drum, M.iron);
+  clapper.scale.set(0.04, 0.3, 0.04);
+  clapper.position.y = -0.24;
+  bell.add(crown, skirt, clapper);
+  g.add(bell);
+  train.swingers.push({ object: bell, rate: 3.1, phase: 1.2, reach: 0.28 });
+
+  const vane = new THREE.Group();
+  vane.name = 'cab-anemometer';
+  vane.position.set(-3.9, 9.0, -0.6);
+  const arms = [];
+  const cups = [];
+  for (let i = 0; i < 3; i++) {
+    const a = i * Math.PI * 2 / 3;
+    arms.push([Math.cos(a) * 0.17, 0, Math.sin(a) * 0.17, 0.34, 0.022, 0.022, 0, -a, 0]);
+    cups.push([Math.cos(a) * 0.36, 0, Math.sin(a) * 0.36, 0.085, 0.11, 0.085, 0, -a, Math.PI / 2]);
+  }
+  instancedDetails(arms, train.geometry.detail, M.iron, vane);
+  instancedDetails(cups, train.geometry.drum, M.brass, vane);
+  g.add(vane);
+  train.spinners.push({ object: vane, idle: 1.4, rate: 0.5 });
 }

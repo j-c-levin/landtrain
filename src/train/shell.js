@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { CAR_LEN, CAR_CENTERS, LADDERS } from '../constants.js';
-import { painted, shaded } from '../look.js';
-import { box, profiledBox, curvedRoof, instancedDetails } from './parts.js';
+import { painted, shaded, getLookTier } from '../look.js';
+import { box, profiledBox, curvedRoof, instancedDetails, shadeInstances, hash } from './parts.js';
+import { exteriorKit } from './interior-kit.js';
 
 export const CAR_WINDOWS = [
   [[-4.6, 2.4], [-0.8, 2.4], [3.7, 3.8]],
@@ -9,8 +10,10 @@ export const CAR_WINDOWS = [
   [[-3.9, 2.5], [0, 2.8], [3.9, 2.5]],
 ];
 
-export function cabinSides(train, g, zone, center, length, base, eave, wall, windows, z = 2.36) {
+// trim: { stripe, studs } materials for a coach line under the windows and pins along the rails.
+export function cabinSides(train, g, zone, center, length, base, eave, wall, windows, z = 2.36, trim = null) {
   const M = train.materials;
+  const sheet = train.weathered(wall);
   const sill = base + 0.85;
   const lintel = Math.min(base + 2.29, eave - 0.38);
   for (const side of [-1, 1]) {
@@ -21,6 +24,7 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
       [center, (eave + lintel) / 2, sz, length, eave - lintel, 0.2],
     ];
     const frames = [];
+    const panes = [];
     let edge = center - length / 2;
     for (const [wx, width] of windows) {
       const left = wx - width / 2;
@@ -30,11 +34,14 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
       frames.push([wx, sill, sz + side * 0.14, width + 0.32, 0.14, 0.46]);
       frames.push([wx, lintel, sz + side * 0.09, width + 0.28, 0.13, 0.3]);
       frames.push([wx + width * 0.15, (sill + lintel) / 2, sz, 0.075, lintel - sill, 0.18]);
+      panes.push([wx, (sill + lintel) / 2, sz, width, lintel - sill, 0.02]);
       edge = right;
     }
     const end = center + length / 2;
     panels.push([(edge + end) / 2, (sill + lintel) / 2, sz, end - edge, lintel - sill, 0.2]);
-    instancedDetails(panels, train.geometry.detail, side > 0 ? train.nearWallMat(zone, wall) : wall, g, true);
+    shadeInstances(instancedDetails(panels, train.geometry.panel, side > 0 ? train.nearWallMat(zone, sheet) : sheet, g, true),
+      (i) => (i === 0 ? 0.93 : i === 1 ? 1 : 0.95 + hash(i + center) * 0.07));
+    instancedDetails(panes, train.geometry.detail, train.zoneGlass(zone, side < 0), g).renderOrder = 3;
     if (side < 0) {
       const lining = panels.map(([x, y, , w, h]) => [x, y, sz + 0.108, w, h, 0.02]);
       lining.push([center, eave - 0.2, sz + 0.14, length, 0.1, 0.06]);
@@ -46,6 +53,15 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
     const boards = [];
     for (let px = center - length / 2 + 0.45; px < end; px += 0.65) boards.push([px, base + 0.43, sz + side * 0.105, 0.018, 0.55, 0.015]);
     instancedDetails(boards, train.geometry.detail, material(M.wood), g);
+    if (!trim) continue;
+    instancedDetails([[center, base + 0.68, sz + side * 0.105, length - 0.2, 0.05, 0.014]], train.geometry.detail, material(trim.stripe), g);
+    if (getLookTier() !== 'high') continue;
+    const studs = [];
+    for (let px = center - length / 2 + 0.3; px < end; px += 0.6) {
+      studs.push([px, base + 0.16, sz + side * 0.225, 0.05, 0.05, 0.02]);
+      studs.push([px, eave, sz + side * 0.125, 0.05, 0.05, 0.02]);
+    }
+    train.tuck(instancedDetails(studs, train.geometry.detail, material(trim.studs), g));
   }
 }
 
@@ -73,8 +89,9 @@ export function buildCarShell(train, g, ci) {
   instancedDetails(decking, train.geometry.detail, M.woodDark, g);
 
   const eave = ci === 2 ? 4.75 : 4.67;
-  const wall = [M.cream, M.hull, M.sage][ci];
-  cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, wall, CAR_WINDOWS[ci]);
+  const wall = [M.cream, M.engineHull, M.sage][ci];
+  const trim = [{ stripe: M.hull, studs: M.brass }, null, { stripe: M.cream, studs: M.brass }][ci];
+  cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, wall, CAR_WINDOWS[ci], 2.36, trim);
   const front = isCab ? 8.15 : 6.9;
   for (const x of [-6.9, front]) {
     box(0.22, eave - 1.78, 1.65, shaded(M.endWall), x, (eave + 1.78) / 2, -1.5, g);
@@ -82,7 +99,10 @@ export function buildCarShell(train, g, ci) {
     box(0.22, 0.35, 2.1, painted(M.woodDark), x, eave - 0.175, 0.35, g);
   }
   paintedFloor(train, g, (front - 6.9) / 2, front + 6.9 - 0.22, 1.78, 0, 4.52);
-  if (isCab) curvedRoof(15.6, 5.5, 0.6, M.copper, train.fadingMat(zone, M.copper), 0.5, 5.05, g);
+  if (isCab) {
+    const sheet = train.weathered(M.copper);
+    curvedRoof(15.6, 5.5, 0.6, sheet, train.fadingMat(zone, sheet), 0.5, 5.05, g);
+  }
 
   // wheels: two bogies of two, both sides
   for (const bx of [-4.3, 4.3]) {
@@ -101,6 +121,58 @@ export function buildCarShell(train, g, ci) {
       }
     }
   }
+  for (const side of [-1, 1]) {
+    const rods = new THREE.Group();
+    rods.userData.phase = side > 0 ? 0 : Math.PI / 2;
+    const bars = [];
+    const pins = [];
+    for (const bx of [-4.3, 4.3]) {
+      bars.push([bx, 0.92, side * 2.86, 2.52, 0.13, 0.06]);
+      for (const wx of [-1.1, 1.1]) pins.push([bx + wx, 0.92, side * 2.85, 0.13, 0.13, 0.17]);
+    }
+    instancedDetails(bars, train.geometry.detail, M.iron, rods);
+    instancedDetails(pins, train.geometry.pin, M.brass, rods);
+    g.add(rods);
+    train.rods.push(rods);
+    train.tuck(rods);
+  }
+}
+
+// Queen-post truss under the floor and whatever each car slings between its bogies.
+function buildUnderframe(train, g, ci) {
+  const M = train.materials;
+  const gear = [];
+  for (const z of [-1.9, 1.9]) {
+    gear.push([0, 0.55, z, 3.0, 0.07, 0.07]);
+    for (const side of [-1, 1]) {
+      gear.push([side * 1.5, 0.83, z, 0.1, 0.62, 0.1]);
+      gear.push([side * 2.4, 0.835, z, 1.89, 0.07, 0.07, 0, 0, side * 0.307]);
+    }
+  }
+  train.tuck(instancedDetails(gear, train.geometry.detail, M.iron, g));
+  if (getLookTier() === 'low') return;
+  const k = exteriorKit(g, 'underframe');
+  const { block, round } = k;
+  const tank = (x, r, len, material) => {
+    round(r, len, r, material, x, 0.86, -1.1).rotation.z = Math.PI / 2;
+    for (const dx of [-len * 0.32, len * 0.32]) round(r + 0.025, 0.09, r + 0.025, M.iron, x + dx, 0.86, -1.1).rotation.z = Math.PI / 2;
+    round(0.08, 0.12, 0.08, M.brass, x + len * 0.18, 0.86 + r, -1.1);
+  };
+  if (ci === 0) tank(-0.2, 0.4, 2.7, M.engine);
+  if (ci === 1) {
+    block(2.3, 0.46, 1.5, M.sootGrime, 0.5, 0.99, -1.2);
+    block(2.42, 0.06, 1.6, M.iron, 0.5, 0.75, -1.2);
+    block(0.5, 0.3, 0.06, M.iron, 0.5, 0.99, -0.43);
+    tank(-1.5, 0.3, 1.2, M.copper);
+  }
+  if (ci === 2) {
+    block(2.2, 0.62, 0.9, M.woodDark, 0.2, 0.9, -1.2);
+    block(2.3, 0.06, 1.0, M.wood, 0.2, 1.22, -1.2);
+    for (const x of [-0.5, 0.9]) block(0.09, 0.64, 0.92, M.iron, x, 0.9, -1.2);
+    block(0.16, 0.14, 0.04, M.brass, 0.2, 1.02, -0.74);
+  }
+  k.finish().traverse((object) => { object.castShadow = false; });
+  train.tuck(k.root);
 }
 
 function buildExteriorDetails(train, g, ci) {
@@ -114,6 +186,7 @@ function buildExteriorDetails(train, g, ci) {
     }
     runningGear.push([0, 1.63, z, 13.9, 0.2, 0.16]);
   }
+  buildUnderframe(train, g, ci);
   instancedDetails(runningGear, train.geometry.detail, M.iron, g, true);
   instancedDetails(springs, train.geometry.detail, M.engine, g);
 

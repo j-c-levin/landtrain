@@ -536,6 +536,7 @@ export const grasslandMaterials = {
 export const TRAIN_LOOK = {
   hull: 0xb4492f,
   hullDark: 0x6e3528,
+  engineHull: 0x8a4a3a,
   cream: 0xf4e4bd,
   innerWall: 0xecd6aa,
   endWall: 0xd9bf94,
@@ -569,6 +570,7 @@ export function createTrainMaterials() {
   return {
     hull: enamel({ color: C.hull, roughness: 0.5 }),
     hullDark: enamel({ color: C.hullDark, roughness: 0.55 }),
+    engineHull: enamel({ color: C.engineHull, roughness: 0.62 }, 0.3),
     cream: enamel({ color: C.cream, roughness: 0.55 }),
     innerWall: std({ color: C.innerWall, roughness: 0.95 }),
     endWall: std({ color: C.endWall, roughness: 0.95 }),
@@ -600,6 +602,7 @@ export function createTrainMaterials() {
     upholstery: std({ color: 0xb85a3a, roughness: 1 }),
     book: std({ color: 0x4f74aa, roughness: 0.8 }),
     sootGrime: std({ color: 0x5a4035, roughness: 0.98 }),
+    paintBase: std({ color: 0xffffff, roughness: 1, vertexColors: true }),
   };
 }
 

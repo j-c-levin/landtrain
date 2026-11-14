@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TRAIN_LOOK } from '../look.js';
+import { TRAIN_LOOK, painted, getLookTier } from '../look.js';
 import { interiorKit } from './interior-kit.js';
 
 export function buildLivingInterior(g, M, { createPlant }) {
@@ -73,8 +73,8 @@ export function buildLivingInterior(g, M, { createPlant }) {
   for (const [r, y] of [[0.49, 3.6], [0.23, 4.04]]) ring(r, 0.022, M.brass, -1.65, y, -1.4).rotation.x = Math.PI / 2;
   round(0.23, 0.015, 0.23, M.glow, -1.65, 3.61, -1.4);
   round(0.56, 0.004, 0.47, M.lightPool, -1.7, 2.731, -1.03);
-  const readingLight = new THREE.PointLight(TRAIN_LOOK.readingLight, 13, 6.5, 2);
-  readingLight.position.set(-1.7, 3.53, -0.35);
+  const readingLight = new THREE.PointLight(TRAIN_LOOK.readingLight, 15, 9, 2);
+  readingLight.position.set(-0.6, 3.8, 0.3);
   k.root.add(readingLight);
 
   block(2.6, 0.67, 0.61, M.woodDark, 0.58, 2.135, -1.88);
@@ -113,7 +113,7 @@ export function buildLivingInterior(g, M, { createPlant }) {
       block(0.23, 0.06, 0.05, M.wine, windowX + side * 1.2, 3.1, -1.94);
     }
   }
-  k.finish();
+  k.finish(M.paintBase);
   return { plantPots, can };
 }
 
@@ -151,8 +151,116 @@ export function buildBunkInterior(g, M) {
   k.pipe([[5.62, 3.98, -1.75], [5.62, 3.65, -1.75], [5.9, 3.65, -1.66]], 0.025, M.brass);
   k.mesh(new THREE.CylinderGeometry(0.12, 0.27, 0.2, 24, 1, true), M.teal, 5.9, 3.6, -1.65);
   round(0.13, 0.03, 0.13, M.glow, 5.9, 3.5, -1.65);
-  const light = new THREE.PointLight(TRAIN_LOOK.bunkLight, 5, 5.5, 2);
-  light.position.set(5.35, 3.53, -0.75);
+  const light = new THREE.PointLight(TRAIN_LOOK.bunkLight, 8, 8.5, 2);
+  light.position.set(1.7, 3.9, -0.3);
   k.root.add(light);
-  k.finish();
+  k.finish(M.paintBase);
+  buildVestibule(g, M);
+}
+
+// The front car's other half: where coats, boots, stores and the kettle live.
+function buildVestibule(g, M) {
+  const k = interiorKit(g, 'vestibule', painted, true);
+  const fine = getLookTier() !== 'low';
+  const { block, round, cushion, ring, pipe, curtain } = k;
+  const HALF_PI = Math.PI / 2;
+  const wall = -2.245;
+
+  block(7.99, 0.85, 0.03, M.wood, -2.795, 2.205, wall);
+  block(7.99, 0.07, 0.07, M.woodDark, -2.795, 2.63, wall + 0.02);
+  block(7.99, 0.12, 0.06, M.woodDark, -2.795, 1.84, wall + 0.02);
+  if (fine) for (let x = -6.5; x < 1.1; x += 0.5) block(0.02, 0.72, 0.012, M.woodDark, x, 2.22, wall + 0.018);
+
+  block(6.7, 0.02, 1.5, M.teal, -2.7, 1.794, -0.3);
+  block(6.44, 0.006, 1.24, M.pillow, -2.7, 1.807, -0.3);
+  block(6.2, 0.006, 1.0, M.wine, -2.7, 1.812, -0.3);
+  for (const x of [-5.1, -3.5, -1.9, -0.3]) block(0.5, 0.006, 0.5, M.linen, x, 1.818, -0.3).rotation.y = Math.PI / 4;
+  if (fine) {
+    for (let z = -0.99; z < 0.42; z += 0.12) {
+      for (const x of [-6.11, 0.71]) block(0.12, 0.01, 0.027, M.linen, x, 1.8, z);
+    }
+  }
+
+  block(0.95, 0.1, 0.05, M.woodDark, -6.3, 3.9, wall + 0.03);
+  if (fine) for (const x of [-6.6, -6.3, -6.0]) round(0.025, 0.14, 0.025, M.brass, x, 3.9, wall + 0.1).rotation.x = HALF_PI;
+  cushion(0.56, 1.36, 0.22, M.wine, -6.52, 3.18, wall + 0.16);
+  if (fine) cushion(0.42, 0.17, 0.25, M.pillow, -6.52, 3.84, wall + 0.17);
+  if (fine) for (const y of [3.5, 3.2, 2.9]) round(0.028, 0.02, 0.028, M.brass, -6.52, y, wall + 0.275).rotation.x = HALF_PI;
+  block(0.11, 1.05, 0.04, M.teal, -6.05, 3.36, wall + 0.1).rotation.z = 0.04;
+  block(0.11, 0.78, 0.04, M.teal, -5.93, 3.5, wall + 0.12).rotation.z = -0.05;
+  for (const y of [2.9, 3.05]) block(0.115, 0.05, 0.045, M.pillow, -6.07, y, wall + 0.102);
+  round(0.11, 0.36, 0.11, M.woodDark, -6.55, 1.97, -1.95);
+  round(0.11, 0.36, 0.11, M.woodDark, -6.27, 1.97, -1.9);
+  if (fine) for (const x of [-6.55, -6.27]) cushion(0.2, 0.14, 0.34, M.woodDark, x, 1.86, -1.8);
+
+  for (const x of [-4.5, -2.9]) block(0.11, 1.07, 1.32, M.iron, x, 2.305, -1.55);
+  block(0.24, 0.2, 0.04, M.brass, -3.7, 2.52, -0.885);
+  cushion(1.0, 0.2, 0.82, M.sage, -4.3, 2.93, -1.6);
+  if (fine) {
+    cushion(0.92, 0.18, 0.74, M.pillow, -4.28, 3.08, -1.6);
+    cushion(0.86, 0.16, 0.7, M.wine, -4.31, 3.21, -1.6);
+  }
+  round(0.12, 0.05, 0.12, M.iron, -3.0, 2.86, -1.5);
+  round(0.085, 0.22, 0.085, M.glow, -3.0, 2.99, -1.5);
+  round(0.12, 0.05, 0.12, M.brass, -3.0, 3.12, -1.5);
+  if (fine) ring(0.09, 0.012, M.brass, -3.0, 3.2, -1.5);
+
+  block(1.05, 0.8, 0.05, M.woodDark, -2.7, 3.42, wall + 0.03);
+  block(0.9, 0.65, 0.02, M.pages, -2.7, 3.42, wall + 0.06);
+  if (fine) {
+    for (const dy of [-0.2, 0, 0.2]) block(0.84, 0.01, 0.006, M.sage, -2.7, 3.42 + dy, wall + 0.072);
+    for (const dx of [-0.28, 0, 0.28]) block(0.01, 0.6, 0.006, M.sage, -2.7 + dx, 3.42, wall + 0.072);
+  }
+  pipe([[-3.05, 3.26, wall + 0.08], [-2.82, 3.48, wall + 0.08], [-2.6, 3.36, wall + 0.08], [-2.38, 3.6, wall + 0.08]], 0.016, M.hull);
+  round(0.03, 0.02, 0.03, M.brass, -2.38, 3.6, wall + 0.085).rotation.x = HALF_PI;
+
+  if (fine) {
+    for (const [y, r] of [[2.05, 0.475], [2.66, 0.445]]) ring(r, 0.022, M.iron, -1.3, y, -1.65).rotation.x = HALF_PI;
+    ring(0.27, 0.06, M.pillow, -1.3, 2.97, -1.65).rotation.x = HALF_PI;
+    ring(0.16, 0.055, M.pillow, -1.3, 3.03, -1.65).rotation.x = HALF_PI;
+  }
+  cushion(0.72, 0.84, 0.6, M.linen, -2.08, 2.17, -1.78);
+  block(0.3, 0.05, 0.3, M.wine, -2.08, 2.5, -1.78);
+
+  block(1.5, 0.78, 0.72, M.teal, 0.3, 2.19, -1.85);
+  block(1.62, 0.08, 0.84, M.wood, 0.3, 2.62, -1.82);
+  block(0.03, 0.62, 0.02, M.woodDark, 0.3, 2.19, -1.485);
+  if (fine) for (const x of [0.18, 0.42]) ring(0.05, 0.012, M.brass, x, 2.22, -1.47);
+  const kettle = k.mesh(new THREE.SphereGeometry(0.19, 14, 10), M.copper, -0.05, 2.82, -1.8);
+  kettle.scale.y = 0.8;
+  round(0.07, 0.04, 0.07, M.brass, -0.05, 2.985, -1.8);
+  if (fine) ring(0.14, 0.018, M.iron, -0.05, 2.97, -1.8);
+  pipe([[0.1, 2.82, -1.8], [0.24, 2.9, -1.8], [0.3, 3.0, -1.8]], 0.026, M.copper);
+  for (const [x, z] of [[0.55, -1.66], [0.74, -1.9]]) {
+    round(0.075, 0.14, 0.075, M.cream, x, 2.73, z);
+    if (fine) ring(0.055, 0.014, M.cream, x + 0.09, 2.73, z);
+  }
+  round(0.1, 0.22, 0.1, M.sage, 0.95, 2.77, -2.0);
+  round(0.105, 0.03, 0.105, M.brass, 0.95, 2.895, -2.0);
+
+  for (const y of [3.42, 3.92]) {
+    block(0.78, 0.05, 0.3, M.wood, 0.8, y, wall + 0.17);
+    for (const x of [0.5, 1.1]) block(0.04, 0.16, 0.24, M.woodDark, x, y - 0.1, wall + 0.14);
+  }
+  for (const [i, mat] of [M.wine, M.pillow, M.sage].entries()) {
+    round(0.085, 0.2, 0.085, mat, 0.55 + i * 0.25, 3.545, wall + 0.17);
+    if (fine) round(0.09, 0.025, 0.09, M.brass, 0.55 + i * 0.25, 3.655, wall + 0.17);
+  }
+  block(0.13, 0.3, 0.22, M.book, 0.56, 4.095, wall + 0.17);
+  block(0.11, 0.26, 0.22, M.wine, 0.69, 4.075, wall + 0.17).rotation.z = -0.14;
+  round(0.11, 0.16, 0.11, M.copper, 1.0, 4.025, wall + 0.17);
+
+  for (const wx of [-4.6, -0.8]) {
+    round(0.026, 2.74, 0.026, M.woodDark, wx, 4.18, -2.03).rotation.z = HALF_PI;
+    for (const side of [-1, 1]) {
+      curtain(0.46, 1.48, M.linen, wx + side * 1.02, 3.36, -2.01);
+      block(0.22, 0.06, 0.05, M.teal, wx + side * 1.02, 3.1, -1.94);
+    }
+  }
+
+  pipe([[-2.7, 4.86, -0.9], [-2.7, 4.56, -0.9]], 0.018, M.iron);
+  round(0.14, 0.05, 0.14, M.brass, -2.7, 4.54, -0.9);
+  round(0.1, 0.24, 0.1, M.glow, -2.7, 4.39, -0.9);
+  round(0.13, 0.05, 0.13, M.brass, -2.7, 4.25, -0.9);
+  k.finish(M.paintBase).traverse((object) => { object.castShadow = false; });
 }

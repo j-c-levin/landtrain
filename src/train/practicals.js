@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CAR_LEN } from '../constants.js';
 import { CHART, TRAIN_LOOK, trainFx, getLookTier } from '../look.js';
+import { CAR_WINDOWS } from './shell.js';
 
 // Night practicals and grounding: a soft contact shadow under every car, warm
 // pools the windows throw on the ground, lamp halos, and a headlamp beam on the
@@ -8,6 +9,7 @@ import { CHART, TRAIN_LOOK, trainFx, getLookTier } from '../look.js';
 export function createPracticals() {
   return {
     contactMat: trainFx.contact(),
+    nightContactMat: trainFx.contact(),
     spillMat: trainFx.spill(),
     haloMat: trainFx.lampHalo(),
     glows: [],
@@ -23,12 +25,9 @@ export function createPracticals() {
   };
 }
 
-// [x, z, length, depth, strength] of each car's window spill, train-local
-const SPILL = [
-  [[1.5, 4.6, 8.5, 4.2, 0.8], [1.5, -4.4, 7.5, 3.6, 0.5], [13.5, 0, 9, 6.5, 1]],
-  [[0.2, 4.5, 9, 4.2, 0.9], [0.2, -4.3, 8.5, 3.6, 0.6]],
-  [[0, 4.8, 9.5, 4.4, 0.9], [0, -4.6, 9, 3.8, 0.6], [-8, 3.2, 3.6, 3.2, 0.7]],
-];
+// [x, z, length, depth, strength] of the pools that are not a window's: headlamp, veranda lantern
+const POOLS = [[[13.5, 0, 9, 6, 1]], [], [[-7.4, 4.9, 2.6, 2.3, 0.7]]];
+const CAR_HALF_WIDTH = 2.5;
 // [x, y, z, width, height] bloom over each lit window group
 const GLOWS = [
   [[3.5, 2.9, 2.4, 14, 4.2], [5, 6.4, 2.2, 11, 3.6]],
@@ -37,9 +36,9 @@ const GLOWS = [
 ];
 // [x, y, z, scale] lamp halos
 const HALOS = [
-  [[9.6, 3.75, 0, 3.4]],
-  [[0.5, 2.9, 1.3, 3.2]],
-  [[-7.05, 3.45, 2.6, 2.2]],
+  [[9.6, 3.75, 0, 3.0]],
+  [[0.5, 2.9, 1.3, 2.8]],
+  [[-7.05, 3.45, 2.6, 1.5]],
 ];
 export function buildPracticals(train, g, ci) {
   const P = train.practicals;
@@ -53,6 +52,8 @@ export function buildPracticals(train, g, ci) {
     return mesh;
   };
   flat(P.contactMat, 0, 0.05, 0, 9.4, 3.9, 1);
+  // By night the lamps reach the ground through the floor; a second shadow keeps the underside dark.
+  flat(P.nightContactMat, 0, 0.055, 0, 9.8, 5.2, 1);
   P.planMat.uniforms.uSize.value.set(CAR_LEN + 1.4, 5.6);
   const plan = new THREE.Mesh(P.plan, P.planMat);
   plan.rotation.x = -Math.PI / 2;
@@ -60,7 +61,26 @@ export function buildPracticals(train, g, ci) {
   plan.visible = false;
   g.add(plan);
   P.plans.push(plan);
-  for (const [x, z, len, depth] of SPILL[ci]) flat(P.spillMat, x, 0.07, z, len, depth, 2);
+  // Each window throws its own pool, starting at the car's side so nothing glows beneath the floor.
+  const pools = POOLS[ci].slice();
+  for (const [wx, width] of CAR_WINDOWS[ci]) {
+    pools.push([wx, CAR_HALF_WIDTH + 2.6, width / 2 + 2.3, 2.6, 0.8]);
+    pools.push([wx, -CAR_HALF_WIDTH - 2.0, width / 2 + 1.9, 2.0, 0.45]);
+  }
+  const spill = new THREE.InstancedMesh(P.disc, P.spillMat, pools.length);
+  const matrix = new THREE.Matrix4();
+  const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+  const at = new THREE.Vector3();
+  const size = new THREE.Vector3();
+  const strength = new THREE.Color();
+  for (let i = 0; i < pools.length; i++) {
+    const [x, z, len, depth, gain] = pools[i];
+    spill.setMatrixAt(i, matrix.compose(at.set(x, 0.07, z), turn, size.set(len, depth, 1)));
+    spill.setColorAt(i, strength.setScalar(gain));
+  }
+  spill.renderOrder = 2;
+  spill.frustumCulled = false;
+  g.add(spill);
   for (const [x, y, z, scale] of HALOS[ci]) {
     const halo = new THREE.Sprite(P.haloMat);
     halo.position.set(x, y, z);
@@ -98,28 +118,31 @@ export function setPracticalsNight(train, night, dusk = 0) {
   P.dusk = dusk;
   P.night = night;
   P.lamp = lamp;
-  P.spillMat.opacity = 0.34 * night;
-  P.haloMat.opacity = 0.14 + 0.48 * lamp;
+  P.spillMat.opacity = 0.3 * night;
+  P.haloMat.opacity = 0.05 + 0.24 * lamp;
   for (const { light, distance, intensity } of P.lights) {
-    light.distance = distance * (1 - 0.12 * lamp);
-    if (light !== train.fireLight) light.intensity = intensity * (1.2 + 0.9 * lamp);
+    if (light === train.fireLight) continue;
+    light.distance = distance * (1 + 0.3 * lamp);
+    light.intensity = intensity * (1.2 + 0.8 * lamp);
   }
   if (P.beam) P.beam.intensity = 260 * night;
-  train.materials.glow.emissiveIntensity = 1.6 + 1.6 * lamp;
+  train.materials.glow.emissiveIntensity = 1.5 + 0.7 * lamp;
   const sage = train.materials.sage;
+  const sageSheet = train.weathered(sage);
   sage.emissiveIntensity = 0.2 * dusk;
+  sageSheet.emissiveIntensity = sage.emissiveIntensity;
   train.zoneMats.car2.emissiveIntensity = sage.emissiveIntensity;
-  for (const { source, mat } of train.fadeMats) if (source === sage) mat.emissiveIntensity = sage.emissiveIntensity;
-  train.materials.headlamp.emissiveIntensity = 2.4 + 2.6 * night;
-  train.materials.glass.emissive.setHex(TRAIN_LOOK.spillLight);
-  train.materials.glass.emissiveIntensity = 1.4 * night;
+  for (const { source, mat } of train.fadeMats) if (source === sage || source === sageSheet) mat.emissiveIntensity = sage.emissiveIntensity;
+  train.materials.headlamp.emissiveIntensity = 2.2 + 1.6 * night;
+  train.glassGlow = 0.75 * night + 0.12 * dusk;
 }
 
 // A window's bloom belongs to the outside of a lit car; it clears off the one being looked into.
 export function setPracticalsFocus(train) {
   const P = train.practicals;
   const chart = CHART.uChart.value;
-  P.contactMat.opacity = (1 - 0.45 * Math.max(P.night, 0)) * (1 - chart);
+  P.contactMat.opacity = (1 - 0.1 * Math.max(P.night, 0)) * (1 - chart);
+  P.nightContactMat.opacity = Math.max(P.night, 0) * (1 - chart);
   for (let i = 0; i < P.plans.length; i++) P.plans[i].visible = chart > 0.01;
   for (let i = 0; i < P.glows.length; i++) {
     const { material, zone } = P.glows[i];
