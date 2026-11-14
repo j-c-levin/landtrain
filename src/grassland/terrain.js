@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GRASSLAND } from '../constants.js';
-import { GRASSLAND_LOOK, grasslandMaterials, floraMaterials } from '../look.js';
+import { GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
 import {
   GRASS_LANDMARK, FOOT, ISLAND_R, MOAT_R, cxRegion, groundWestX, groundEastX, planeD, riverDefs,
 } from './layout.js';
@@ -59,47 +59,39 @@ export function buildGround(root) {
   }
 }
 
-// Translucent discs near y=0: depthWrite:false + polygonOffset (in the look
-// material) keep them from z-fighting each other and the ground at map zoom.
-export function buildMeadowPatches({ root, rand, randClearXZ }) {
-  const patchGeo = new THREE.CircleGeometry(1, 20);
-  const patchColors = GRASSLAND_LOOK.patches;
-  const patches = new THREE.Group();
-  for (let i = 0; i < 150; i++) {
-    const m = new THREE.Mesh(
-      patchGeo,
-      floraMaterials.meadowPatch(patchColors[Math.floor(rand() * patchColors.length)], 0.35 + rand() * 0.35)
-    );
-    m.rotation.x = -Math.PI / 2;
-    const s = 26 + rand() * 90;
-    m.scale.set(s, s * (0.6 + rand() * 0.7), 1);
-    m.rotation.z = rand() * Math.PI;
-    const pp = randClearXZ();
-    m.position.set(pp.x, 0.04, pp.z);
-    patches.add(m);
-  }
-  root.add(patches);
-}
-
+// Rolling foam-carved hills for the backscene, flocked in bands of meadow green.
 export function buildHills({ root, rand }) {
   const hillMat = grasslandMaterials.hill();
   const hills = new THREE.Group();
+  const bands = GRASSLAND_LOOK.hillBands.map((c) => new THREE.Color(c));
   for (let i = 0; i < 26; i++) {
     const a = rand() * Math.PI * 2;
     const d = 1150 + rand() * 700;
     const cx = cxRegion + Math.cos(a) * d * 1.4;
     const cz = Math.sin(a) * d;
     const s = 120 + rand() * 240;
-    // Keep the green hills east of the prairie border. Their wide scatter
-    // (±~2600) otherwise overflows west onto the prairie and its tree, which now
-    // coexist in the streamed world — those big green domes were the "floating
-    // mountain" over the prairie knoll. (−s so a large hill body can't reach
-    // across either.) West of here the player sees the real prairie, not a
-    // backdrop, so dropping the western few hills costs nothing.
+    const squash = 0.24 + rand() * 0.2;
+    // Keep the green hills east of the prairie border: the prairie coexists in
+    // the streamed world and a hill body must not reach across onto it.
     if (cx - s < GRASSLAND.minX) continue;
-    const hill = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 7), hillMat);
-    hill.scale.y = 0.22 + rand() * 0.16;
-    hill.position.set(cx, -6, cz);
+    const geo = new THREE.SphereGeometry(s, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2);
+    const p = geo.attributes.position;
+    const col = new Float32Array(p.count * 3);
+    const ph = rand() * 6.28;
+    for (let v = 0; v < p.count; v++) {
+      const ang = Math.atan2(p.getZ(v), p.getX(v));
+      const t = p.getY(v) / s;
+      const k = 0.86 + 0.16 * Math.sin(ang * 2 + ph) + 0.09 * Math.sin(ang * 5 + ph * 2.3);
+      p.setXYZ(v, p.getX(v) * k, p.getY(v) * squash * (0.85 + 0.25 * Math.sin(ang * 3 + ph * 1.7)), p.getZ(v) * k);
+      const band = bands[Math.floor((t * 3.2 + 0.5 + 0.5 * Math.sin(ang * 4 + ph)) % bands.length)];
+      col[v * 3] = band.r;
+      col[v * 3 + 1] = band.g;
+      col[v * 3 + 2] = band.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.computeVertexNormals();
+    const hill = new THREE.Mesh(geo, hillMat);
+    hill.position.set(cx, -3, cz);
     hills.add(hill);
   }
   root.add(hills);

@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { clamp } from '../constants.js';
-import { grasslandMaterials } from '../look.js';
+import { GRASSLAND, clamp } from '../constants.js';
+import { GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
+import { createGroundCover, coverMask } from '../groundcover.js';
 import { mulberry } from '../prng.js';
 import { disposeSubtree } from '../dispose.js';
 import { GRASS_LANDMARK, GRASS_ARRIVE_RADIUS, xMin, xSpan, zMin, zSpan, onWater } from './layout.js';
-import { buildGround, buildMeadowPatches, buildHills } from './terrain.js';
-import { scatterFlora, buildWillows } from './flora.js';
+import { buildGround, buildHills } from './terrain.js';
+import { buildWillows } from './flora.js';
 import { buildRivers } from './rivers.js';
 import { buildMoat } from './moat.js';
 import { mossyBoulders, buildKnollBoulders } from './boulders.js';
@@ -32,8 +33,15 @@ export function createGrassland(scene) {
   const ctx = { root, rand, obstacles, randX, randZ, randClearXZ };
 
   buildGround(root);
-  buildMeadowPatches(ctx);
-  scatterFlora(ctx);
+
+  const mask = coverMask(
+    { minX: GRASSLAND.minX, maxX: GRASSLAND.maxX + 400, minZ: GRASSLAND.minZ - 400, maxZ: GRASSLAND.maxZ + 400 },
+    onWater
+  );
+  const cover = createGroundCover({
+    look: GRASSLAND_LOOK, seed: 5150616, clipX: [GRASSLAND.minX, GRASSLAND.maxX + 400], mask,
+  });
+  root.add(cover.group);
 
   // One glow sprite material shared by every causeway lantern.
   const bridgeGlowMat = grasslandMaterials.causewayGlow();
@@ -51,18 +59,21 @@ export function createGrassland(scene) {
   buildKnollBoulders(ctx);
 
   function dispose() {
+    cover.dispose();
     disposeSubtree(root);
     scene.remove(root);
   }
 
   return {
     root,
+    cover,
     dispose,
     obstacles,
     landmark,
     landmarkPos: { x: GRASS_LANDMARK.x, z: GRASS_LANDMARK.z },
     arriveRadius: GRASS_ARRIVE_RADIUS,
-    update(_dt, time, _trainPos, cameraPos) {
+    update(_dt, time, trainPos, cameraPos, camera, heading = 0) {
+      if (camera) cover.update(time, camera, trainPos, heading);
       // `dir` flips the scroll for the dense overlay layer so its tiling
       // drifts opposite the base layer instead of lining up with it.
       for (const w of waters) {

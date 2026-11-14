@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { WORLD, TUNING } from '../constants.js';
 import { MAP_LOOK, mapMaterials } from '../look.js';
-import { lcg } from '../prng.js';
 
 // Fog of war: an opaque dark canvas stretched over the whole world on a
 // plane at y=60 (between the overhead camera and the ground). Travel
@@ -36,27 +35,11 @@ export class FogOfWar {
     scene.add(this.mesh);
   }
 
-  // Fill the canvas fully opaque: warm-dark plum, with faint wandering
-  // blotches so the unknown has texture. The fresh, fully-shrouded state.
+  // Fill the canvas fully opaque; the shroud shader reads only its alpha.
   #shroud() {
     this.ctx.globalCompositeOperation = 'source-over';
     this.ctx.fillStyle = MAP_LOOK.shroud;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = MAP_LOOK.shroudBlotch;
-    const rnd = lcg(12345);
-    for (let i = 0; i < 130; i++) {
-      this.ctx.beginPath();
-      this.ctx.ellipse(
-        rnd() * this.canvas.width,
-        rnd() * this.canvas.height,
-        8 + rnd() * 36,
-        6 + rnd() * 24,
-        rnd() * Math.PI,
-        0,
-        Math.PI * 2
-      );
-      this.ctx.fill();
-    }
   }
 
   // Re-shroud everything when entering a fresh biome.

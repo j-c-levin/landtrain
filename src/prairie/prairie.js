@@ -1,10 +1,46 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PRAIRIE, SPLIT_X, LANDMARK, ARRIVE_RADIUS, TRAIN_HALF, clamp } from '../constants.js';
 import { PRAIRIE_LOOK, prairieMaterials, floraMaterials, jitterHSL } from '../look.js';
 import { mulberry } from '../prng.js';
 import { disposeSubtree } from '../dispose.js';
-import { bigRockCluster, ridge } from './rocks.js';
+import { createGroundCover, shadeByHeight } from '../groundcover.js';
+import { bigRockCluster, ridge, mesaGeometry } from './rocks.js';
 import { buildLandmark } from './landmark.js';
+
+// Umbrella thorn: a leaning wire trunk under flat pads of clump foliage.
+function thornTree(rand, h, ox, oz, trunks, crowns) {
+  const lean = (rand() - 0.5) * 0.5;
+  const dir = rand() * Math.PI * 2;
+  const top = [ox + Math.cos(dir) * lean * h, h, oz + Math.sin(dir) * lean * h];
+  const limb = (x0, y0, z0, x1, y1, z1, r) => {
+    const len = Math.hypot(x1 - x0, y1 - y0, z1 - z0);
+    const g = new THREE.CylinderGeometry(r * 0.6, r, len, 5, 1, true);
+    g.translate(0, len / 2, 0);
+    const q = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0), new THREE.Vector3(x1 - x0, y1 - y0, z1 - z0).normalize()
+    );
+    g.applyQuaternion(q);
+    g.translate(x0, y0, z0);
+    trunks.push(g);
+  };
+  limb(ox, 0, oz, top[0], top[1], top[2], 0.07 * h);
+  const pads = 3 + Math.floor(rand() * 3);
+  for (let i = 0; i < pads; i++) {
+    const a = rand() * Math.PI * 2;
+    const d = i === 0 ? 0 : h * (0.25 + rand() * 0.4);
+    const r = h * (i === 0 ? 0.52 : 0.28 + rand() * 0.2);
+    const px = top[0] + Math.cos(a) * d;
+    const py = top[1] + (i === 0 ? 0.1 : -rand() * 0.22) * h;
+    const pz = top[2] + Math.sin(a) * d;
+    if (i > 0) limb(top[0] - (top[0] - ox) * 0.3, h * 0.7, top[2] - (top[2] - oz) * 0.3, px, py, pz, 0.035 * h);
+    const pad = new THREE.IcosahedronGeometry(r, 1);
+    pad.rotateY(rand() * Math.PI);
+    pad.scale(1, 0.34 + rand() * 0.12, 1);
+    pad.translate(px, py, pz);
+    crowns.push(pad);
+  }
+}
 
 export function createPrairie(scene) {
   const rand = mulberry(20260612);
@@ -42,113 +78,34 @@ export function createPrairie(scene) {
   groundEast.receiveShadow = true;
   chunkAfter.add(groundEast);
 
-  // Meadow patches. Each owns its geometry so a west patch can be freed alone.
-  const patchColors = PRAIRIE_LOOK.patches;
-  for (let i = 0; i < 150; i++) {
-    const m = new THREE.Mesh(
-      new THREE.CircleGeometry(1, 20),
-      floraMaterials.meadowPatch(patchColors[Math.floor(rand() * patchColors.length)], 0.4 + rand() * 0.3)
-    );
-    m.rotation.x = -Math.PI / 2;
-    const s = 26 + rand() * 90;
-    m.scale.set(s, s * (0.6 + rand() * 0.7), 1);
-    m.rotation.z = rand() * Math.PI;
-    m.position.set(
-      PRAIRIE.minX + rand() * (PRAIRIE.maxX - PRAIRIE.minX),
-      0.04,
-      PRAIRIE.minZ + rand() * (PRAIRIE.maxZ - PRAIRIE.minZ)
-    );
-    chunkFor(m.position.x).add(m);
-  }
-
-  // --- instanced scatter ------------------------------------------------
-  const dummy = new THREE.Object3D();
-
-  // Instances are bucketed by x into west / east meshes with their own
-  // geometry+material clones so disposeBefore() can free the west bucket.
-  function scatter(geo, mat, count, place) {
-    const color = new THREE.Color();
-    const before = [];
-    const after = [];
-    for (let i = 0; i < count; i++) {
-      place(dummy, color, i);
-      dummy.updateMatrix();
-      const entry = { matrix: dummy.matrix.clone(), color: color.clone() };
-      (dummy.position.x < SPLIT_X ? before : after).push(entry);
-    }
-
-    const buildBucket = (entries, parent, g, m) => {
-      const inst = new THREE.InstancedMesh(g, m, entries.length);
-      for (let i = 0; i < entries.length; i++) {
-        inst.setMatrixAt(i, entries[i].matrix);
-        inst.setColorAt(i, entries[i].color);
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
-      parent.add(inst);
-      return inst;
-    };
-
-    buildBucket(before, chunkBefore, geo, mat);
-    buildBucket(after, chunkAfter, geo.clone(), mat.clone());
-  }
-
-  const randPos = (o) => {
-    o.position.set(
-      PRAIRIE.minX + rand() * (PRAIRIE.maxX - PRAIRIE.minX),
-      0,
-      PRAIRIE.minZ + rand() * (PRAIRIE.maxZ - PRAIRIE.minZ)
-    );
-  };
-
-  scatter(new THREE.ConeGeometry(0.5, 1.2, 5), floraMaterials.tuft(), 1700, (o, c) => {
-    randPos(o);
-    const s = 0.6 + rand() * 1.2;
-    o.scale.set(s, s * (0.8 + rand() * 0.9), s);
-    o.position.y = (o.scale.y * 1.2) / 2 - 0.05;
-    o.rotation.y = rand() * Math.PI;
-    jitterHSL(c, rand, PRAIRIE_LOOK.tuft);
+  // --- ground cover: wraps around the camera, so it lives outside the chunks
+  const cover = createGroundCover({
+    look: PRAIRIE_LOOK, seed: 5150612, clipX: [PRAIRIE.minX - 400, PRAIRIE.maxX],
   });
+  root.add(cover.group);
 
-  scatter(new THREE.IcosahedronGeometry(0.9, 1), floraMaterials.clump(), 320, (o, c) => {
-    randPos(o);
-    const s = 0.9 + rand() * 1.7;
-    o.scale.set(s, s * 0.65, s);
-    o.position.y = s * 0.4;
-    o.rotation.y = rand() * Math.PI;
-    jitterHSL(c, rand, PRAIRIE_LOOK.bush);
-  });
-
-  scatter(new THREE.DodecahedronGeometry(0.55, 0), floraMaterials.clump(), 240, (o, c) => {
-    randPos(o);
-    const s = 0.5 + rand() * 1.4;
-    o.scale.setScalar(s);
-    o.position.y = s * 0.28;
-    o.rotation.set(rand() * Math.PI, rand() * Math.PI, 0);
-    jitterHSL(c, rand, PRAIRIE_LOOK.stone);
-  });
-
-  scatter(new THREE.SphereGeometry(0.16, 6, 5), floraMaterials.flower(), 420, (o, c) => {
-    randPos(o);
-    o.scale.setScalar(0.8 + rand() * 1.2);
-    o.position.y = 0.35;
-    const F = PRAIRIE_LOOK.flower;
-    jitterHSL(c, rand, { ...F, h: rand() > 0.5 ? F.hues[0] : F.hues[1] });
-  });
-
-  // --- trees (individual, so they can fade near the camera) -------------
+  // --- copses (individual, so they can fade near the camera) -------------
   const trees = [];
-  for (let i = 0; i < 64; i++) {
+  for (let i = 0; i < 84; i++) {
     const t = new THREE.Group();
-    const h = 4 + rand() * 5;
     const trunkMat = floraMaterials.fadingTrunk(PRAIRIE_LOOK.treeTrunk);
     const leafMat = floraMaterials.fadingLeaf();
     jitterHSL(leafMat.color, rand, PRAIRIE_LOOK.treeLeaf);
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.34, h, 6), trunkMat);
-    trunk.position.y = h / 2;
-    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(h * 0.55, 1), leafMat);
-    crown.position.y = h + h * 0.2;
-    crown.scale.y = 1.15;
+    const trunks = [];
+    const crowns = [];
+    const n = 1 + Math.floor(rand() * rand() * 3.2);
+    for (let k = 0; k < n; k++) {
+      const h = 5 + rand() * 6;
+      const a = rand() * Math.PI * 2;
+      const d = k === 0 ? 0 : 5 + rand() * 7;
+      thornTree(rand, h, Math.cos(a) * d, Math.sin(a) * d, trunks, crowns);
+    }
+    const trunk = new THREE.Mesh(mergeGeometries(trunks), trunkMat);
+    const crown = new THREE.Mesh(shadeByHeight(mergeGeometries(crowns), 0.62, 1.14), leafMat);
+    for (const g of trunks) g.dispose();
+    for (const g of crowns) g.dispose();
+    trunk.castShadow = true;
+    crown.castShadow = true;
     t.add(trunk, crown);
     t.position.set(
       PRAIRIE.minX + rand() * (PRAIRIE.maxX - PRAIRIE.minX),
@@ -158,22 +115,36 @@ export function createPrairie(scene) {
     if (Math.hypot(t.position.x - LANDMARK.x, t.position.z - LANDMARK.z) < 110) {
       t.position.x -= 200;
     }
+    // keep the opening stretch of track clear of trunks
+    if (Math.abs(t.position.z) < 16 && t.position.x < 160) t.position.z += 34;
     chunkFor(t.position.x).add(t);
     trees.push({ group: t, mats: [trunkMat, leafMat] });
   }
 
-  // --- distant hills -----------------------------------------------------
-  for (let i = 0; i < 26; i++) {
+  // --- backscene mesas ---------------------------------------------------
+  const mesaMat = prairieMaterials.hill();
+  const mesaMatEast = prairieMaterials.hill();
+  for (let i = 0; i < 30; i++) {
     const a = rand() * Math.PI * 2;
-    const d = 1150 + rand() * 700;
-    const cx = (PRAIRIE.minX + PRAIRIE.maxX) / 2 + Math.cos(a) * d * 1.4;
-    const cz = Math.sin(a) * d;
-    const s = 120 + rand() * 240;
-    // keep the tan hills west of the grassland border
-    if (cx + s > PRAIRIE.maxX) continue;
-    const hill = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 7), prairieMaterials.hill());
-    hill.scale.y = 0.22 + rand() * 0.16;
-    hill.position.set(cx, -6, cz);
+    const d = 1050 + rand() * 760;
+    let cx = (PRAIRIE.minX + PRAIRIE.maxX) / 2 + Math.cos(a) * d * 1.4;
+    let cz = Math.sin(a) * d;
+    const s = 110 + rand() * 230;
+    const height = 60 + rand() * 120;
+    // a backscene piece never stands on the playable table
+    const zEdge = PRAIRIE.maxZ + 80;
+    if (Math.abs(cz) < zEdge) cx = Math.min(cx, PRAIRIE.minX - 80 - s);
+    else if (Math.abs(cz) - s < zEdge) cz = Math.sign(cz) * (zEdge + s);
+    const geo = mesaGeometry(rand, s, height);
+    // keep the red mesas west of the grassland border
+    if (cx + s > PRAIRIE.maxX) {
+      geo.dispose();
+      continue;
+    }
+    const west = cx < SPLIT_X;
+    const hill = new THREE.Mesh(geo, west ? mesaMat : mesaMatEast);
+    hill.position.set(cx, -4, cz);
+    hill.rotation.y = rand() * Math.PI;
     chunkFor(cx).add(hill);
   }
 
@@ -194,6 +165,7 @@ export function createPrairie(scene) {
   const landmark = buildLandmark(chunkAfter);
 
   function dispose() {
+    cover.dispose();
     disposeSubtree(root);
     scene.remove(root);
   }
@@ -202,6 +174,9 @@ export function createPrairie(scene) {
   function disposeBefore() {
     disposeSubtree(chunkBefore);
     root.remove(chunkBefore);
+    for (let i = trees.length - 1; i >= 0; i--) {
+      if (trees[i].group.parent === chunkBefore) trees.splice(i, 1);
+    }
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
       const ox = o.type === 'circle' ? o.x : Math.min(o.x1, o.x2);
@@ -213,12 +188,14 @@ export function createPrairie(scene) {
     obstacles,
     landmark,
     root,
+    cover,
     dispose,
     disposeBefore,
     landmarkPos: { x: LANDMARK.x, z: LANDMARK.z },
     arriveRadius: ARRIVE_RADIUS,
     start: { x: TRAIN_HALF, z: 0, heading: 0 },
-    update(_dt, _time, _trainPos, cameraPos) {
+    update(_dt, time, trainPos, cameraPos, camera, heading = 0) {
+      if (camera) cover.update(time, camera, trainPos, heading);
       for (const t of trees) {
         const d = Math.hypot(t.group.position.x - cameraPos.x, t.group.position.z - cameraPos.z);
         const o = clamp((d - 12) / 16, 0.08, 1);

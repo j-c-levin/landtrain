@@ -26,7 +26,7 @@ export const QUALITY_TIERS = Object.freeze({
     shadowType: 'pcf-soft',
     particleDensity: 1,
     slowUpdateHz: 60,
-    finishing: Object.freeze({ postProcessing: false, enhancedAtmosphere: true }),
+    finishing: Object.freeze({ postProcessing: true, enhancedAtmosphere: true }),
   }),
 });
 

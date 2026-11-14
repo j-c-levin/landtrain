@@ -7,10 +7,6 @@ import {
 import { waterNormalTexture } from './water.js';
 import { buildCauseway } from './causeway.js';
 
-const shoreLip = new THREE.Color(GRASSLAND_LOOK.shoreLip);
-const shoreMud = new THREE.Color(GRASSLAND_LOOK.shoreMud);
-const shorePale = new THREE.Color(GRASSLAND_LOOK.shorePale);
-
 // Approximate a meandering river with a chain of `nSegs` straight collision
 // segs. Endpoints sample `centerXAt` at nSegs+1 evenly-spaced z values (shared
 // joints, so no pinholes; gentle bends mean seg width covers the kinks).
@@ -75,24 +71,19 @@ export function buildRivers({ root, rand, obstacles }, bridgeGlowMat) {
       const cgeo = new THREE.PlaneGeometry((FOOT + def.amp) * 2, planeD, 48, 96);
       cgeo.rotateX(-Math.PI / 2); // local x -> world x, local y -> world -z
       const cpos = cgeo.attributes.position;
-      // shore treatment: bake a lip-green -> wet-mud vertex color keyed off the
-      // same depth just displaced, with a pale highlight right at the waterline
-      const ccolor = new Float32Array(cpos.count * 3);
-      const tmpColor = new THREE.Color();
+      // shore treatment: grass at the lip, a gravel beach down the bank, wet mud at the waterline
+      const shore = new Float32Array(cpos.count * 2);
       for (let i = 0; i < cpos.count; i++) {
         const xWorld = def.x + cpos.getX(i);
         const zWorld = cpos.getZ(i);
         const y = channelY(Math.abs(xWorld - riverCenterX(def, zWorld)), def.w, BANK);
         cpos.setY(i, y);
         const depthFrac = clamp(-y / DEPTH, 0, 1);
-        tmpColor.copy(shoreLip).lerp(shoreMud, depthFrac);
-        if (depthFrac < 0.12) tmpColor.lerp(shorePale, 0.25);
-        ccolor[i * 3] = tmpColor.r;
-        ccolor[i * 3 + 1] = tmpColor.g;
-        ccolor[i * 3 + 2] = tmpColor.b;
+        shore[i * 2] = clamp((depthFrac - 0.55) / 0.35, 0, 1);
+        shore[i * 2 + 1] = clamp((depthFrac - 0.08) / 0.22, 0, 1);
       }
       cpos.needsUpdate = true;
-      cgeo.setAttribute('color', new THREE.BufferAttribute(ccolor, 3));
+      cgeo.setAttribute('aShore', new THREE.BufferAttribute(shore, 2));
       cgeo.computeVertexNormals();
       // base color white — MeshStandardMaterial multiplies vertex colors by
       // material.color, so white lets the baked-in green/mud show true. A

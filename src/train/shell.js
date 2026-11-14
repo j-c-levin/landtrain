@@ -72,11 +72,11 @@ export function buildCarShell(train, g, ci) {
         wheel.castShadow = true;
         g.add(wheel);
         train.wheels.push(wheel);
-        const hub = new THREE.Mesh(train.geometry.wheelHub, M.iron);
+        const hub = new THREE.Mesh(train.geometry.wheelHub, M.brass);
         wheel.add(hub);
         const spokes = [];
-        for (let a = 0; a < Math.PI; a += Math.PI / 3) spokes.push([0, 0, Math.sign(wz) * 0.25, 1.45, 0.1, 0.06, 0, 0, a]);
-        instancedDetails(spokes, train.geometry.detail, M.woodDark, wheel);
+        for (let a = 0; a < Math.PI - 0.01; a += Math.PI / 4) spokes.push([0, 0, Math.sign(wz) * 0.24, 1.5, 0.09, 0.06, 0, 0, a]);
+        instancedDetails(spokes, train.geometry.detail, M.cream, wheel);
       }
     }
   }

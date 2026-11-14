@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WORLD, BIOME_FADE, clamp, lerp, smootherstep, damp } from '../constants.js';
 import {
-  SKY_KEYS_PRAIRIE as KEYS, SKY_KEYS_GRASSLAND as KEYS_GRASSLAND, SKY_LOOK, skyMaterials, softDiscTexture, jitterHSL,
+  SKY_KEYS_PRAIRIE as KEYS, SKY_KEYS_GRASSLAND as KEYS_GRASSLAND, SKY_LOOK, skyMaterials, cloudTexture, jitterHSL,
 } from '../look.js';
 import { lcg } from '../prng.js';
 import { STAR_VERT, STAR_FRAG, FIREFLY_VERT, FIREFLY_FRAG } from './sky-shaders.js';
@@ -39,7 +39,10 @@ const _c2 = new THREE.Color();
 export class SkyCycle {
   constructor(scene, renderer, sunLight) {
     this.renderer = renderer;
+    this.scene = scene;
     this.sunLight = sunLight;
+    // unit vector toward the key light (sun by day, moon by night)
+    this.keyDir = new THREE.Vector3(-0.42, 0.72, 0.55).normalize();
     this.timeOffset = 0; // debug: jump the clock (window.__game.sky.timeOffset)
     this.nightness = 0;
     this.biomeBlend = 0; // 0 = prairie palette (KEYS), 1 = grassland (KEYS_GRASSLAND); driven by train x in update()
@@ -131,15 +134,16 @@ export class SkyCycle {
     }
 
     // --- clouds (world-anchored, tinted by the timeline) ----------------------
-    const cloudTex = softDiscTexture(...SKY_LOOK.cloud);
+    const cloudTexes = [0, 1, 2].map(() => cloudTexture(rand, SKY_LOOK.cloud));
     this.clouds = [];
-    for (let i = 0; i < 10; i++) {
-      const cl = new THREE.Sprite(skyMaterials.cloud(cloudTex));
-      cl.scale.set(220 + rand() * 260, 60 + rand() * 60, 1);
+    for (let i = 0; i < 16; i++) {
+      const cl = new THREE.Sprite(skyMaterials.cloud(cloudTexes[i % 3]));
+      const w = 170 + rand() * 230;
+      cl.scale.set(w, w * (0.42 + rand() * 0.12), 1);
       cl.position.set(
         WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
-        170 + rand() * 120,
-        WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ)
+        190 + rand() * 130,
+        WORLD.minZ - 500 + rand() * (WORLD.maxZ - WORLD.minZ + 1000)
       );
       scene.add(cl);
       this.clouds.push({ sprite: cl, speed: 1.2 + rand() * 1.6, baseOp: 0.5 + rand() * 0.25 });
@@ -232,6 +236,7 @@ export class SkyCycle {
     out.cloudOp = lerp(a.cloudOp, b.cloudOp, t);
     out.stars = lerp(a.stars, b.stars, t);
     out.exp = lerp(a.exp, b.exp, t);
+    out.env = lerp(a.env, b.env, t);
     return out;
   }
 
@@ -263,6 +268,7 @@ export class SkyCycle {
     out.cloudOp = lerp(a.cloudOp, b.cloudOp, blend);
     out.stars = lerp(a.stars, b.stars, blend);
     out.exp = lerp(a.exp, b.exp, blend);
+    out.env = lerp(a.env, b.env, blend);
     return out;
   }
 
@@ -296,18 +302,23 @@ export class SkyCycle {
     this.hemi.groundColor.copy(k.hemiGround);
     this.hemi.intensity = k.hemiI;
     this.sunLight.color.copy(k.dirCol);
-    this.sunLight.intensity = k.dirI;
     this.renderer.toneMappingExposure = k.exp;
+    this.scene.environmentIntensity = k.env;
 
     // --- sun: rises ahead of the train (+X, toward the destination) -------
     const su = (((phase - SUNRISE) % 1) + 1) % 1 / DAY_SPAN;
     const sa = su * Math.PI;
     const alt = Math.sin(sa);
-    _v.set(Math.cos(sa), alt * 0.78 + 0.02, -0.34).normalize().multiplyScalar(3850);
+    const lowness = 1 - clamp(alt / 0.35, 0, 1); // 1 when kissing the horizon
+    // high sun stands in front of the cutaway; it swings behind the train as it sets
+    const sunZ = lerp(0.5, -0.38, smootherstep(lowness));
+    _v.set(Math.cos(sa), alt * 0.78 + 0.02, sunZ).normalize();
+    const sunUp = su <= 1;
+    if (sunUp) this.keyDir.set(_v.x, Math.max(_v.y, 0.3), _v.z).normalize();
+    _v.multiplyScalar(3850);
     this.sunCore.position.copy(_v);
     this.sunHalo.position.copy(_v);
     const sunVis = su <= 1.04 ? clamp((alt + 0.06) / 0.12, 0, 1) : 0;
-    const lowness = 1 - clamp(alt / 0.35, 0, 1); // 1 when kissing the horizon
     this.sunCore.material.opacity = sunVis;
     this.sunHalo.material.opacity = sunVis * (0.45 + 0.4 * lowness);
     this.sunCore.scale.setScalar(620 + lowness * 330);
@@ -321,12 +332,18 @@ export class SkyCycle {
     const mu = (((phase - SUNSET - 0.005) % 1) + 1) % 1 / (1 - DAY_SPAN);
     const ma = mu * Math.PI;
     const malt = Math.sin(ma);
-    _v.set(Math.cos(ma), malt * 0.7 + 0.02, 0.42).normalize().multiplyScalar(3850);
+    _v.set(Math.cos(ma), malt * 0.7 + 0.02, 0.42).normalize();
+    if (!sunUp) this.keyDir.set(_v.x, Math.max(_v.y, 0.3), _v.z).normalize();
+    _v.multiplyScalar(3850);
     this.moonCore.position.copy(_v);
     this.moonGlow.position.copy(_v);
     const moonVis = mu <= 1.02 ? clamp((malt + 0.04) / 0.1, 0, 1) * clamp(k.stars * 1.6, 0, 1) : 0;
     this.moonCore.material.opacity = moonVis * 0.95;
     this.moonGlow.material.opacity = moonVis * 0.4;
+
+    // the key dips to nothing as sun hands over to moon, so the swap never pops
+    const keyFade = sunUp ? clamp((alt + 0.02) / 0.1, 0, 1) : clamp((malt + 0.02) / 0.1, 0, 1);
+    this.sunLight.intensity = k.dirI * keyFade;
 
     // stars + fireflies
     this.starMat.uniforms.uTime.value = time;

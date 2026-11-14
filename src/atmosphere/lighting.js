@@ -2,8 +2,11 @@ import * as THREE from 'three';
 import { lerp, smootherstep } from '../constants.js';
 import { SKY_LOOK } from '../look.js';
 
-const HAZE_NEAR = 130;
-const HAZE_FAR = 560;
+const HAZE_NEAR = 70;
+const HAZE_FAR = 1250;
+const SHADOW_HALF = 62;
+const SHADOW_HALF_MAP = 330;
+const KEY_DISTANCE = 260;
 
 // Colours and intensities are driven per-frame by the SkyCycle.
 export function createHaze(scene) {
@@ -24,20 +27,38 @@ export function createSunLight(scene) {
   light.position.set(-110, 170, 90);
   light.castShadow = true;
   light.shadow.mapSize.set(2048, 2048);
-  light.shadow.camera.left = -75;
-  light.shadow.camera.right = 75;
-  light.shadow.camera.top = 75;
-  light.shadow.camera.bottom = -75;
   light.shadow.camera.near = 20;
-  light.shadow.camera.far = 600;
-  light.shadow.bias = -0.0008;
+  light.shadow.camera.far = 620;
+  light.shadow.bias = -0.0006;
+  light.shadow.normalBias = 0.05;
+  light.shadow.radius = 2.4;
+  light.userData.half = 0;
   scene.add(light);
   scene.add(light.target);
+  followShadowBox(light, light.target.position, null, 0);
   return light;
 }
 
-export function followShadowBox(light, trainPos) {
-  light.position.set(trainPos.x - 110, 170, trainPos.z + 90);
+// keyDir points from the scene toward the key light (sun by day, moon by
+// night). In the map view the box widens so rocks and trees still cast.
+export function followShadowBox(light, trainPos, keyDir, mapBlend) {
+  if (keyDir) {
+    light.position.set(
+      trainPos.x + keyDir.x * KEY_DISTANCE, keyDir.y * KEY_DISTANCE, trainPos.z + keyDir.z * KEY_DISTANCE
+    );
+  } else {
+    light.position.set(trainPos.x - 110, 170, trainPos.z + 90);
+  }
   light.target.position.copy(trainPos);
   light.target.updateMatrixWorld();
+  const half = lerp(SHADOW_HALF, SHADOW_HALF_MAP, mapBlend);
+  if (half !== light.userData.half) {
+    light.userData.half = half;
+    const cam = light.shadow.camera;
+    cam.left = -half;
+    cam.right = half;
+    cam.top = half;
+    cam.bottom = -half;
+    cam.updateProjectionMatrix();
+  }
 }

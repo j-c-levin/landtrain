@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { LANDMARK } from '../constants.js';
 import { prairieMaterials } from '../look.js';
+import { mulberry } from '../prng.js';
+import { mesaGeometry } from './rocks.js';
 
 // The Great Tree. Its materials ignore scene fog so it reads on the horizon from the start.
 export function buildLandmark(root) {
@@ -12,8 +14,8 @@ export function buildLandmark(root) {
   const leafMat = prairieMaterials.leaf();
   const lanternMat = prairieMaterials.lantern();
 
-  const mesa = new THREE.Mesh(new THREE.CylinderGeometry(46, 64, 16, 9), mesaMat);
-  mesa.position.y = 8;
+  const mesa = new THREE.Mesh(mesaGeometry(mulberry(81), 96, 17), mesaMat);
+  mesa.position.y = -0.5;
   group.add(mesa);
 
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(5, 9, 62, 7), trunkMat);

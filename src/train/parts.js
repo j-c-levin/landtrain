@@ -1,9 +1,28 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { plantLeafGeometry } from './interior-kit.js';
 
+// A painted disc inside a dark iron tyre: the vertex colour masks the paint.
+function wheelGeometry() {
+  const paint = (geo, v) => {
+    const n = geo.attributes.position.count;
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(v), 3));
+    return geo;
+  };
+  const disc = new THREE.CylinderGeometry(0.8, 0.8, 0.44, 24);
+  disc.rotateX(Math.PI / 2);
+  const tyre = new THREE.TorusGeometry(0.84, 0.1, 8, 28);
+  tyre.scale(1, 1, 2.5);
+  const boss = new THREE.CylinderGeometry(0.34, 0.34, 0.52, 14);
+  boss.rotateX(Math.PI / 2);
+  const parts = [paint(disc, 1), paint(tyre, 0.09), paint(boss, 0.55)];
+  const merged = mergeGeometries(parts);
+  for (const g of parts) g.dispose();
+  return merged;
+}
+
 export function createTrainGeometry() {
-  const wheel = new THREE.CylinderGeometry(0.92, 0.92, 0.48, 18);
-  wheel.rotateX(Math.PI / 2);
+  const wheel = wheelGeometry();
   const wheelHub = new THREE.CylinderGeometry(0.22, 0.22, 0.6, 10);
   wheelHub.rotateX(Math.PI / 2);
   return {

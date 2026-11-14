@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { grasslandMaterials } from '../look.js';
-import { GRASS_LANDMARK, WATER_Y, channelY } from './layout.js';
+import { clamp } from '../constants.js';
+import { GRASS_LANDMARK, WATER_Y, DEPTH, channelY } from './layout.js';
 import { waterNormalTexture } from './water.js';
 import { buildCauseway } from './causeway.js';
 
@@ -15,13 +16,19 @@ export function buildMoat({ root, rand, obstacles }, bridgeGlowMat, waters) {
     const rgeo = new THREE.RingGeometry(R_INNER, R_OUTER, 72, 14);
     rgeo.rotateX(-Math.PI / 2); // ring lies in XZ
     const rpos = rgeo.attributes.position;
+    const shore = new Float32Array(rpos.count * 2);
     for (let i = 0; i < rpos.count; i++) {
       const r = Math.hypot(rpos.getX(i), rpos.getZ(i)); // distance from centre
-      rpos.setY(i, channelY(Math.abs(r - R_MID), W_RING, BANK_RING));
+      const y = channelY(Math.abs(r - R_MID), W_RING, BANK_RING);
+      rpos.setY(i, y);
+      const depthFrac = clamp(-y / DEPTH, 0, 1);
+      shore[i * 2] = clamp((depthFrac - 0.55) / 0.35, 0, 1);
+      shore[i * 2 + 1] = clamp((depthFrac - 0.08) / 0.22, 0, 1);
     }
     rpos.needsUpdate = true;
+    rgeo.setAttribute('aShore', new THREE.BufferAttribute(shore, 2));
     rgeo.computeVertexNormals();
-    const ringTerrain = new THREE.Mesh(rgeo, grasslandMaterials.ground());
+    const ringTerrain = new THREE.Mesh(rgeo, grasslandMaterials.shore());
     ringTerrain.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
     ringTerrain.receiveShadow = true;
     root.add(ringTerrain);

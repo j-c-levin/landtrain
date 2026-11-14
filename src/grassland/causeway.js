@@ -1,79 +1,120 @@
 import * as THREE from 'three';
-import { clamp } from '../constants.js';
 import { GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
+import { mulberry } from '../prng.js';
 
-// A low lantern causeway: a flush wood-plank crossing (no arch — the old 0.8u
-// arc over a 92u span read as flat anyway, and its 0.3-1.35u plank height let
-// the train clip through) over a narrowed visual path, framed by four corner
-// lantern posts that read from bank-scouting distance long before the deck
-// itself does. Shared by the three straight river decks (crossing runs along
-// X, path width along Z) and the two radial ring decks (crossing runs along
-// Z, path width along X) via `axis`; `uCenter`/`uSpan` describe the crossing
-// direction, `vCenter`/`vWidth` the path direction. Posts/lanterns/rails all
+// A low lantern causeway: a flush timber deck (top ≈ 0.24, well under the
+// train's clearance) of narrow hand-laid planks on stringer beams, framed by
+// four corner lantern posts that read from bank-scouting distance. Shared by
+// the straight river decks (crossing along X) and the radial ring decks
+// (crossing along Z) via `axis`; `uCenter`/`uSpan` describe the crossing
+// direction, `vCenter`/`vWidth` the path direction. Posts, lanterns and rails
 // sit `vWidth/2 + 1.5` outside the path centreline, so nothing above y≈0.3
-// intrudes on the train's lane (|offset| < vWidth/2).
+// intrudes on the train's lane.
 export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCenter, vWidth, planks = 9 }) {
   const group = new THREE.Group();
-  const baseDeck = new THREE.Color(GRASSLAND_LOOK.causeway.deck);
   const postMat = grasslandMaterials.causewayPost();
   const railMat = grasslandMaterials.causewayRail();
+  const beamMat = grasslandMaterials.causewayBeam();
   const lanternMat = grasslandMaterials.causewayLantern();
+  const place = (mesh, u, y, v) => mesh.position.set(axis === 'x' ? u : v, y, axis === 'x' ? v : u);
 
-  // flush planks: centre y=0.12, thickness 0.24 (top ≈ 0.24, well under the
-  // train's clearance). A small ±0.02 lightness jitter per plank keeps the
-  // deck from reading as one flat-shaded slab.
-  const lenU = uSpan / planks + 1.2; // small overlap so seams don't gap
+  // the world stream is drawn exactly as before; fine plank variety has its own
+  for (let i = 0; i < planks; i++) rand();
+  const local = mulberry(Math.round(uCenter * 13 + vCenter * 7) >>> 0);
+
+  const PLANK = 1.1;
+  const count = Math.floor(uSpan / PLANK);
+  const deck = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), grasslandMaterials.causewayPlank(), count);
+  const dummy = new THREE.Object3D();
+  const tint = new THREE.Color();
   const hsl = {};
-  for (let i = 0; i < planks; i++) {
-    const t = i / (planks - 1);
-    const u = uCenter - uSpan / 2 + uSpan * t;
-    baseDeck.getHSL(hsl);
-    const plankColor = new THREE.Color().setHSL(hsl.h, hsl.s, clamp(hsl.l + (rand() - 0.5) * GRASSLAND_LOOK.causeway.deckJitter, 0, 1));
-    const plankMat = grasslandMaterials.causewayPlank(plankColor);
-    const geo =
-      axis === 'x' ? new THREE.BoxGeometry(lenU, 0.24, vWidth) : new THREE.BoxGeometry(vWidth, 0.24, lenU);
-    const plank = new THREE.Mesh(geo, plankMat);
-    plank.position.set(axis === 'x' ? u : vCenter, 0.12, axis === 'x' ? vCenter : u);
-    plank.castShadow = true;
-    group.add(plank);
+  new THREE.Color(GRASSLAND_LOOK.causeway.deck).getHSL(hsl);
+  for (let i = 0; i < count; i++) {
+    const u = uCenter - uSpan / 2 + (i + 0.5) * PLANK;
+    const over = vWidth + 0.5 + local() * 1.1;
+    const shift = (local() - 0.5) * 0.7;
+    dummy.position.set(axis === 'x' ? u : vCenter + shift, 0.12 + local() * 0.02, axis === 'x' ? vCenter + shift : u);
+    dummy.scale.set(axis === 'x' ? PLANK - 0.12 : over, 0.24, axis === 'x' ? over : PLANK - 0.12);
+    dummy.rotation.set(0, (local() - 0.5) * 0.012, 0);
+    dummy.updateMatrix();
+    deck.setMatrixAt(i, dummy.matrix);
+    const j = GRASSLAND_LOOK.causeway.deckJitter;
+    tint.setHSL(hsl.h + (local() - 0.5) * 0.012, hsl.s * (0.85 + local() * 0.2), hsl.l + (local() - 0.5) * j);
+    deck.setColorAt(i, tint);
+  }
+  deck.instanceMatrix.needsUpdate = true;
+  deck.instanceColor.needsUpdate = true;
+  deck.castShadow = true;
+  deck.receiveShadow = true;
+  group.add(deck);
+
+  // every timber is one of two instanced shapes: a unit box or a unit post
+  const boxes = [];
+  const posts = [];
+  const beam = (lu, h, lv, u, y, v) =>
+    boxes.push(axis === 'x' ? [u, y, v, lu, h, lv] : [v, y, u, lv, h, lu]);
+  const pole = (r, h, u, y, v) => posts.push(axis === 'x' ? [u, y, v, r, h] : [v, y, u, r, h]);
+
+  const edge = vWidth / 2 + 1.5;
+  for (const vSide of [-1, 1]) beam(uSpan + 1.2, 0.5, 0.6, uCenter, 0.2, vCenter + vSide * (vWidth / 2 + 0.75));
+  // trestle bents down into the channel
+  const bents = Math.max(2, Math.round(uSpan / 14));
+  for (let b = 0; b < bents; b++) {
+    const u = uCenter - uSpan / 2 + ((b + 0.5) / bents) * uSpan;
+    for (const vSide of [-1, 0, 1]) pole(0.46, 8, u, -4, vCenter + vSide * (vWidth / 2 + 0.2));
+    beam(0.7, 0.5, vWidth + 2.4, u, -0.28, vCenter);
   }
 
   // four corner posts, OUTSIDE the path, each topped with a glowing lantern +
   // a soft glow sprite (shared material) so the crossing is visible long
   // before the planks are.
-  const edge = vWidth / 2 + 1.5;
-  const postH = 3.2;
+  const postH = 3.4;
+  const lanternGeo = new THREE.SphereGeometry(0.42, 10, 8);
   for (const uSide of [-1, 1]) {
     for (const vSide of [-1, 1]) {
       const u = uCenter + uSide * (uSpan / 2);
       const v = vCenter + vSide * edge;
-      const px = axis === 'x' ? u : v;
-      const pz = axis === 'x' ? v : u;
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, postH, 6), postMat);
-      post.position.set(px, postH / 2, pz);
-      post.castShadow = true;
-      group.add(post);
-
-      const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), lanternMat);
-      lantern.position.set(px, postH, pz);
+      pole(0.36, postH, u, postH / 2, v);
+      beam(1.0, 0.16, 1.0, u, postH + 0.7, v);
+      const lantern = new THREE.Mesh(lanternGeo, lanternMat);
+      place(lantern, u, postH + 0.26, v);
       group.add(lantern);
-
       const glow = new THREE.Sprite(glowMat);
-      glow.scale.setScalar(6);
+      glow.scale.setScalar(5);
       glow.position.copy(lantern.position);
       group.add(glow);
     }
   }
 
-  // rope rails along the crossing at the path edges, sitting on the posts' line
+  // rope rails along the crossing at the path edges, on short stanchions
+  const rails = [];
   for (const vSide of [-1, 1]) {
     const v = vCenter + vSide * edge;
-    const geo =
-      axis === 'x' ? new THREE.BoxGeometry(uSpan, 0.12, 0.15) : new THREE.BoxGeometry(0.15, 0.12, uSpan);
-    const rail = new THREE.Mesh(geo, railMat);
-    rail.position.set(axis === 'x' ? uCenter : v, 0.9, axis === 'x' ? v : uCenter);
-    group.add(rail);
+    rails.push(axis === 'x' ? [uCenter, 1.0, v, uSpan, 0.14, 0.14] : [v, 1.0, uCenter, 0.14, 0.14, uSpan]);
+    const stanchions = Math.round(uSpan / 9);
+    for (let i = 1; i < stanchions; i++) pole(0.13, 1.0, uCenter - uSpan / 2 + (i / stanchions) * uSpan, 0.5, v);
   }
+
+  const instanced = (geometry, material, items, fit) => {
+    const mesh = new THREE.InstancedMesh(geometry, material, items.length);
+    for (let i = 0; i < items.length; i++) {
+      fit(dummy, items[i]);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  };
+  const fitBox = (o, [x, y, z, sx, sy, sz]) => { o.position.set(x, y, z); o.scale.set(sx, sy, sz); };
+  instanced(new THREE.BoxGeometry(1, 1, 1), beamMat, boxes, fitBox);
+  instanced(new THREE.BoxGeometry(1, 1, 1), railMat, rails, fitBox);
+  instanced(new THREE.CylinderGeometry(0.8, 1, 1, 6), postMat, posts, (o, [x, y, z, r, h]) => {
+    o.position.set(x, y, z);
+    o.scale.set(r, h, r);
+  });
 
   root.add(group);
   return group;

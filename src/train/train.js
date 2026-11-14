@@ -13,6 +13,7 @@ import { buildCarShell, buildCarFittings } from './shell.js';
 import { buildFrontCar } from './cab.js';
 import { buildEngine } from './engine.js';
 import { buildLiving } from './living.js';
+import { createPracticals, buildPracticals, setPracticalsNight } from './practicals.js';
 
 const FIT_OUT = [buildFrontCar, buildEngine, buildLiving];
 
@@ -29,6 +30,7 @@ export class Train {
     this.scene = scene;
     this.materials = createTrainMaterials();
     this.geometry = createTrainGeometry();
+    this.practicals = createPracticals();
 
     // --- state ---------------------------------------------------------
     this.heading = 0;
@@ -66,6 +68,7 @@ export class Train {
       buildCarShell(this, g, ci);
       FIT_OUT[ci](this, g);
       buildCarFittings(this, g, ci);
+      buildPracticals(this, g, ci);
     }
     this.carVisuals = this.cars.flatMap(({ group }) => group.children);
     Object.assign(this, createRouteDisplay(scene));
@@ -289,6 +292,10 @@ export class Train {
       mat.opacity = damp(mat.opacity, target, 7, dt);
       mat.depthWrite = mat.opacity > 0.5;
     }
+  }
+
+  setNight(night) {
+    setPracticalsNight(this, night);
   }
 
   // ------------------------------------------------- map overlay rendering

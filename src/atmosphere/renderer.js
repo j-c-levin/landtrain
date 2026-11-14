@@ -3,16 +3,17 @@ import * as THREE from 'three';
 export function createRenderer(canvas, policy) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: policy.antialias });
   renderer.shadowMap.enabled = true;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1.0;
   return renderer;
 }
 
 export function applyRenderQuality(renderer, scene, policy) {
-  renderer.shadowMap.type = policy.shadowType === 'pcf-soft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   scene.traverse((object) => {
     if (!object.isLight || !object.castShadow || !object.shadow) return;
     object.shadow.mapSize.setScalar(policy.shadowMapSize);
+    object.shadow.radius = policy.shadowType === 'pcf-soft' ? 2.6 : 1.4;
     if (object.shadow.map) {
       object.shadow.map.dispose();
       object.shadow.map = null;

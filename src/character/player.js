@@ -30,7 +30,7 @@ export class Player {
   }
 
   #buildMesh() {
-    const { body: bodyMat, skin: skinMat, scarf: scarfMat, boot: bootMat } = createCharacterMaterials();
+    const { body: bodyMat, skin: skinMat, scarf: scarfMat, boot: bootMat, hat: hatMat, eye: eyeMat } = createCharacterMaterials();
 
     this.body = new THREE.Group();
 
@@ -59,6 +59,20 @@ export class Player {
       const boot = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.12, 4, 8), bootMat);
       boot.position.set(0, 0.16, lz);
       this.body.add(boot);
+    }
+
+    // a painted figurine: conductor's cap and two dots of gloss black for eyes
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.16, 14), hatMat);
+    cap.position.y = 1.7;
+    cap.castShadow = true;
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 14), hatMat);
+    brim.scale.set(1.3, 1, 1);
+    brim.position.set(0.14, 1.63, 0);
+    this.body.add(cap, brim);
+    for (const ez of [-0.09, 0.09]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), eyeMat);
+      eye.position.set(0.215, 1.47, ez);
+      this.body.add(eye);
     }
 
     this.body.add(torso, head, hood, scarf, nose);

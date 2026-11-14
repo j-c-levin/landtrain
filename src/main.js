@@ -1,10 +1,13 @@
 import * as THREE from 'three';
-import { TUNING, clamp } from './constants.js';
+import { TUNING, clamp, damp } from './constants.js';
 import { QUALITY_TIERS, createQualityMonitor, selectInitialQuality } from './quality.js';
+import { setLookTier } from './look.js';
 import { registerServiceWorker } from './sw-register.js';
 import { installDebugHandle, bindSecretWarp } from './debug.js';
 import { createRenderer, applyRenderQuality, syncRendererSize } from './atmosphere/renderer.js';
 import { createHaze, updateHaze, createSunLight, followShadowBox } from './atmosphere/lighting.js';
+import { createEnvironment } from './atmosphere/environment.js';
+import { createPost } from './atmosphere/post.js';
 import { SkyCycle } from './atmosphere/sky.js';
 import { createPrairie } from './prairie/prairie.js';
 import { Train, focusZone } from './train/train.js';
@@ -36,14 +39,18 @@ let qualityTier = selectInitialQuality({
   viewportWidth: window.innerWidth,
   viewportHeight: window.innerHeight,
 });
+const initialTier = qualityTier;
 let qualityPolicy = QUALITY_TIERS[qualityTier];
+let journey = null;
 const qualityMonitor = createQualityMonitor(qualityTier);
+setLookTier(qualityTier);
 const renderer = createRenderer(canvas, qualityPolicy);
 
 const scene = new THREE.Scene();
 const camera = createCamera();
 
 createHaze(scene);
+createEnvironment(renderer, scene);
 const sunLight = createSunLight(scene);
 const world = createPrairie(scene);
 const sky = new SkyCycle(scene, renderer, sunLight);
@@ -54,19 +61,29 @@ const rig = new CameraRig(camera, train, player);
 const ui = new UI();
 const audio = new AudioFX();
 const interactions = new Interactions({ train, player, rig, ui, audio });
+let post = null;
+const focus = { distance: 30, strength: 0, target: new THREE.Vector3() };
 
 function applyQualityTier(tier) {
   if (!QUALITY_TIERS[tier]) return false;
   qualityTier = tier;
   qualityPolicy = QUALITY_TIERS[tier];
   applyRenderQuality(renderer, scene, qualityPolicy);
+  if (qualityPolicy.finishing.postProcessing && !post) post = createPost(renderer);
+  if (!qualityPolicy.finishing.postProcessing && post) {
+    post.dispose();
+    post = null;
+  }
+  const density = qualityPolicy.particleDensity / QUALITY_TIERS[initialTier].particleDensity;
+  world.cover.setDensity(Math.min(1, density));
+  if (journey?.grassland) journey.grassland.cover.setDensity(Math.min(1, density));
   qualityMonitor.setTier(tier);
   return true;
 }
 
 applyQualityTier(qualityTier);
 
-const journey = createJourney({ scene, world, train, fog, ui, audio });
+journey = createJourney({ scene, world, train, fog, ui, audio });
 
 const state = {
   started: false,
@@ -160,14 +177,26 @@ function tick(frameTime) {
       ui.hideEdgeMarkers();
     }
   }
-  followShadowBox(sunLight, train.pos);
-  world.update(dt, elapsed, train.pos, camera.position);
-  if (journey.grassland) journey.grassland.update(dt, elapsed, train.pos, camera.position);
+  world.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
+  if (journey.grassland) journey.grassland.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
+  followShadowBox(sunLight, train.pos, sky.keyDir, rig.mapBlend);
+  train.setNight(sky.nightness);
   audio.update(dt, train.speed / TUNING.baseSpeed);
 
   input.endFrame();
-  renderer.render(scene, camera);
+  if (post) {
+    // inhabit and cab hold the figure sharp; book holds the whole train; the map is a flat chart
+    const walkingView = rig.mode === 'inhabit' || rig.mode === 'cabin';
+    if (walkingView) player.group.getWorldPosition(focus.target);
+    else focus.target.copy(train.pos);
+    focus.distance = damp(focus.distance, Math.max(6, camera.position.distanceTo(focus.target)), 6, rawDt);
+    const want = (rig.mode === 'cabin' ? 0.35 : 1) * (1 - Math.min(1, rig.mapBlend * 2.5));
+    focus.strength = damp(focus.strength, want, 5, rawDt);
+    post.render(scene, camera, focus.distance, focus.strength);
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
 animationFrame = requestAnimationFrame(tick);
