@@ -4,6 +4,28 @@ import { GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
 import {
   GRASS_LANDMARK, FOOT, ISLAND_R, MOAT_R, cxRegion, groundWestX, groundEastX, planeD, riverDefs,
 } from './layout.js';
+import { nightTame } from './fade.js';
+
+// A far hill's foot takes the full haze of the lawn beneath it, or it hangs above the horizon.
+function grounded(mat) {
+  const inner = mat.onBeforeCompile;
+  const key = mat.customProgramCacheKey;
+  mat.onBeforeCompile = (shader, renderer) => {
+    inner.call(mat, shader, renderer);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vFoot;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvFoot = vec2(uv.y, -mvPosition.z);');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vFoot;')
+      .replace('#include <fog_fragment>', `#ifdef USE_FOG
+          float footHaze = smoothstep(fogNear, fogFar, vFoot.y) * (1.0 - smoothstep(0.02, 0.52, vFoot.x));
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, footHaze);
+        #endif
+        #include <fog_fragment>`);
+  };
+  mat.customProgramCacheKey = () => `${key.call(mat)}|grounded`;
+  return mat;
+}
 
 // Flat panels (y=0) split by the river channels; the east panel gets a
 // circular hole for the moat, with an island disc under the knoll.
@@ -18,6 +40,7 @@ export function buildGround(root) {
   edges.push(groundEastX);
   // edges = [west, A-, A+, B-, B+, C-, C+, east]; panels are pairs (0,1)(2,3)(4,5)(6,7)
   const treeHoleR = MOAT_R; // the ring channel fills this hole
+  const groundMat = nightTame(grasslandMaterials.ground());
   for (let p = 0; p < edges.length; p += 2) {
     const x0 = edges[p], x1 = edges[p + 1];
     const w = x1 - x0;
@@ -36,11 +59,11 @@ export function buildGround(root) {
       shape.holes.push(hole);
       const geo = new THREE.ShapeGeometry(shape, 64);
       geo.rotateX(-Math.PI / 2); // shape is in XY -> lay flat into XZ
-      mesh = new THREE.Mesh(geo, grasslandMaterials.ground());
+      mesh = new THREE.Mesh(geo, groundMat);
       // after rotateX, shape-Y maps to world -Z; flip Z back to keep orientation
       mesh.scale.z = -1;
     } else {
-      mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, planeD), grasslandMaterials.ground());
+      mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, planeD), groundMat);
       mesh.rotation.x = -Math.PI / 2;
       mesh.position.set((x0 + x1) / 2, 0, 0);
     }
@@ -51,7 +74,7 @@ export function buildGround(root) {
   // dressed with its own scatter pass + a boulder ring below, so it reads as
   // flora-covered ground, not a bare green plate
   {
-    const island = new THREE.Mesh(new THREE.CircleGeometry(ISLAND_R, 48), grasslandMaterials.ground());
+    const island = new THREE.Mesh(new THREE.CircleGeometry(ISLAND_R, 48), groundMat);
     island.rotation.x = -Math.PI / 2;
     island.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
     island.receiveShadow = true;
@@ -61,7 +84,7 @@ export function buildGround(root) {
 
 // Rolling foam-carved hills for the backscene, flocked in bands of meadow green.
 export function buildHills({ root, rand }) {
-  const hillMat = grasslandMaterials.hill();
+  const hillMat = grounded(grasslandMaterials.hill());
   const hills = new THREE.Group();
   const bands = GRASSLAND_LOOK.hillBands.map((c) => new THREE.Color(c));
   for (let i = 0; i < 26; i++) {
@@ -91,7 +114,8 @@ export function buildHills({ root, rand }) {
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.computeVertexNormals();
     const hill = new THREE.Mesh(geo, hillMat);
-    hill.position.set(cx, -3, cz);
+    const behind = cx > GRASS_LANDMARK.x + 200 && Math.abs(cz) < s + 260;
+    hill.position.set(cx, -3, behind ? (cz < 0 ? -1 : 1) * (s + 260) : cz);
     hills.add(hill);
   }
   root.add(hills);

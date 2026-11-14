@@ -7,6 +7,7 @@ import { waterMaterial, sheetGeometry } from './water.js';
 import { buildCauseway } from './causeway.js';
 import { dressBanks } from './banks.js';
 import { shoreAttr } from './rivers.js';
+import { nightTame } from './fade.js';
 
 const BED_D = [0, 9, RING_W, 22, 26, 30, RING_SHORE, 35.5, 38, RING_BANK + RING_W];
 const WATER_D = [0, 12, 20, 26, 30, RING_SHORE, RING_SHORE + 1.4];
@@ -37,7 +38,7 @@ export function buildMoat({ root, rand, obstacles }, bridgeGlowMat) {
     geo.deleteAttribute('aFlow');
     geo.setAttribute('aShore', new THREE.BufferAttribute(shore, 2));
     geo.computeVertexNormals();
-    const bed = new THREE.Mesh(geo, grasslandMaterials.shore());
+    const bed = new THREE.Mesh(geo, nightTame(grasslandMaterials.shore()));
     bed.receiveShadow = true;
     root.add(bed);
   }
@@ -61,8 +62,8 @@ export function buildMoat({ root, rand, obstacles }, bridgeGlowMat) {
   }
 
   // the tree's glow caught in the still water beside each crossing
+  const glowMat = grasslandMaterials.moatGlow();
   {
-    const glowMat = grasslandMaterials.moatGlow();
     const discGeo = new THREE.CircleGeometry(1, 24);
     discGeo.rotateX(-Math.PI / 2);
     for (const a of [0, Math.PI * 0.75, -Math.PI * 0.75, Math.PI * 0.25, -Math.PI * 0.25]) {
@@ -109,4 +110,5 @@ export function buildMoat({ root, rand, obstacles }, bridgeGlowMat) {
     flowers: GRASSLAND_LOOK.islandFlower,
     glow: 0.25,
   });
+  return { glowMat };
 }

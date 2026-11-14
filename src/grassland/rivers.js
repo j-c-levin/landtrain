@@ -7,6 +7,7 @@ import {
 import { waterMaterial, sheetGeometry } from './water.js';
 import { buildCauseway } from './causeway.js';
 import { dressBanks } from './banks.js';
+import { nightTame } from './fade.js';
 
 // Approximate a meandering river with a chain of `nSegs` straight collision
 // segs. Endpoints sample `centerXAt` at nSegs+1 evenly-spaced z values (shared
@@ -64,7 +65,7 @@ export function buildRivers({ root, rand, obstacles }, bridgeGlowMat) {
   const tip = new THREE.Vector3();
   const up = new THREE.Vector3();
   const waterMat = waterMaterial();
-  const shoreMat = grasslandMaterials.shore();
+  const shoreMat = nightTame(grasslandMaterials.shore());
   const rowZ = (i) => -planeD / 2 + (i / (ROWS - 1)) * planeD;
 
   riverDefs.forEach((def, riverIndex) => {

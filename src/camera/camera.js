@@ -7,6 +7,8 @@ const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
 const _pp = new THREE.Vector3();
+const _vp = new THREE.Vector3();
+const _vl = new THREE.Vector3();
 
 // Driver's-cab forward view: sat back behind the cab and off to the open
 // (near) side, looking lengthwise down the cabin and out the big front
@@ -47,6 +49,10 @@ export class CameraRig {
     // WITHOUT marking the rig busy — the player keeps walking, the train
     // keeps rolling, the camera just slides into place.
     this.soft = null;
+    // a place ({ x, z }) the cutaway leans back to take in; null lets it settle home
+    this.vista = null;
+    this.vistaAt = null;
+    this.vistaBlend = 0;
     this.mapBlend = 0;
     this.aspect = camera.aspect;
 
@@ -99,6 +105,16 @@ export class CameraRig {
     const lvlY = this.followY;
     _pos.set(f.x + 20.5 * sin, lvlY + 2.4, f.z + 20.5 * cos);
     _look.set(f.x, lvlY + 0.55, f.z);
+    if (this.vistaBlend > 0) {
+      const dx = this.vistaAt.x - f.x;
+      const dz = this.vistaAt.z - f.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const e = smootherstep(this.vistaBlend);
+      _vp.set(f.x - (dx / d) * 80 + 100 * sin, 19, f.z - (dz / d) * 80 + 100 * cos);
+      _vl.set(f.x + dx * 0.2, 42, f.z + dz * 0.2);
+      _pos.lerp(_vp, e);
+      _look.lerp(_vl, e);
+    }
     this.#frameFromLook(outPos, outQuat, _pos, _look);
   }
 
@@ -265,6 +281,8 @@ export class CameraRig {
   }
 
   update(dt, time) {
+    if (this.vista) this.vistaAt = this.vista;
+    this.vistaBlend = clamp(this.vistaBlend + (this.vista ? dt : -dt) / 2.2, 0, 1);
     this.followX = damp(this.followX, this.player.x, 5, dt);
     this.followY = damp(this.followY, this.player.sitting ? LEVELS.deck : this.player.y, 4, dt);
 

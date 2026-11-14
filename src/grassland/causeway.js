@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GRASSLAND_LOOK, grasslandMaterials, floraMaterials, softDiscTexture, jitterHSL, getLookTier } from '../look.js';
 import { mulberry } from '../prng.js';
 import { DEPTH, WATER_Y } from './layout.js';
+import { nearFade, nightTame } from './fade.js';
 
 const dummy = new THREE.Object3D();
 const tint = new THREE.Color();
@@ -17,7 +18,7 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
   const group = new THREE.Group();
   const X = axis === 'x';
   const low = getLookTier() === 'low';
-  const boxes = [], stones = [], piles = [], glass = [], roofs = [], rings = [], pools = [];
+  const boxes = [], stones = [], tallBoxes = [], tallStones = [], piles = [], glass = [], roofs = [], rings = [], pools = [];
   const box = (list, u, y, v, lu, h, lv, color, ry = 0) =>
     list.push(X ? [u, y, v, lu, h, lv, ry, color] : [v, y, u, lv, h, lu, -ry, color]);
   const world = (u, v) => (X ? [u, v] : [v, u]);
@@ -31,12 +32,13 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
   };
 
   const u0 = uCenter - uSpan / 2;
-  const PLANK = 1.1;
+  const PLANK = low ? 2.2 : 1.1;
+  const seam = low ? 0 : 0.05;
   const count = Math.floor(uSpan / PLANK);
   for (let i = 0; i < count; i++) {
     const over = vWidth + 0.5 + local() * 1.1;
     const shift = (local() - 0.5) * 0.7;
-    box(boxes, u0 + (i + 0.5) * PLANK, 0.12 + local() * 0.02, vCenter + shift, PLANK - 0.12, 0.24, over,
+    box(boxes, u0 + (i + 0.5) * PLANK, 0.12 + local() * 0.02, vCenter + shift, PLANK - seam, 0.24, over,
       shade(L.deck, L.deckJitter), (local() - 0.5) * 0.012);
   }
 
@@ -50,6 +52,8 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
       u += len;
     }
   }
+
+  box(boxes, uCenter, 0.02, vCenter, uSpan, 0.12, vWidth + 0.4, new THREE.Color(L.beam).multiplyScalar(0.3));
 
   const edge = vWidth / 2 + 1.5;
   const kerb = vWidth / 2 + 0.75;
@@ -86,8 +90,9 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
   // low enough at mid-span to pass under the lens, tall on the banks
   const lantern = (u, v, postH, foot, onWater = false) => {
     const [x, z] = world(u, v);
-    box(boxes, u, (postH + foot) / 2, v, 0.42, postH - foot, 0.42, post);
-    box(boxes, u, postH + 0.02, v, 0.9, 0.12, 0.9, beam);
+    const list = onWater ? boxes : tallBoxes;
+    box(list, u, (postH + foot) / 2, v, 0.42, postH - foot, 0.42, post);
+    box(list, u, postH + 0.02, v, 0.9, 0.12, 0.9, beam);
     glass.push([x, postH + 0.42, z]);
     roofs.push([x, postH + 0.96, z]);
     const glow = new THREE.Sprite(glowMat);
@@ -116,8 +121,8 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
       for (let k = 0; k < 6; k++) {
         const inward = k * 2.05;
         const drop = Math.max(0, k - 1) * 0.42;
-        box(stones, uEnd - end * (inward - 0.6), 0.1 - drop, vCenter + side * (edge + 1.35 + (local() - 0.5) * 0.2),
-          2.0 + local() * 0.25, 1.25 + local() * 0.2, 1.5 + local() * 0.3, stone(), (local() - 0.5) * 0.06);
+        box(stones, uEnd - end * (inward - 0.6), 0.1 - drop, vCenter + side * (edge + 1.35 + (local() - 0.5) * 0.55),
+          1.7 + local() * 0.5, 1.15 + local() * 0.4, 1.3 + local() * 0.6, stone(), (local() - 0.5) * 0.22);
       }
       // the wing splays out onto the bank and ends in a lantern plinth, clear of the lens
       for (let k = 1; k <= 4; k++) {
@@ -125,8 +130,8 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
           2.2 + local() * 0.2, 1.2 + local() * 0.25, 1.4 + local() * 0.3, stone(), -Math.atan2(side, end));
       }
       const pu = uEnd + end * 7.4, pv = vCenter + side * (edge + 8.75);
-      box(stones, pu, 0.45, pv, 2.0, 1.3, 2.0, stone());
-      box(stones, pu, 1.2, pv, 1.5, 0.3, 1.5, stone());
+      box(tallStones, pu, 0.45, pv, 2.0, 1.3, 2.0, stone());
+      box(tallStones, pu, 1.2, pv, 1.5, 0.3, 1.5, stone());
       lantern(pu, pv, 4.6, 1.35);
     }
   }
@@ -155,24 +160,27 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
     return color;
   };
   const unit = new THREE.BoxGeometry(1, 1, 1);
-  instanced(unit, grasslandMaterials.causewayPlank(), boxes, fitBox);
-  instanced(unit, grasslandMaterials.causewayStone(), stones, fitBox);
+  const tall = { above: 0.75 };
+  instanced(unit, nearFade(grasslandMaterials.causewayPlank(), tall), boxes, fitBox);
+  instanced(unit, nearFade(grasslandMaterials.causewayStone(), tall), stones, fitBox);
+  instanced(unit, nearFade(grasslandMaterials.causewayPlank()), tallBoxes, fitBox);
+  instanced(unit, nearFade(grasslandMaterials.causewayStone()), tallStones, fitBox);
   const pileH = DEPTH + 0.2;
   instanced(new THREE.CylinderGeometry(0.85, 1, 1, 7, 1, true), grasslandMaterials.causewayPost(), piles, (o, [x, z, r]) => {
     o.position.set(x, -pileH / 2 - 0.1, z);
     o.scale.set(r, pileH, r);
   });
-  instanced(new THREE.BoxGeometry(0.56, 0.7, 0.56), grasslandMaterials.causewayLantern(), glass, (o, [x, y, z]) => {
+  instanced(new THREE.BoxGeometry(0.56, 0.7, 0.56), nearFade(grasslandMaterials.causewayLantern()), glass, (o, [x, y, z]) => {
     o.position.set(x, y, z);
   }, false);
-  instanced(new THREE.ConeGeometry(0.66, 0.42, 4), grasslandMaterials.causewayBrass(), roofs, (o, [x, y, z]) => {
+  instanced(new THREE.ConeGeometry(0.66, 0.42, 4), nearFade(grasslandMaterials.causewayBrass()), roofs, (o, [x, y, z]) => {
     o.position.set(x, y, z);
     o.rotation.y = Math.PI / 4;
   });
-  const foam = new THREE.Color(GRASSLAND_LOOK.waterFoam);
+  const foam = new THREE.Color(GRASSLAND_LOOK.waterFoam).lerp(tint.set(GRASSLAND_LOOK.water), 0.25);
   const ringGeo = new THREE.RingGeometry(0.5, 0.82, low ? 7 : 12);
   ringGeo.rotateX(-Math.PI / 2);
-  instanced(ringGeo, grasslandMaterials.lilyPads(), rings, (o, [x, z, s]) => {
+  instanced(ringGeo, nightTame(grasslandMaterials.lilyPads(), 0.6), rings, (o, [x, z, s]) => {
     o.position.set(x, WATER_Y + 0.07, z);
     o.scale.set(s, 1, s);
     return foam;

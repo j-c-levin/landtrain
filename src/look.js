@@ -432,7 +432,7 @@ export const GRASSLAND_LOOK = {
   waterGlint: 0xd4f0ee,
   waterMoatGlint: 0xdce8ff,
   waterBank: 0x3d6b48,
-  waterChart: 0x3f86a4,
+  waterChart: 0x6f97a6,
   reed: { h: [0.22, 0.07, 'mid'], s: [0.46, 0.18, 'mid'], l: [0.4, 0.14, 'mid'] },
   bankStone: { h: [0.12, 0.08, 'mid'], s: [0.08, 0.08, 'mid'], l: [0.6, 0.22, 'mid'] },
   bankFlower: [0xffd84a, 0xfff2c8, 0xb48cf0, 0xff9fb8],
@@ -461,15 +461,16 @@ export const GRASSLAND_LOOK = {
     glow: ['rgba(255,196,110,0.5)', 'rgba(255,196,110,0)'],
   },
   moatGlow: ['rgba(140,190,255,0.5)', 'rgba(140,190,255,0)'],
-  stonework: { h: [0.1, 0.05, 'mid'], s: [0.15, 0.08, 'mid'], l: [0.5, 0.16, 'mid'] },
+  stonework: { h: [0.085, 0.04, 'mid'], s: [0.32, 0.1, 'mid'], l: [0.47, 0.16, 'mid'] },
   brass: 0xb88a3c,
   iron: 0x3a342e,
   pathEarth: 0x9a8258,
+  lanternMoss: 0x7d9a5c,
   silverTree: {
     knoll: 0x6a9a4e,
     knollFoot: 0x5a8442,
     trunk: 0x6a5340,
-    leaf: 0xc4d2ee,
+    leaf: 0xdde2f0,
     leafGlow: 0x9fb6d8,
     accent: 0xfbeff6,
     accentGlow: 0xcfe0f2,
@@ -478,12 +479,14 @@ export const GRASSLAND_LOOK = {
     halo: ['rgba(150,200,255,0.55)', 'rgba(150,200,255,0)'],
     bark: 0x8a7a6c,
     barkPale: 0xcfcac4,
-    leafShade: 0x94a6dc,
-    leafLight: 0xf6f8ff,
+    leafShade: 0xb6bedb,
+    leafLight: 0xfff6e6,
     strand: [0xc4b8f0, 0xd9c8f4, 0xb7c6f2],
     flower: [0xffffff, 0xffe2ee, 0xfff6dc, 0xe9e2ff],
     petal: 0xf2f0ff,
     stoneGlow: 0xa8d4ff,
+    stonePool: 'rgba(170,205,255,0.9)',
+    chartCrown: 0xe4e9f4,
   },
 };
 
@@ -559,7 +562,7 @@ export const grasslandMaterials = {
   treeCrown: () =>
     std({
       color: 0xffffff, roughness: 0.75, fog: false, vertexColors: true,
-      emissive: GRASSLAND_LOOK.silverTree.leafGlow, emissiveIntensity: 0.42,
+      emissive: GRASSLAND_LOOK.silverTree.leafGlow, emissiveIntensity: 0.32,
     }),
   treeBlossom: () =>
     std({

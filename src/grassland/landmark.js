@@ -4,6 +4,7 @@ import { GRASSLAND_LOOK, grasslandMaterials, getLookTier } from '../look.js';
 import { mulberry } from '../prng.js';
 import { GRASS_LANDMARK } from './layout.js';
 import { sheetGeometry } from './water.js';
+import { nightTame } from './fade.js';
 
 const TAU = Math.PI * 2;
 const c1 = new THREE.Color();
@@ -95,7 +96,7 @@ export function buildGrassLandmark(root) {
   const group = new THREE.Group();
   group.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
 
-  const knoll = new THREE.Mesh(knollGeometry(), grasslandMaterials.islandTurf());
+  const knoll = new THREE.Mesh(knollGeometry(), nightTame(grasslandMaterials.islandTurf()));
   knoll.receiveShadow = true;
   group.add(knoll);
 
@@ -140,8 +141,8 @@ export function buildGrassLandmark(root) {
   }
   const crownGeo = paint(mergeGeometries(puffs), (_x, y, _z, up) => {
     const lift = Math.min(1, Math.max(0, (y - 58) / 56));
-    c1.set(S.leafShade).lerp(c2.set(S.leaf), Math.min(1, Math.max(0, up * 0.9 + 0.55)));
-    return c1.lerp(c3.set(S.leafLight), Math.max(0, up) * 0.55 + lift * 0.25);
+    c1.set(S.leafShade).lerp(c2.set(S.leaf), Math.min(1, Math.max(0, up * 0.9 + 0.6)));
+    return c1.lerp(c3.set(S.leafLight), Math.max(0, up) * 0.6 + lift * 0.25);
   });
   for (const g of puffs) g.dispose();
   const crown = new THREE.Mesh(crownGeo, grasslandMaterials.treeCrown());
@@ -149,7 +150,8 @@ export function buildGrassLandmark(root) {
   group.add(crown);
 
   const buds = BLOSSOM.map(([x, y, z, r]) => blob(rand, x, y, z, r, 1, 0.85));
-  group.add(new THREE.Mesh(mergeGeometries(buds), grasslandMaterials.treeBlossom()));
+  const blossom = new THREE.Mesh(mergeGeometries(buds), grasslandMaterials.treeBlossom());
+  group.add(blossom);
   for (const g of buds) g.dispose();
 
   const FLOWERS = 170;
@@ -211,12 +213,48 @@ export function buildGrassLandmark(root) {
   const glowGeo = new THREE.BufferGeometry();
   glowGeo.setAttribute('position', new THREE.BufferAttribute(glowPos, 3));
   glowGeo.setAttribute('color', new THREE.BufferAttribute(glowCol, 3));
-  group.add(new THREE.Points(glowGeo, grasslandMaterials.glowPoints(15)));
+  const glow = new THREE.Points(glowGeo, grasslandMaterials.glowPoints(15));
+  group.add(glow);
 
   const halo = new THREE.Sprite(grasslandMaterials.halo());
   halo.scale.setScalar(200);
   halo.position.y = 86;
   group.add(halo);
+
+  const RIM = 60;
+  const plan = new Float32Array((RIM + 1) * 6 + 3);
+  const planCol = new Float32Array((RIM + 1) * 6 + 3);
+  const planIndex = [];
+  plan.set([0, 104, 0]);
+  planCol.set([1, 1, 1]);
+  for (let i = 0; i <= RIM; i++) {
+    const a = (i / RIM) * TAU;
+    const r = 54 * (1 + 0.07 * Math.cos(a * 9) + 0.03 * Math.sin(a * 3 + 1));
+    const k = 0.9 + 0.06 * Math.sin(a * 2 + 0.6);
+    plan.set([Math.cos(a) * r * 0.62, 102, -Math.sin(a) * r * 0.62, Math.cos(a) * r, 98, -Math.sin(a) * r], i * 6 + 3);
+    planCol.set([k, k, k + 0.02, 0.74, 0.77, 0.84], i * 6 + 3);
+    if (i < RIM) {
+      const v = i * 2 + 1;
+      planIndex.push(0, v, v + 2, v, v + 1, v + 3, v, v + 3, v + 2);
+    }
+  }
+  const planGeo = new THREE.BufferGeometry();
+  planGeo.setAttribute('position', new THREE.BufferAttribute(plan, 3));
+  planGeo.setAttribute('color', new THREE.BufferAttribute(planCol, 3));
+  planGeo.setIndex(planIndex);
+  const planMat = new THREE.MeshBasicMaterial({
+    color: S.chartCrown, vertexColors: true, transparent: true, opacity: 0, fog: false,
+  });
+  const planCrown = new THREE.Mesh(planGeo, planMat);
+  planCrown.visible = false;
+  group.add(planCrown);
+  const detail = [crown, blossom, flowers, strands, lanterns, glow, halo];
+  group.userData.setChart = (chart) => {
+    const drawn = chart > 0.7;
+    planCrown.visible = chart > 0.3;
+    planMat.opacity = Math.min(1, Math.max(0, (chart - 0.3) / 0.4));
+    for (let i = 0; i < detail.length; i++) detail[i].visible = !drawn;
+  };
 
   root.add(group);
   return group;

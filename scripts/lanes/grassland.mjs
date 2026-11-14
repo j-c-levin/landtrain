@@ -29,6 +29,7 @@ const L = { width: 844, height: 390, quality: 'low', touch: true };
 
 // view: book orbit { theta, phi, dist } | cam: free camera { pos, look } | inhabit: true
 const SHOTS = [
+  { name: 'ending-vista', profile: D, time: 'day', train: { x: 5324.6, z: 0, heading: 0 }, ending: true },
   { name: 'river-low', profile: D, time: 'day', train: RIVER, view: { theta: 2.2, phi: 0.1, dist: 62 } },
   { name: 'river-along', profile: D, time: 'day', train: RIVER, cam: { pos: [3112, 7, 96], look: [3098, -1, 190] } },
   { name: 'river-bank', profile: D, time: 'day', train: BANK, view: { theta: -0.6, phi: 0.16, dist: 70 } },
@@ -150,6 +151,15 @@ async function runShot(page, spec) {
   await ensureGrassland(page);
   // the ending fires once; hide its card for every later shot
   await page.evaluate(() => document.getElementById('card').classList.add('hidden'));
+  if (spec.ending) {
+    // the vista holds only while the card is up, so hide it without dismissing it
+    await resetStage(page, spec.train, spec.time, ENGINE);
+    await page.waitForFunction(() => !document.getElementById('card').classList.contains('hidden'), null, { timeout: 15000 });
+    await page.evaluate(() => { document.getElementById('card').style.visibility = 'hidden'; });
+    await liveFor(page, 3500);
+    return;
+  }
+  await page.evaluate(() => { document.getElementById('card').style.visibility = ''; });
   if (spec.inhabit) {
     await resetStage(page, spec.train, spec.time, ENGINE);
   } else if (spec.map) {
@@ -175,7 +185,10 @@ async function runShot(page, spec) {
     await page.evaluate((cam) => { __cap.cam = cam; }, spec.cam);
     await liveFor(page, 1500);
   }
-  await page.evaluate(() => document.getElementById('card').classList.add('hidden'));
+  await page.waitForFunction(() => {
+    document.getElementById('card').classList.add('hidden');
+    return !__game.rig.vistaBlend;
+  }, null, { timeout: 20000 });
 }
 
 async function freePort() {

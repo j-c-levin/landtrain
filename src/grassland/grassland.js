@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GRASSLAND, clamp } from '../constants.js';
-import { GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
+import { CHART, GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
 import { createGroundCover, coverMask } from '../groundcover.js';
 import { mulberry } from '../prng.js';
 import { disposeSubtree } from '../dispose.js';
@@ -13,6 +13,7 @@ import { mossyBoulders, buildKnollBoulders } from './boulders.js';
 import { buildGrassLandmark } from './landmark.js';
 import { buildIsland, buildPetals } from './island.js';
 import { WATER_TIME } from './water.js';
+import { NIGHT, nightTame, nearCullSprite } from './fade.js';
 
 const CLOSE_UP_CEILING = 150;
 
@@ -45,10 +46,13 @@ export function createGrassland(scene) {
     look: GRASSLAND_LOOK, seed: 5150616, clipX: [GRASSLAND.minX, GRASSLAND.maxX + 400], mask,
   });
   root.add(cover.group);
+  const tamed = new Set();
+  cover.group.traverse((o) => { if (o.material) tamed.add(o.material); });
+  for (const mat of tamed) nightTame(mat);
 
-  const bridgeGlowMat = grasslandMaterials.causewayGlow();
+  const bridgeGlowMat = nearCullSprite(grasslandMaterials.causewayGlow());
   buildRivers(ctx, bridgeGlowMat);
-  buildMoat(ctx, bridgeGlowMat);
+  const moat = buildMoat(ctx, bridgeGlowMat);
 
   const trees = buildWillows(ctx);
   buildHills(ctx);
@@ -59,7 +63,8 @@ export function createGrassland(scene) {
 
   const landmark = buildGrassLandmark(root);
   buildKnollBoulders(ctx);
-  buildIsland(root);
+  const island = buildIsland(root);
+  const key = scene.children.find((o) => o.isDirectionalLight && o.castShadow);
   const petals = buildPetals(root, scene);
 
   const closeUps = [];
@@ -85,6 +90,12 @@ export function createGrassland(scene) {
         petals.update(time, camera);
       }
       WATER_TIME.value = time;
+      const chart = CHART.uChart.value;
+      const night = key ? clamp((key.color.b - key.color.r) * 2, 0, 1) : 0;
+      NIGHT.value = night * (1 - chart);
+      moat.glowMat.opacity = 1 - chart;
+      island.userData.lampPools.opacity = (0.04 + 0.5 * night) * (1 - chart);
+      landmark.userData.setChart(chart);
       const near = cameraPos.y < CLOSE_UP_CEILING;
       for (const o of closeUps) o.visible = near;
 

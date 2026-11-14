@@ -57,6 +57,7 @@ const PARS = /* glsl */ `
   uniform float uChart;
   uniform float uChartNight;
   uniform vec3 uChartIndigo;
+  uniform vec3 uChartInk;
   #ifdef WATER_RIPPLE
     uniform sampler2D uRipple;
   #endif
@@ -111,8 +112,8 @@ const NORMAL = /* glsl */ `
   #ifdef WATER_RIPPLE
     vec2 wu = vFlow / 30.0;
     vec3 wn1 = texture2D(uRipple, wu + uFlow * wt * 0.026).xyz * 2.0 - 1.0;
-    vec3 wn2 = texture2D(uRipple, wu * 2.6 - uFlow * wt * 0.04 + 0.37).xyz * 2.0 - 1.0;
-    vec2 wnn = (wn1.xy + wn2.xy) * 0.34 * (1.0 - uChart);
+    vec3 wn2 = texture2D(uRipple, wu * 3.4 - uFlow * wt * 0.04 + 0.37).xyz * 2.0 - 1.0;
+    vec2 wnn = (wn1.xy * 0.13 + wn2.xy * 0.19) * (1.0 - uChart);
     wUp = normalize(vec3(wnn.x, 1.0, wnn.y));
     normal = normalize((viewMatrix * vec4(wUp, 0.0)).xyz);
   #else
@@ -124,14 +125,28 @@ const NORMAL = /* glsl */ `
 const CHART_OUT = /* glsl */ `
   #ifdef USE_FOG
     vec3 wEye = normalize(cameraPosition - vWaterWorld);
-    float wFres = min(0.82, 0.03 + 0.97 * pow(1.0 - max(dot(wEye, wUp), 0.0), 4.0));
+    float wFres = clamp(0.03 + 0.97 * pow(1.0 - max(dot(wEye, wUp), 0.0), 4.0), 0.2, 0.8);
     float wLift = reflect(-wEye, wUp).y;
-    vec3 wSky = mix(fogColor, fogColor * vec3(0.5, 0.72, 1.0), smoothstep(0.02, 0.6, wLift));
+    vec3 wSky = mix(fogColor, fogColor * vec3(0.56, 0.76, 1.0), smoothstep(0.02, 0.6, wLift));
+    wSky = mix(wSky, outgoingLight, 0.22);
     outgoingLight = mix(outgoingLight, wSky, wFres * (1.0 - wF * 0.85));
     diffuseColor.a = max(diffuseColor.a, wFres);
   #endif
-  vec3 wChart = uChartWater * (0.8 + 0.2 * smoothstep(0.0, 3.5, vShore));
+  // chart: a muted wash pooling darker at the bank, with dry pen strokes along the current
+  float cWash = wNoise(vFlow * 0.028 + 3.0) * 0.6 + wNoise(vFlow * 0.085 + 11.0) * 0.4;
+  vec3 wChart = uChartWater * (0.9 + 0.2 * cWash);
+  wChart *= 0.84 + 0.16 * smoothstep(0.0, 1.6, vShore);
+  wChart = mix(wChart, vec3(1.0), 0.16 * (1.0 - smoothstep(2.0, 9.0, vShore)));
   wChart = mix(wChart, uChartIndigo * (0.55 + 0.9 * dot(wChart, vec3(0.3, 0.59, 0.11))), uChartNight);
+  vec2 cCell = vec2(11.0, 34.0);
+  vec2 ci = floor(vFlow / cCell);
+  float cr = wHash(ci);
+  vec2 cp = (fract(vFlow / cCell) - 0.5 - (vec2(wHash(ci + 2.1), wHash(ci + 4.7)) - 0.5) * 0.5) * cCell;
+  cp.x += sin(cp.y * 0.7 + cr * 6.3) * 0.55;
+  float cw = fwidth(vFlow.x) + fwidth(vFlow.y);
+  float cMark = (1.0 - smoothstep(0.17, 0.17 + cw, abs(cp.x))) * (1.0 - smoothstep(3.6 + cr * 3.0, 3.6 + cr * 3.0 + cw, abs(cp.y)));
+  cMark *= step(0.5, cr) * smoothstep(1.5, 4.0, vShore);
+  wChart = mix(wChart, uChartInk, cMark * 0.4 * (1.0 - 0.6 * uChartNight));
   outgoingLight = mix(outgoingLight, wChart, uChart);
 `;
 
@@ -156,6 +171,7 @@ export function waterMaterial({ flow = [0, 1.5], stroke = [0.5, 0.05], glint = G
     uChart: CHART.uChart,
     uChartNight: CHART.uChartNight,
     uChartIndigo: CHART.uChartIndigo,
+    uChartInk: CHART.uChartInk,
   };
   mat.defines = {};
   if (!low) {
