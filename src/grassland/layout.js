@@ -15,10 +15,13 @@ export const zSpan = zMax - zMin;
 export const cxRegion = (xMin + xMax) / 2;
 
 export const DEPTH = 7; // channel floor sits at y = -DEPTH
-export const BANK = 24; // bank slope width (lip -> floor) for rivers
+export const BANK = 16; // bank slope width (lip -> floor) for rivers
 export const RIVER_W = 18; // river flat-floor half-width
 export const FOOT = RIVER_W + BANK; // river channel footprint half-width
-export const WATER_Y = -DEPTH + 0.6;
+export const WATER_Y = -1.6;
+export const RING_MID = 190;
+export const RING_W = 18;
+export const RING_BANK = 22;
 
 const smooth = (t) => t * t * (3 - 2 * t);
 // Height at distance `d` from a channel centre line with flat-floor
@@ -28,6 +31,18 @@ export const channelY = (d, w, bank) => {
   if (d >= w + bank) return 0;
   return -DEPTH * (1 - smooth((d - w) / bank));
 };
+
+// Distance from a channel centre line at which the bank meets the water.
+export const shoreDist = (w, bank) => {
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 30; i++) {
+    const t = (lo + hi) / 2;
+    if (-DEPTH * (1 - smooth(t)) < WATER_Y) lo = t; else hi = t;
+  }
+  return w + bank * lo;
+};
+export const RIVER_SHORE = shoreDist(RIVER_W, BANK);
+export const RING_SHORE = shoreDist(RING_W, RING_BANK);
 
 // Each river meanders as a sine wave around its base x, south (t=0) to north
 // (t=1), with one bridge gap.

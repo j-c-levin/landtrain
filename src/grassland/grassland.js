@@ -11,6 +11,10 @@ import { buildRivers } from './rivers.js';
 import { buildMoat } from './moat.js';
 import { mossyBoulders, buildKnollBoulders } from './boulders.js';
 import { buildGrassLandmark } from './landmark.js';
+import { buildIsland, buildPetals } from './island.js';
+import { WATER_TIME } from './water.js';
+
+const CLOSE_UP_CEILING = 150;
 
 // The eastern region of the seamless world. It shares ONE sky, sun and haze
 // with the prairie: it creates no directional light and never touches scene.fog.
@@ -24,7 +28,6 @@ export function createGrassland(scene) {
 
   const randX = () => xMin + rand() * xSpan;
   const randZ = () => zMin + rand() * zSpan;
-  // a random ground position that isn't over a channel (re-roll, capped)
   const randClearXZ = () => {
     let x = randX(), z = randZ(), n = 0;
     while (onWater(x, z) && ++n < 10) { x = randX(); z = randZ(); }
@@ -43,10 +46,9 @@ export function createGrassland(scene) {
   });
   root.add(cover.group);
 
-  // One glow sprite material shared by every causeway lantern.
   const bridgeGlowMat = grasslandMaterials.causewayGlow();
-  const waters = buildRivers(ctx, bridgeGlowMat);
-  buildMoat(ctx, bridgeGlowMat, waters);
+  buildRivers(ctx, bridgeGlowMat);
+  buildMoat(ctx, bridgeGlowMat);
 
   const trees = buildWillows(ctx);
   buildHills(ctx);
@@ -57,6 +59,11 @@ export function createGrassland(scene) {
 
   const landmark = buildGrassLandmark(root);
   buildKnollBoulders(ctx);
+  buildIsland(root);
+  const petals = buildPetals(root, scene);
+
+  const closeUps = [];
+  root.traverse((o) => { if (o.userData.closeUp) closeUps.push(o); });
 
   function dispose() {
     cover.dispose();
@@ -73,16 +80,13 @@ export function createGrassland(scene) {
     landmarkPos: { x: GRASS_LANDMARK.x, z: GRASS_LANDMARK.z },
     arriveRadius: GRASS_ARRIVE_RADIUS,
     update(_dt, time, trainPos, cameraPos, camera, heading = 0) {
-      if (camera) cover.update(time, camera, trainPos, heading);
-      // `dir` flips the scroll for the dense overlay layer so its tiling
-      // drifts opposite the base layer instead of lining up with it.
-      for (const w of waters) {
-        const dir = w.dir || 1;
-        const off = (time * 0.04 * dir) % 1;
-        const axis = w.axis || 'y';
-        const tex = w.mat.normalMap || w.mat.map;
-        if (tex) tex.offset[axis] = off;
+      if (camera) {
+        cover.update(time, camera, trainPos, heading);
+        petals.update(time, camera);
       }
+      WATER_TIME.value = time;
+      const near = cameraPos.y < CLOSE_UP_CEILING;
+      for (const o of closeUps) o.visible = near;
 
       for (const t of trees) {
         const d = Math.hypot(t.group.position.x - cameraPos.x, t.group.position.z - cameraPos.z);
