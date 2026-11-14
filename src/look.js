@@ -658,3 +658,27 @@ export const mapMaterials = {
       map: softDiscTexture(...MAP_LOOK.beacon), transparent: true, depthTest: false, fog: false,
     }),
 };
+
+// ----------------------------------------------------------------- figure
+
+export function createFigureMaterials() {
+  return {
+    coat: enamel({ color: 0x3d50ad, roughness: 0.62 }, 0.25),
+    hat: enamel({ color: 0xd4472f, roughness: 0.6 }, 0.25),
+    trim: std({ color: 0xf5e8c8, roughness: 0.85 }),
+    scarf: std({ color: 0xf2b736, roughness: 0.9 }),
+    legs: std({ color: 0xeee2c4, roughness: 0.9 }),
+    skin: std({ color: 0xf4c9a2, roughness: 0.75 }),
+    blush: std({ color: 0xe88f7c, roughness: 0.9 }),
+    hair: std({ color: 0x5b3221, roughness: 0.85 }),
+    boot: enamel({ color: 0x4a3024, roughness: 0.55 }, 0.2),
+    eye: std({ color: 0x2a1c14, roughness: 0.3 }),
+    leather: std({ color: 0xa5682f, roughness: 0.8 }),
+    brass: std({ color: 0xd9a441, roughness: 0.35, metalness: 0.7 }),
+    iron: std({ color: 0x3a3f44, roughness: 0.5, metalness: 0.5 }),
+    copper: std({ color: 0xc47a45, roughness: 0.4, metalness: 0.6 }),
+    cover: std({ color: 0x8a3c44, roughness: 0.9 }),
+    pages: std({ color: 0xf6edd6, roughness: 1 }),
+    water: new THREE.MeshBasicMaterial({ color: 0xbfe6f2, transparent: true, opacity: 0.75 }),
+  };
+}
