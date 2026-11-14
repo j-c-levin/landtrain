@@ -4,7 +4,7 @@ import { CHART, SMOKE_LOOK } from '../look.js';
 import { lcg } from '../prng.js';
 import { ATMOS } from './shared.js';
 
-const POOL = 160;
+const POOL = 220;
 const SMOKE = 0;
 const STEAM = 1;
 const DUST = 2;
@@ -37,6 +37,7 @@ const FRAG = /* glsl */ `
   uniform vec3 uSoot;
   uniform vec3 uAsh;
   uniform vec3 uSteam;
+  uniform vec3 uEmber;
   uniform float uFade;
   varying vec2 vP;
   varying vec4 vMisc;
@@ -73,7 +74,9 @@ const FRAG = /* glsl */ `
     vec3 albedo = mix(uSoot, uAsh, smoothstep(0.0, 0.45, age));
     if (kind > 1.5) albedo = uGround;
     else if (kind > 0.5) albedo = uSteam;
-    gl_FragColor = vec4(albedo * mix(uShade, uLit * 1.15, tone), a);
+    vec3 c = albedo * mix(uShade, uLit * 1.15, tone);
+    if (kind < 0.5) c += uEmber * (1.0 - smoothstep(0.0, 0.08, age)) * (0.35 + 0.65 * (1.0 - tone));
+    gl_FragColor = vec4(c, a);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     #include <fog_fragment>
@@ -107,6 +110,7 @@ export function createSmoke(scene) {
       uSoot: { value: new THREE.Color(SMOKE_LOOK.soot) },
       uAsh: { value: new THREE.Color(SMOKE_LOOK.ash) },
       uSteam: { value: new THREE.Color(SMOKE_LOOK.steam) },
+      uEmber: { value: new THREE.Color() },
       uFade: { value: 1 },
     },
     vertexShader: VERT,
@@ -174,7 +178,7 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
       } else {
         fx.stack = 0.55 + rand() * 0.3;
         spawn(fx, SMOKE, p.x + jit(0.15), p.y, p.z + jit(0.15), jit(0.2), 1.25 + rand() * 0.5, jit(0.2),
-          4.2 + rand() * 1.2, 0.46, 1.9 + rand() * 0.7, 0.36);
+          4.6 + rand() * 1.2, 0.5, 2.3 + rand() * 0.8, 0.5);
       }
     }
 
@@ -201,11 +205,13 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
       }
       fx.dust -= dt * speed01;
       while (fx.dust <= 0) {
-        fx.dust += 0.03;
+        fx.dust += 0.022;
         const wheel = state.wheels[Math.floor(rand() * state.wheels.length)];
         const e = wheel.matrixWorld.elements;
-        spawn(fx, DUST, e[12] + jit(0.7), 0.2, e[14] + jit(0.4), jit(0.5), 0.4 + rand() * 0.6, jit(0.5),
-          1.4 + rand() * 1.0, 0.45, 1.8 + rand() * 1.2, 0.4 * speed01);
+        const carry = speed * 0.4;
+        const ry = engine.rotation.y;
+        spawn(fx, DUST, e[12] + jit(0.9), 0.3, e[14] + jit(2.2), Math.cos(ry) * carry + jit(0.6), 0.3 + rand() * 0.6,
+          -Math.sin(ry) * carry + jit(0.6), 1.3 + rand() * 0.9, 0.6, 2.0 + rand() * 1.2, 0.5 * speed01);
       }
     }
 
@@ -245,7 +251,9 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
   u.uLit.value.lerp(_luma.setScalar(luma(ATMOS.lit)), grey);
   u.uShade.value.copy(ATMOS.shade);
   u.uShade.value.lerp(_luma.setScalar(luma(ATMOS.shade)), grey);
-  u.uGround.value.copy(ATMOS.ground).lerp(_luma.setScalar(1), SMOKE_LOOK.dustPale);
+  u.uLit.value.lerp(_luma.set(SMOKE_LOOK.nightLit), ATMOS.night * 0.8);
+  u.uGround.value.copy(ATMOS.ground).lerp(_luma.set(SMOKE_LOOK.dust), SMOKE_LOOK.dustPale);
+  u.uEmber.value.set(SMOKE_LOOK.ember).multiplyScalar(0.08 + 0.3 * Math.max(ATMOS.night, ATMOS.dusk * 0.5));
   u.uFade.value = 1 - CHART.uChart.value;
 }
 

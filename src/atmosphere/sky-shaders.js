@@ -37,6 +37,7 @@ export const DOME_FRAG = /* glsl */ `
   uniform float uBeltI;
   uniform vec3 uMoonDir;
   uniform vec3 uMoonCol;
+  uniform vec3 uMoonSea;
   uniform float uMoonVis;
   uniform float uNight;
   uniform vec3 uGalaxy;
@@ -56,7 +57,7 @@ export const DOME_FRAG = /* glsl */ `
   void main() {
     vec3 d = normalize(vDir);
     float e = asin(clamp(d.y, -1.0, 1.0)) * 57.29578;
-    vec3 col = mix(uHorizon, uLower, smoothstep(0.0, 7.0, e));
+    vec3 col = mix(uHorizon, uLower, smoothstep(2.5, 11.0, e));
     col = mix(col, uUpper, smoothstep(5.0, 32.0, e));
     col = mix(col, uZenith, smoothstep(26.0, 82.0, e));
 
@@ -74,6 +75,8 @@ export const DOME_FRAG = /* glsl */ `
     float hz = 1.0 - smoothstep(-1.0, 4.0, e);
     col = mix(col, uHaze, hz * (1.0 - 0.8 * min(1.0, uGlowI) * pow(toward, 4.0)));
 
+    vec3 air = col;
+
     if (uNight > 0.01) {
       float band = exp(-pow(dot(d, uGalaxy) / 0.21, 2.0));
       vec2 guv = d.xz * 0.35 + d.y * 0.11;
@@ -83,20 +86,26 @@ export const DOME_FRAG = /* glsl */ `
 
     float a2 = 2.0 * (1.0 - sd);
     float r2 = uSunSize * uSunSize;
-    float disc = 1.0 - smoothstep(r2 * 0.8, r2, a2);
-    col += uSunCol * uSunVis * (0.3 * exp(-a2 / (r2 * 10.0)) + 0.1 * exp(-a2 / (r2 * 90.0)));
-    col = mix(col, uSunCol, disc * uSunVis);
+    float disc = 1.0 - smoothstep(r2 * 0.82, r2, a2);
+    float core = exp(-a2 / (r2 * 0.4));
+    col += uSunCol * uSunVis * (0.42 * exp(-a2 / (r2 * 7.0)) + 0.12 * exp(-a2 / (r2 * 70.0)));
+    col = mix(col, uSunCol * (1.0 + 0.25 * core) + vec3(0.5, 0.4, 0.18) * core, disc * uSunVis);
 
+    float moonLight = 0.0;
     if (uMoonVis > 0.0 && dot(d, uMoonDir) > 0.0) {
       vec3 mr = normalize(cross(vec3(0.0, 1.0, 0.0), uMoonDir));
       vec3 mu = cross(uMoonDir, mr);
       vec2 mp = vec2(dot(d, mr), dot(d, mu)) / 0.03;
       float md = length(mp);
-      col += uMoonCol * uMoonVis * (0.16 * exp(-md * md / 6.0) + 0.05 * exp(-md * md / 90.0));
+      moonLight = uMoonVis * exp(-md * md / 30.0);
+      col += uMoonCol * uMoonVis * (0.14 * exp(-md * md / 6.0) + 0.05 * exp(-md * md / 90.0));
       if (md < 1.0) {
-        float seas = smoothstep(0.42, 0.6, texture2D(uMottle, mp * 0.2 + vec2(0.37, 0.52)).r);
-        vec3 face = uMoonCol * (1.0 - 0.16 * seas) * (0.86 + 0.14 * sqrt(1.0 - md * md));
-        col = mix(col, face, (1.0 - smoothstep(0.93, 1.0, md)) * uMoonVis);
+        vec2 muv = mp * 0.2 + vec2(0.37, 0.52);
+        float n = texture2D(uMottle, muv).r * 0.7 + texture2D(uMottle, muv * 2.9 + 0.2).r * 0.3;
+        float seas = 0.6 * smoothstep(0.47, 0.5, n) + 0.4 * smoothstep(0.58, 0.61, n);
+        vec3 face = mix(uMoonCol, uMoonSea, seas) * (0.84 + 0.16 * sqrt(1.0 - md * md));
+        face *= 1.0 - 0.2 * smoothstep(0.25, 1.0, dot(mp, vec2(-0.74, -0.67)));
+        col = mix(col, face, (1.0 - smoothstep(0.94, 1.0, md)) * uMoonVis);
       }
     }
 
@@ -113,12 +122,12 @@ export const DOME_FRAG = /* glsl */ `
         vec3 c = texture2D(uCloud, cuv).rgb;
         float body = smoothstep(0.35, 0.65, c.r);
         float l = c.g / max(c.r, 0.02);
-        float tone = 0.5 * smoothstep(0.44, 0.5, l) + 0.5 * smoothstep(0.72, 0.78, l);
+        float tone = 0.5 * smoothstep(0.27, 0.32, l) + 0.5 * smoothstep(0.66, 0.71, l);
         vec3 lit = uCloudLit + uGlow * uGlowI * 0.4 * pow(toward, 2.0);
         vec3 cc = mix(uCloudShade, lit, tone);
-        cc += uSunCol * uSunVis * 0.25 * pow(sdp, 24.0) * (1.0 - body * 0.6);
-        float far = 1.0 - smoothstep(1.0, 12.0, e);
-        cc = mix(cc, col, far * 0.6);
+        cc += uSunCol * uSunVis * 0.2 * pow(sdp, 24.0) + uMoonCol * moonLight * (0.05 + 0.16 * tone);
+        float far = 1.0 - smoothstep(4.0, 14.0, e);
+        cc = mix(cc, air, far * 0.4);
         col = mix(col, cc, body * band * uCloudOp);
       }
     }
@@ -139,6 +148,8 @@ export const STAR_VERT = /* glsl */ `
   uniform float uTime;
   uniform float uAlpha;
   uniform float uPR;
+  uniform vec3 uMoonDir;
+  uniform float uMoonVis;
   varying float vA;
   varying vec3 vC;
   varying float vSpark;
@@ -151,6 +162,7 @@ export const STAR_VERT = /* glsl */ `
     float se = asin(sdir.y) * 57.29578;
     float cover = smoothstep(0.35, 0.65, texture2D(uCloud, cloudUv(sdir, se)).r) * cloudBand(se);
     vA *= 1.0 - cover * uCloudOp;
+    vA *= 1.0 - uMoonVis * (1.0 - smoothstep(0.036, 0.085, distance(sdir, uMoonDir)));
     vC = aColor;
     vSpark = aSpark;
     gl_PointSize = aSize * uPR * mix(0.8, 1.25, tw);

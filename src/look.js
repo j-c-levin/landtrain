@@ -252,29 +252,29 @@ function skyKey(t, sky, fog, hemiSky, hemiGround, hemiI, dirCol, dirI, cloud, cl
 // The four sky stops are the sky away from the sun; glow paints the sunward side.
 // Both tables must share identical t keyframes.
 export const SKY_KEYS_PRAIRIE = [
-  skyKey(0.000, ['#2f7fd0', '#62a6e2', '#b4d8ee', '#f3ead2'], '#e9e2c8', '#bcd6ff', '#b89a62', 0.5, '#fff0d2', 3.5, '#ffffff', 1.0, 0.0, 1.0, 0.44, '#fff3d6', 0.45, '#f3ead2', 0.0),
+  skyKey(0.000, ['#2f7fd0', '#62a6e2', '#b4d8ee', '#f3ead2'], '#e9e2c8', '#aecbff', '#b89a62', 0.56, '#fff0d2', 3.5, '#ffffff', 1.0, 0.0, 1.0, 0.4, '#fff3d6', 0.45, '#f3ead2', 0.0),
   skyKey(0.360, ['#3c74b4', '#86aed0', '#d8cdb4', '#f0cfa0'], '#ecd0a6', '#eadccc', '#a8824e', 0.5, '#ffd492', 3.3, '#ffe9c8', 1.0, 0.0, 1.0, 0.4, '#ffcf8a', 0.7, '#f0c4b0', 0.25),
-  skyKey(0.440, ['#1f4a94', '#4672b6', '#8e9cc8', '#a09cbc'], '#a09ab8', '#5a60f4', '#a07888', 1.35, '#ffb46a', 5.6, '#ffc8a0', 0.95, 0.05, 1.0, 0.12, '#ffb25a', 1.0, '#f0a0a4', 0.6),
+  skyKey(0.440, ['#1f4a94', '#4672b6', '#a09cc4', '#e2ae90'], '#a09ab8', '#5a60f4', '#a07888', 1.35, '#ffb46a', 5.6, '#ffc8a0', 0.95, 0.05, 1.0, 0.12, '#ffb25a', 1.0, '#f0a0a4', 0.6),
   skyKey(0.500, ['#142454', '#2c3e7c', '#5a5c96', '#7a6a90'], '#5a587e', '#6f7fc0', '#3c3450', 0.42, '#8f9ad8', 0.5, '#5a4e74', 0.5, 0.55, 1.06, 0.2, '#f07a5c', 0.65, '#8a6a9a', 0.3),
-  skyKey(0.565, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6276d0', '#22244a', 0.36, '#93a8ff', 1.5, '#26386a', 0.2, 1.0, 1.12, 0.04, '#f07a5c', 0.0, '#3c4e8c', 0.0),
-  skyKey(0.800, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6276d0', '#22244a', 0.36, '#93a8ff', 1.5, '#26386a', 0.2, 1.0, 1.12, 0.04, '#e8707a', 0.0, '#3c4e8c', 0.0),
+  skyKey(0.565, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6486bc', '#22244a', 0.4, '#a4c6dc', 0.62, '#2a3c6c', 0.2, 1.0, 1.12, 0.04, '#f07a5c', 0.0, '#3c4e8c', 0.0),
+  skyKey(0.800, ['#070d2a', '#101c4c', '#22346e', '#3c4e8c'], '#2a3a6a', '#6486bc', '#22244a', 0.4, '#a4c6dc', 0.62, '#2a3c6c', 0.2, 1.0, 1.12, 0.04, '#e8707a', 0.0, '#3c4e8c', 0.0),
   skyKey(0.860, ['#0e1838', '#1f2c5c', '#3c4478', '#5c5680'], '#4c4a70', '#56589a', '#262a42', 0.42, '#98a0e0', 0.6, '#50426a', 0.4, 0.7, 1.06, 0.16, '#e8707a', 0.7, '#5c5680', 0.0),
   skyKey(0.905, ['#24447e', '#5c7cb8', '#b4b0d0', '#c0b0c4'], '#c4b0bc', '#8aa4f0', '#8a6248', 0.7, '#ffa868', 3.4, '#ffc8b4', 0.9, 0.08, 1.04, 0.3, '#ffb478', 0.95, '#f4a8b4', 0.6),
   skyKey(0.950, ['#3276c4', '#6aa4d8', '#c4e0da', '#f6e0b4'], '#ecdfbc', '#cfe0f8', '#b0965e', 0.52, '#ffe6b8', 3.3, '#fff2e0', 1.0, 0.0, 1.0, 0.44, '#ffe2b0', 0.6, '#f4d0c4', 0.2),
-  skyKey(1.000, ['#2f7fd0', '#62a6e2', '#b4d8ee', '#f3ead2'], '#e9e2c8', '#bcd6ff', '#b89a62', 0.5, '#fff0d2', 3.5, '#ffffff', 1.0, 0.0, 1.0, 0.44, '#fff3d6', 0.45, '#f3ead2', 0.0),
+  skyKey(1.000, ['#2f7fd0', '#62a6e2', '#b4d8ee', '#f3ead2'], '#e9e2c8', '#aecbff', '#b89a62', 0.56, '#fff0d2', 3.5, '#ffffff', 1.0, 0.0, 1.0, 0.4, '#fff3d6', 0.45, '#f3ead2', 0.0),
 ];
 
 export const SKY_KEYS_GRASSLAND = [
-  skyKey(0.000, ['#2a78c4', '#5aa6dc', '#b2e0e2', '#e8f2dc'], '#dcecd8', '#bcdcff', '#7a9a58', 0.5, '#fff4dc', 3.4, '#ffffff', 1.0, 0.0, 1.0, 0.44, '#fff6dc', 0.4, '#e8f2dc', 0.0),
+  skyKey(0.000, ['#2a78c4', '#5aa6dc', '#b2e0e2', '#e8f2dc'], '#dcecd8', '#aed2ff', '#7a9a58', 0.56, '#fff4dc', 3.4, '#ffffff', 1.0, 0.0, 1.0, 0.4, '#fff6dc', 0.4, '#e8f2dc', 0.0),
   skyKey(0.360, ['#3878aa', '#7cb6c8', '#cce6c8', '#eef0c4'], '#e2eccc', '#c8e4ec', '#6e9050', 0.5, '#fbe8b8', 3.2, '#f2f8e8', 1.0, 0.0, 1.0, 0.4, '#ffe09a', 0.6, '#e8d4c0', 0.2),
-  skyKey(0.440, ['#1e4c8a', '#4a80b0', '#94b0c0', '#9cb0b8'], '#9aaeb4', '#5460f8', '#80809a', 1.3, '#ffb866', 5.4, '#ffd4a8', 0.95, 0.05, 1.0, 0.12, '#ffc066', 1.0, '#f0b0a0', 0.6),
+  skyKey(0.440, ['#1e4c8a', '#4a80b0', '#a0b0bc', '#e0c098'], '#9aaeb4', '#5460f8', '#80809a', 1.3, '#ffb866', 5.4, '#ffd4a8', 0.95, 0.05, 1.0, 0.12, '#ffc066', 1.0, '#f0b0a0', 0.6),
   skyKey(0.500, ['#12264c', '#28406e', '#4c6484', '#6a7488'], '#506a7c', '#5e7a9a', '#2e3c48', 0.42, '#8cacd0', 0.5, '#4a5670', 0.5, 0.55, 1.06, 0.2, '#ff9060', 0.8, '#7a7a94', 0.25),
-  skyKey(0.565, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.36, '#a4ccff', 1.4, '#203a56', 0.2, 1.0, 1.12, 0.05, '#ff9060', 0.0, '#30587a', 0.0),
-  skyKey(0.800, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.36, '#a4ccff', 1.4, '#203a56', 0.2, 1.0, 1.12, 0.05, '#e08878', 0.0, '#30587a', 0.0),
+  skyKey(0.565, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.4, '#a8d0e6', 0.6, '#24405e', 0.2, 1.0, 1.12, 0.05, '#ff9060', 0.0, '#30587a', 0.0),
+  skyKey(0.800, ['#081430', '#10224a', '#1c3a62', '#30587a'], '#24445e', '#4c7eb0', '#16283a', 0.4, '#a8d0e6', 0.6, '#24405e', 0.2, 1.0, 1.12, 0.05, '#e08878', 0.0, '#30587a', 0.0),
   skyKey(0.860, ['#0c1836', '#1a2e54', '#324664', '#566474'], '#405864', '#46607a', '#1e2c3a', 0.42, '#98bce0', 0.6, '#405262', 0.4, 0.7, 1.06, 0.16, '#e08878', 0.6, '#566474', 0.0),
   skyKey(0.905, ['#224a7a', '#5484b4', '#a4c4cc', '#b8ccc8'], '#bccec4', '#a0c8e8', '#5e7654', 0.6, '#ffd89c', 3.0, '#f4e4d0', 0.9, 0.08, 1.04, 0.3, '#ffd080', 0.9, '#f0c0b8', 0.45),
   skyKey(0.950, ['#2e7cc0', '#66aed6', '#b8e4dc', '#e4f2d0'], '#dcecd4', '#cfeaf0', '#789a60', 0.52, '#fdf0cc', 3.2, '#f6fbf0', 1.0, 0.0, 1.0, 0.44, '#fff0c0', 0.5, '#e8dcc8', 0.15),
-  skyKey(1.000, ['#2a78c4', '#5aa6dc', '#b2e0e2', '#e8f2dc'], '#dcecd8', '#bcdcff', '#7a9a58', 0.5, '#fff4dc', 3.4, '#ffffff', 1.0, 0.0, 1.0, 0.44, '#fff6dc', 0.4, '#e8f2dc', 0.0),
+  skyKey(1.000, ['#2a78c4', '#5aa6dc', '#b2e0e2', '#e8f2dc'], '#dcecd8', '#aed2ff', '#7a9a58', 0.56, '#fff4dc', 3.4, '#ffffff', 1.0, 0.0, 1.0, 0.4, '#fff6dc', 0.4, '#e8f2dc', 0.0),
 ];
 
 export const SKY_LOOK = {
@@ -287,20 +287,28 @@ export const SKY_LOOK = {
   sunCore: ['rgba(255,246,220,1)', 'rgba(255,220,160,0)'],
   sunHalo: ['rgba(255,210,150,0.8)', 'rgba(255,190,120,0)'],
   sunHigh: '#fff7e6',
-  sunLow: '#ff8a3c',
+  sunLow: '#ffc23c',
   // disc radius in radians and HDR gain, [high, on the horizon]
   sunSize: [0.026, 0.04],
-  sunGain: [3.2, 2.4],
+  sunGain: [3.2, 1.3],
   // z of a setting sun's direction: negative stands it behind the cutaway
   sunBehind: -2.2,
   // a high sun stands this far in front of the cutaway, and climbs this steeply
-  sunFront: 0.42,
-  sunClimb: 0.74,
+  sunFront: -0.3,
+  sunClimb: 0.64,
   // holds the setting disc clear of the mesas until its last moments
   sunLift: 0.24,
-  moon: 0xeef2ff,
+  moon: 0xf2ecd8,
+  moonSea: 0xaab2cc,
+  // height of the moonlight's direction (shorter shadows) and how much of that shadow survives
+  moonKeyHeight: 1.0,
+  moonShadow: 0.3,
+  // how much wider the shadow penumbra gets under a low sun or the moon
+  lowSunSoften: 1.0,
+  // cloud underside: [share of the lit tint over the zenith colour, gain]
+  cloudShade: [0.55, 0.8],
   galaxy: 0x2a3252,
-  cloudDrift: 0.0005,
+  cloudDrift: 0.0012,
   moonCore: ['rgba(240,245,255,1)', 'rgba(214,226,255,0)'],
   moonGlow: ['rgba(190,210,255,0.5)', 'rgba(170,195,255,0)'],
   starWarm: '#ffe2b8',
@@ -324,7 +332,7 @@ export const SKY_LOOK = {
   envSoftbox: [7.0, 6.2, 4.8],
   // ground bounce onto the lens side of the train: [day, low sun, night] intensity
   bounce: 0xffd9a8,
-  bounceI: [0.35, 1.7, 0.3],
+  bounceI: [1.0, 1.7, 0.3],
   // at dusk the bounce cools toward the sky behind the lens, so shaded paint keeps its hue
   bounceDusk: 0xb4a4ff,
 };
@@ -334,8 +342,11 @@ export const GRADE_LOOK = {
   aoRadius: 1.1,
   aoTint: 0x4a4668,
   ao: [0.85, 0.8, 0.6],
-  bloom: [0.22, 0.5, 0.7],
-  bloomThreshold: [1.25, 0.95, 0.7],
+  bloom: [0.22, 0.42, 0.5],
+  bloomThreshold: [1.25, 1.2, 1.1],
+  vignette: [0.22, 0.22, 0.1],
+  // share of the contrast curve kept at night, so dark ground is not crushed
+  nightContrast: 0.35,
   saturation: 0.07,
   contrast: 0.14,
   shadowTint: [0.035, 0.05, 0.04],
@@ -354,8 +365,12 @@ export const SMOKE_LOOK = {
   steam: 0xfaf8f2,
   // how far the light on a puff is pulled to grey, so dusk smoke is not purple
   neutral: 0.6,
-  // how far wheel dust is lifted from the ground colour toward white
-  dustPale: 0.4,
+  // how far wheel dust is pulled from the ground colour toward the dust colour
+  dustPale: 0.6,
+  dust: 0xe0b674,
+  // floor under the light on a puff at night, and the firebox glow at the stack
+  nightLit: 0x6a7aa8,
+  ember: 0xff8a3c,
 };
 
 export const skyMaterials = {

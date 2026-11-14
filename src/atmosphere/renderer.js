@@ -13,7 +13,7 @@ export function applyRenderQuality(renderer, scene, policy) {
   scene.traverse((object) => {
     if (!object.isLight || !object.castShadow || !object.shadow) return;
     object.shadow.mapSize.setScalar(policy.shadowMapSize);
-    object.shadow.radius = policy.shadowType === 'pcf-soft' ? 2.6 : 1.4;
+    object.userData.radius = object.shadow.radius = policy.shadowType === 'pcf-soft' ? 2.6 : 1.4;
     if (object.shadow.map) {
       object.shadow.map.dispose();
       object.shadow.map = null;

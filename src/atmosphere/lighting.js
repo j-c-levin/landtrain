@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { lerp, smootherstep } from '../constants.js';
 import { SKY_LOOK } from '../look.js';
+import { ATMOS } from './shared.js';
 
 const HAZE_NEAR = 70;
 const HAZE_FAR = 1250;
@@ -32,6 +33,7 @@ export function createSunLight(scene) {
   light.shadow.bias = -0.0006;
   light.shadow.normalBias = 0.05;
   light.shadow.radius = 2.4;
+  light.userData.radius = 2.4;
   light.userData.half = 0;
   scene.add(light);
   scene.add(light.target);
@@ -89,9 +91,11 @@ export function followBounceLight(light, trainPos, heading, intensity, color, du
 // The chart is drawn, not lit: the key light and its shadows give way to an
 // even top light so everything standing on the map reads as a flat symbol.
 export function applyChartLight(sunLight, hemi, scene, chart) {
-  if (chart <= 0 && sunLight.shadow.intensity === 1) return;
+  const low = Math.max(ATMOS.dusk, ATMOS.night);
+  sunLight.shadow.intensity = (1 - chart) * lerp(1, SKY_LOOK.moonShadow, ATMOS.night);
+  sunLight.shadow.radius = (sunLight.userData.radius ?? 2.4) * (1 + SKY_LOOK.lowSunSoften * low);
+  if (chart <= 0) return;
   sunLight.intensity *= 1 - 0.85 * chart;
-  sunLight.shadow.intensity = 1 - chart;
   hemi.intensity *= 1 + 2.6 * chart;
   scene.environmentIntensity *= 1 - 0.8 * chart;
 }

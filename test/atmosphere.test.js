@@ -45,6 +45,7 @@ test('dusk holds a real hue range: cool zenith and fill against a warm key and g
     assert.ok(cool(dusk.fog), 'haze');
     assert.ok(warm(dusk.dirCol), 'key');
     assert.ok(warm(dusk.glow), 'glow');
+    assert.ok(warm(dusk.sky[3]), 'horizon band');
   }
 });
 

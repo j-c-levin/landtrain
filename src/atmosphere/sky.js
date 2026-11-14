@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { WORLD, BIOME_FADE, clamp, lerp, smootherstep, damp } from '../constants.js';
+import { BIOME_FADE, clamp, lerp, smootherstep, damp } from '../constants.js';
 import {
-  SKY_KEYS_PRAIRIE as KEYS, SKY_KEYS_GRASSLAND as KEYS_GRASSLAND, SKY_LOOK, skyMaterials, cloudTexture, jitterHSL,
+  SKY_KEYS_PRAIRIE as KEYS, SKY_KEYS_GRASSLAND as KEYS_GRASSLAND, SKY_LOOK, skyMaterials, jitterHSL,
   CHART, getLookTier,
 } from '../look.js';
 import { lcg } from '../prng.js';
@@ -78,7 +78,7 @@ export class SkyCycle {
         uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: color(), uSunVis: { value: 0 }, uSunSize: { value: 0.03 },
         uGlow: color(), uGlowI: { value: 0 }, uBelt: color(), uBeltI: { value: 0 },
         uMoonDir: { value: new THREE.Vector3(0, 1, 0) }, uMoonCol: { value: new THREE.Color(SKY_LOOK.moon) },
-        uMoonVis: { value: 0 }, uNight: { value: 0 },
+        uMoonSea: { value: new THREE.Color(SKY_LOOK.moonSea) }, uMoonVis: { value: 0 }, uNight: { value: 0 },
         uGalaxy: { value: new THREE.Vector3().crossVectors(GALAXY_U, galaxyW) },
         uGalaxyCol: { value: new THREE.Color(SKY_LOOK.galaxy) },
         uCloudLit: color(), uCloudShade: color(), uMottle: { value: (ATMOS.mottle = mottleTexture(lcg(77003))) },
@@ -97,7 +97,10 @@ export class SkyCycle {
 
     // --- stars + milky way --------------------------------------------------
     this.starMat = new THREE.ShaderMaterial({
-      uniforms: { ...this.cloudUniforms, uTime: { value: 0 }, uAlpha: { value: 0 }, uPR: { value: 1 } },
+      uniforms: {
+        ...this.cloudUniforms, uTime: { value: 0 }, uAlpha: { value: 0 }, uPR: { value: 1 },
+        uMoonDir: this.domeMat.uniforms.uMoonDir, uMoonVis: this.domeMat.uniforms.uMoonVis,
+      },
       vertexShader: STAR_VERT,
       fragmentShader: STAR_FRAG,
       transparent: true,
@@ -146,22 +149,6 @@ export class SkyCycle {
       const pts = new THREE.Points(geo, this.fireflyMat);
       pts.frustumCulled = false;
       this.fireflies.add(pts);
-    }
-
-    // --- clouds (world-anchored, tinted by the timeline) ----------------------
-    const cloudTexes = [0, 1, 2].map(() => cloudTexture(rand, SKY_LOOK.cloud));
-    this.clouds = [];
-    for (let i = 0; i < 16; i++) {
-      const cl = new THREE.Sprite(skyMaterials.cloud(cloudTexes[i % 3]));
-      const w = 170 + rand() * 230;
-      cl.scale.set(w, w * (0.42 + rand() * 0.12), 1);
-      cl.position.set(
-        WORLD.minX + rand() * (WORLD.maxX - WORLD.minX),
-        190 + rand() * 130,
-        WORLD.minZ - 500 + rand() * (WORLD.maxZ - WORLD.minZ + 1000)
-      );
-      scene.add(cl);
-      this.clouds.push({ sprite: cl, speed: 1.2 + rand() * 1.6, baseOp: 0.5 + rand() * 0.25 });
     }
 
     // hemisphere light lives here — it IS the sky's contribution to the ground
@@ -285,9 +272,9 @@ export class SkyCycle {
     du.uBeltI.value = k.beltI;
     du.uNight.value = k.stars;
     du.uDrift.value = time * SKY_LOOK.cloudDrift;
-    du.uCloudOp.value = lerp(k.cloudOp, 1, 0.6) * (1 - CHART.uChart.value);
+    du.uCloudOp.value = 1 - CHART.uChart.value;
     du.uCloudLit.value.copy(k.cloud);
-    du.uCloudShade.value.copy(k.sky[1]).lerp(k.cloud, 0.5).multiplyScalar(0.92);
+    du.uCloudShade.value.copy(k.sky[0]).lerp(k.cloud, SKY_LOOK.cloudShade[0]).multiplyScalar(SKY_LOOK.cloudShade[1]);
 
     // atmosphere + lights
     sceneFog.color.copy(k.fog);
@@ -318,14 +305,15 @@ export class SkyCycle {
     du.uSunSize.value = lerp(SKY_LOOK.sunSize[0], SKY_LOOK.sunSize[1], lowness);
     _c1.set(SKY_LOOK.sunHigh);
     _c2.set(SKY_LOOK.sunLow);
-    du.uSunCol.value.lerpColors(_c1, _c2, lowness).multiplyScalar(lerp(SKY_LOOK.sunGain[0], SKY_LOOK.sunGain[1], lowness));
+    const ember = smootherstep(lowness / 0.5);
+    du.uSunCol.value.lerpColors(_c1, _c2, ember).multiplyScalar(lerp(SKY_LOOK.sunGain[0], SKY_LOOK.sunGain[1], ember));
 
     // --- moon: skims low behind the train all night, a lantern in the window ---
     const mu = (((phase - SUNSET - 0.005) % 1) + 1) % 1 / (1 - DAY_SPAN);
     const ma = mu * Math.PI;
     const malt = Math.sin(ma);
     _v.set(Math.cos(ma) * 0.9, malt * 0.13 + 0.03, -0.8).normalize();
-    if (!sunUp) this.keyDir.set(_v.x, Math.max(_v.y, 0.3), _v.z).normalize();
+    if (!sunUp) this.keyDir.set(_v.x, SKY_LOOK.moonKeyHeight, _v.z).normalize();
     du.uMoonDir.value.copy(_v);
     du.uMoonVis.value = mu <= 1.02 ? clamp((malt + 0.04) / 0.1, 0, 1) * clamp(k.stars * 1.6, 0, 1) : 0;
 
@@ -387,14 +375,6 @@ export class SkyCycle {
       _a.copy(m.pos).add(this.rig.position).project(camera);
       _b.copy(m.pos).addScaledVector(m.vel, 1).add(this.rig.position).project(camera);
       m.sprite.material.rotation = Math.atan2(_b.y - _a.y, (_b.x - _a.x) * camera.aspect);
-    }
-
-    // clouds: drift + take the timeline's tint
-    for (const c of this.clouds) {
-      c.sprite.position.x += c.speed * dt;
-      if (c.sprite.position.x > WORLD.maxX + 500) c.sprite.position.x = WORLD.minX - 500;
-      c.sprite.material.color.copy(k.cloud);
-      c.sprite.material.opacity = c.baseOp * k.cloudOp * (1 - CHART.uChart.value);
     }
 
     // the dome (and sun, moon, stars) follows the camera so it never ends

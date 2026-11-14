@@ -309,7 +309,8 @@ export function createPost(renderer) {
       u.uAo.value = triple(L.ao, dusk, night);
       u.uBloom.value = triple(L.bloom, dusk, night);
       brightMat.uniforms.uThreshold.value = triple(L.bloomThreshold, dusk, night);
-      u.uGrade.value.set(L.saturation, L.contrast, triple(L.shadowTint, dusk, night), 0);
+      u.uGrade.value.set(L.saturation, L.contrast * (1 - (1 - L.nightContrast) * night), triple(L.shadowTint, dusk, night), 0);
+      u.uVignette.value = triple(L.vignette, dusk, night);
       u.uShadowTint.value.set(L.shadowDay).lerp(_shadow.set(L.shadowNight), low);
       u.uGlowI.value = ATMOS.glowI * L.sunHaze;
       u.uCamWorld.value.copy(camera.matrixWorld);
