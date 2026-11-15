@@ -206,7 +206,7 @@ async function run() {
     await wait(page, 2500);
     await snap('walk-night');
 
-    await place(page, STATIONS.engine, 'dusk', { x: 2450 - 60 + 24.6, z: 0, heading: 0 });
+    await place(page, STATIONS.engine, 'dusk', { x: 2450 - 120, z: 0, heading: 0 });
     await page.waitForFunction(() => !document.getElementById('card').classList.contains('hidden'), null, { timeout: 15000 });
     await wait(page, 1500);
     await snap('arrival');
