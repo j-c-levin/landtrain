@@ -134,7 +134,7 @@ export const DOME_FRAG = /* glsl */ `
       }
     }
 
-    col += (domeHash(gl_FragCoord.xy) - 0.5) * 0.006;
+    col += (domeHash(gl_FragCoord.xy) - 0.5) * (0.0012 + 0.012 * dot(col, vec3(0.2126, 0.7152, 0.0722)));
     gl_FragColor = vec4(max(col, 0.0), 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>

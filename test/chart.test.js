@@ -16,6 +16,8 @@ test('goal line counts whole leagues until the tree is reached', () => {
   assert.equal(goalLine(0, -170), 'Great Tree · 2 leagues north');
   assert.equal(goalLine(200, 200), 'Great Tree · 3 leagues south-east');
   assert.equal(goalLine(60, 0), 'at the Great Tree');
+  assert.equal(goalLine(200, 0, 'Silver Tree'), 'Silver Tree · 2 leagues east');
+  assert.equal(goalLine(60, 0, 'Silver Tree'), 'at the Silver Tree');
 });
 
 test('scale bar picks the longest bar that fits', () => {

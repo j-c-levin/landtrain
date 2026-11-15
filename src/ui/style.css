@@ -128,6 +128,7 @@ body.map-mode #vignette {
   z-index: 6;
   opacity: 0.05;
   background-image: var(--noise);
+  background-size: 256px 256px;
   animation: grain-shift 0.9s steps(3) infinite;
 }
 

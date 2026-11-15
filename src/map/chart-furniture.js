@@ -13,11 +13,11 @@ export function bearingName(dx, dz) {
   return BEARINGS[((Math.round(turn) % 8) + 8) % 8];
 }
 
-export function goalLine(dx, dz) {
+export function goalLine(dx, dz, name = 'Great Tree') {
   const dist = Math.hypot(dx, dz);
-  if (dist < ARRIVE_RADIUS) return 'at the Great Tree';
+  if (dist < ARRIVE_RADIUS) return `at the ${name}`;
   const leagues = Math.round(dist / LEAGUE);
-  return `Great Tree · ${leagues} league${leagues === 1 ? '' : 's'} ${bearingName(dx, dz)}`;
+  return `${name} · ${leagues} league${leagues === 1 ? '' : 's'} ${bearingName(dx, dz)}`;
 }
 
 // Index into BAR_LEAGUES of the longest bar that fits.
@@ -109,7 +109,7 @@ const KEY = `
   <svg viewBox="0 0 30 14"><circle cx="15" cy="7" r="5" fill="none" stroke="${INK}" stroke-width="2.2"/></svg><span>you are here</span>
   <svg viewBox="0 0 30 14"><path d="M2 7h26" stroke="${PAPER}" stroke-width="5"/><path d="M2 7h26" stroke="#b5321a" stroke-width="2.6" stroke-dasharray="6 3.5"/></svg><span>the plotted route</span>
   <svg viewBox="0 0 30 14"><path d="M2 7h26" stroke="${INK}" stroke-width="1.8" stroke-dasharray="4 3"/></svg><span>the way you came</span>
-  <svg viewBox="0 0 30 14"><circle cx="15" cy="7" r="6" fill="${PAPER}" stroke="${INK}"/><circle cx="15" cy="7" r="3.6" fill="none" stroke="#b5321a" stroke-width="1.6"/><circle cx="15" cy="7" r="1.2" fill="#b5321a"/></svg><span>the Great Tree</span>
+  <svg viewBox="0 0 30 14"><circle cx="15" cy="7" r="6" fill="${PAPER}" stroke="${INK}"/><circle cx="15" cy="7" r="3.6" fill="none" stroke="#b5321a" stroke-width="1.6"/><circle cx="15" cy="7" r="1.2" fill="#b5321a"/></svg><span class="chart-key-goal">the Great Tree</span>
   <svg viewBox="0 0 30 14"><circle cx="15" cy="7" r="6" fill="${PAPER}" stroke="${INK}"/><path d="M12 4l6 6M18 4l-6 6" stroke="#b5321a" stroke-width="1.8"/></svg><span>the way is blocked</span>
 `;
 
@@ -136,6 +136,7 @@ export function createChartFurniture() {
 
   const title = root.querySelector('.chart-title');
   const goalEl = root.querySelector('.chart-goal');
+  const goalKeyEl = root.querySelector('.chart-key-goal');
   const bar = root.querySelector('.chart-bar');
   const barLabel = root.querySelector('.chart-bar-label');
   const cartouche = root.querySelector('.chart-cartouche');
@@ -151,6 +152,7 @@ export function createChartFurniture() {
   let on = false;
   let region = -1;
   let goalKey = NaN;
+  let goalName = 'Great Tree';
   let barKey = NaN;
 
   return {
@@ -179,13 +181,19 @@ export function createChartFurniture() {
         title.textContent = region ? 'The Grassland' : 'The Prairie';
       }
 
+      const name = goal.x >= GRASSLAND.minX ? 'Silver Tree' : 'Great Tree';
+      if (name !== goalName) {
+        goalName = name;
+        goalKeyEl.textContent = `the ${name}`;
+        goalKey = NaN;
+      }
       const dx = goal.x - pos.x;
       const dz = goal.z - pos.z;
       const dist = Math.hypot(dx, dz);
       const key = Math.round(dist / LEAGUE) * 8 + Math.round(Math.atan2(-dz, dx) / (Math.PI / 4)) + (dist < ARRIVE_RADIUS ? 1e4 : 0);
       if (key !== goalKey) {
         goalKey = key;
-        goalEl.textContent = goalLine(dx, dz);
+        goalEl.textContent = goalLine(dx, dz, goalName);
       }
 
       const worldPerPixel = (2 * mapHeight * Math.tan((fov * Math.PI) / 360)) / window.innerHeight;

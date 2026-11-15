@@ -214,7 +214,9 @@ const FRAG = /* glsl */ `
     float grade = 1.0 - uChart;
     g = mix(vec3(gl), g, 1.0 + uGrade.x * grade);
     g = mix(g, g * g * (3.0 - 2.0 * g), uGrade.y * grade);
-    g += uShadowTint * (1.0 - gl) * (1.0 - gl) * uGrade.z * grade;
+    // warm paint and lamplight keep their hue; only cool and neutral shadows take the tint
+    float warmth = smoothstep(0.3, 0.75, (g.r - g.b) / max(g.r, 1e-3));
+    g += uShadowTint * (1.0 - gl) * (1.0 - gl) * uGrade.z * grade * (1.0 - 0.85 * warmth);
     gl_FragColor.rgb = max(g, 0.0);
     #include <colorspace_fragment>
     gl_FragColor.rgb += (inkHash(gl_FragCoord.xy + 0.5) - 0.5) / 255.0;

@@ -440,12 +440,14 @@ export const SKY_LOOK = {
   sunSize: [0.026, 0.04],
   sunGain: [3.2, 2.1],
   // z of a setting sun's direction: negative stands it behind the cutaway
-  sunBehind: -2.2,
+  sunBehind: -3.0,
   // a high sun stands this far in front of the cutaway, and climbs this steeply
   sunFront: -0.3,
   sunClimb: 0.64,
   // holds the setting disc clear of the mesas until its last moments
-  sunLift: 0.24,
+  sunLift: 0.32,
+  // the moon's arc: [height at its peak, height on the horizon], kept under the journey panel
+  moonArc: [0.085, 0.025],
   moon: 0xf2ecd8,
   moonSea: 0xaab2cc,
   // height of the moonlight's direction (shorter shadows) and how much of that shadow survives
@@ -505,7 +507,7 @@ export const GRADE_LOOK = {
   contrast: 0.14,
   shadowTint: [0.035, 0.11, 0.04],
   // the same tint where there is no finishing pass, laid into the ground shaders
-  plainShadow: [0.035, 0.11, 0.042],
+  plainShadow: [0.035, 0.085, 0.042],
   // night edge darkening where there is no finishing pass, as a page overlay
   plainNightfall: 0.8,
   shadowDay: 0x3050c0,

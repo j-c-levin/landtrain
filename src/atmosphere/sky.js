@@ -312,7 +312,7 @@ export class SkyCycle {
     const mu = (((phase - SUNSET - 0.005) % 1) + 1) % 1 / (1 - DAY_SPAN);
     const ma = mu * Math.PI;
     const malt = Math.sin(ma);
-    _v.set(Math.cos(ma) * 0.9, malt * 0.13 + 0.03, -0.8).normalize();
+    _v.set(Math.cos(ma) * 0.9, malt * SKY_LOOK.moonArc[0] + SKY_LOOK.moonArc[1], -0.8).normalize();
     if (!sunUp) this.keyDir.set(_v.x, SKY_LOOK.moonKeyHeight, _v.z).normalize();
     du.uMoonDir.value.copy(_v);
     du.uMoonVis.value = mu <= 1.02 ? clamp((malt + 0.04) / 0.1, 0, 1) * clamp(k.stars * 1.6, 0, 1) : 0;
