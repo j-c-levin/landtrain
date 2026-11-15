@@ -67,7 +67,7 @@ function buildRoofFurniture(train, g) {
   if (fine) {
     const slats = [];
     for (let x = -8.1; x < 6.9; x += 0.5) slats.push([x, 5.068, 0.35, 0.05, 0.012, 0.98]);
-    instancedDetails(slats, train.geometry.detail, M.wood, g);
+    train.tuck(instancedDetails(slats, train.geometry.detail, M.wood, g));
   }
 
   const k = exteriorKit(g, 'living-roof');
@@ -105,6 +105,7 @@ function buildRoofFurniture(train, g) {
   round(0.16, 0.3, 0.16, M.iron, 6.0, 5.15, -1.5);
   const roofKit = k.finish();
   if (!fine) roofKit.traverse((object) => { object.castShadow = false; });
+  train.tuck(roofKit);
 
   const cowl = new THREE.Group();
   cowl.name = 'roof-cowl';

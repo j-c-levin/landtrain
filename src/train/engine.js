@@ -328,8 +328,8 @@ export function buildEngine(train, g) {
   buildMotion(train, k, M);
   k.finish(M.paintBase);
   train.tuck(k.root);
-  train.fireLight = new THREE.PointLight(TRAIN_LOOK.fireLight, 8, 6.4, 2);
-  train.fireLight.position.set(BOILER.x, 3.4, 0.8);
+  train.fireLight = new THREE.PointLight(TRAIN_LOOK.fireLight, 8, 8, 2);
+  train.fireLight.position.set(BOILER.x, 3.2, 0.9);
   g.add(train.fireLight);
   animateEngine(train, 0, 0);
 }

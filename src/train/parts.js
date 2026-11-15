@@ -11,7 +11,11 @@ export const hash = (n) => {
 export function tint(geometry, shade) {
   const p = geometry.attributes.position;
   const c = new Float32Array(p.count * 3);
-  for (let i = 0; i < p.count; i++) c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = shade(p.getX(i), p.getY(i), p.getZ(i));
+  for (let i = 0; i < p.count; i++) {
+    const v = shade(p.getX(i), p.getY(i), p.getZ(i));
+    if (v.length) c.set(v, i * 3);
+    else c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = v;
+  }
   geometry.setAttribute('color', new THREE.BufferAttribute(c, 3));
   return geometry;
 }
@@ -99,7 +103,7 @@ export function profiledBox(length, height, depth, chamfer, mat, x, y, z, parent
 
 // Roof sheets darken toward the eaves, vary sheet to sheet, and carry soot round a chimney [x, z, reach].
 // mat and nearMat must take vertex colours.
-export function curvedRoof(length, width, rise, mat, nearMat, x, crest, parent, { coverCenter = true, soot = null } = {}) {
+export function curvedRoof(length, width, rise, mat, nearMat, x, crest, parent, { coverCenter = true, soot = null, patina = false } = {}) {
   const shape = new THREE.Shape();
   const half = width / 2;
   const crown = 0.95;
@@ -108,7 +112,7 @@ export function curvedRoof(length, width, rise, mat, nearMat, x, crest, parent, 
   shape.lineTo(half, -rise - 0.14);
   shape.quadraticCurveTo(half - 0.35, -0.14, crown, -0.14);
   shape.closePath();
-  const steps = getLookTier() === 'high' ? Math.max(1, Math.round(length / 2.2)) : 1;
+  const steps = getLookTier() === 'high' ? Math.max(1, Math.round(length / (patina ? 0.55 : 2.2))) : 1;
   const wear = (px, py, pz) => {
     const t = Math.min(1, Math.max(0, -py / (rise + 0.14)));
     const sheet = hash(Math.floor((px + x + 40) / 2.2));
@@ -118,7 +122,11 @@ export function curvedRoof(length, width, rise, mat, nearMat, x, crest, parent, 
       const d = Math.hypot(px + x - soot[0], Math.abs(pz) - Math.abs(soot[1])) / soot[2];
       v *= 1 - 0.6 * Math.exp(-d * d);
     }
-    return v;
+    if (!patina) return v;
+    const run = Math.floor((px + x + 40) / 0.55);
+    v *= 1 - 0.22 * hash(run + 3) * t;
+    const green = Math.min(1, 0.35 * t * t + 1.1 * hash(run + 17) ** 2 * t);
+    return [v * (1 - 0.5 * green), v * (1 + 0.22 * green), v * (1 + 0.4 * green)];
   };
   const geometry = new THREE.ExtrudeGeometry(shape, { depth: length, steps, curveSegments: 10, bevelEnabled: false });
   geometry.translate(0, 0, -length / 2);

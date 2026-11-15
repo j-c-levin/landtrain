@@ -9,9 +9,47 @@ export const CAR_WINDOWS = [
   [[-4.75, 2.0], [0.5, 1.9], [4.5, 2.6]],
   [[-3.9, 2.5], [0, 2.8], [3.9, 2.5]],
 ];
+// how brightly each window in CAR_WINDOWS order is lit from inside
+export const WINDOW_LIGHT = { car0: [0.8, 1, 0.3], car1: [0.5, 1, 0.78], car2: [0.9, 1, 0.28], cab: [1, 0.62] };
+
+const PATCH = new THREE.Color(0.86, 0.82, 0.74);
+const DUST = new THREE.Color(0.7, 0.5, 0.3);
+
+// Rain streaks under sills and eaves and the odd off-tone panel, laid matte over the enamel.
+function weatherSide(train, g, material, wall, seed, side, sz, center, length, base, eave, sill, lintel, windows) {
+  const marks = [];
+  const tones = [];
+  const z = sz + side * 0.104;
+  const mark = (x, y, w, h, tone) => { marks.push([x, y, z, w, h, 0.012]); tones.push(tone); };
+  let n = seed;
+  const r = () => hash(n++);
+  let edge = center - length / 2;
+  for (const [wx, width] of windows) {
+    const left = wx - width / 2;
+    for (const cx of [left + 0.05, wx + width / 2 - 0.05, wx + (r() - 0.5) * width * 0.6]) {
+      const h = 0.3 + r() * 0.45;
+      mark(cx + (r() - 0.5) * 0.12, sill - 0.08 - h / 2, 0.07 + r() * 0.08, h, 0.5 + r() * 0.16);
+    }
+    if (left - edge > 0.7) {
+      const w = (left - edge) * (0.45 + r() * 0.3);
+      const h = (lintel - sill) * (0.4 + r() * 0.35);
+      mark(edge + (left - edge) * (0.3 + r() * 0.4), sill + h / 2 + r() * (lintel - sill - h), w, h, r() < 0.5 ? 0.8 : 1.06);
+    }
+    edge = wx + width / 2;
+  }
+  for (let x = center - length / 2 + 0.5; x < center + length / 2 - 0.3; x += 0.7 + r() * 1.3) {
+    const h = 0.1 + r() * Math.min(0.3, eave - lintel - 0.2);
+    mark(x, eave - 0.09 - h / 2, 0.08 + r() * 0.12, h, 0.5 + r() * 0.16);
+  }
+  mark(center, base + 0.25, length, 0.1, 0.6);
+  const mesh = instancedDetails(marks, train.geometry.panel, material, g);
+  const grime = new THREE.Color();
+  tones.forEach((tone, i) => mesh.setColorAt(i, grime.copy(wall.color).multiplyScalar(tone).multiply(tone > 0.7 ? PATCH : DUST)));
+  mesh.receiveShadow = true;
+}
 
 // trim: { stripe, studs } materials for a coach line under the windows and pins along the rails.
-export function cabinSides(train, g, zone, center, length, base, eave, wall, windows, z = 2.36, trim = null, tone = [0.93, 1, 0.95, 0.07]) {
+export function cabinSides(train, g, zone, center, length, base, eave, wall, windows, z = 2.36, trim = null, tone = [0.9, 1, 0.92, 0.12]) {
   const M = train.materials;
   const sheet = train.weathered(wall);
   const sill = base + 0.85;
@@ -39,17 +77,26 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
     }
     const end = center + length / 2;
     panels.push([(edge + end) / 2, (sill + lintel) / 2, sz, end - edge, lintel - sill, 0.2]);
-    shadeInstances(instancedDetails(panels, train.geometry.panel, side > 0 ? train.nearWallMat(zone, sheet) : sheet, g, true),
+    const sheetSide = side > 0 ? train.nearWallMat(zone, sheet) : sheet;
+    shadeInstances(instancedDetails(panels, train.geometry.panel, sheetSide, g, true),
       (i) => (i === 0 ? tone[0] : i === 1 ? tone[1] : tone[2] + hash(i + center) * tone[3]));
-    instancedDetails(panes, train.geometry.detail, train.zoneGlass(zone, side < 0), g).renderOrder = 3;
+    const lit = WINDOW_LIGHT[zone];
+    const glass = instancedDetails(panes, train.geometry.detail, train.zoneGlass(zone, side < 0), g);
+    shadeInstances(glass, (i) => lit[i] ?? 1).renderOrder = 3;
+    if (getLookTier() !== 'low') {
+      weatherSide(train, g, side > 0 ? train.fadingMat(zone, train.materials.paintBase) : train.materials.paintBase, wall, Math.round(center * 10) + (side > 0 ? 40 : 90) + base * 7, side, sz, center, length, base, eave, sill, lintel, windows);
+    }
     if (side > 0 && getLookTier() !== 'low') {
       const glints = [];
-      for (const [wx, width] of windows) {
-        const left = wx - width / 2;
-        glints.push([left + 0.42, lintel - 0.4, sz + 0.02, 0.56, 0.05, 0.004, 0, 0, 0.95]);
-        glints.push([left + 0.66, lintel - 0.5, sz + 0.02, 0.3, 0.035, 0.004, 0, 0, 0.95]);
-      }
-      instancedDetails(glints, train.geometry.detail, train.zoneGlass(zone, false, true), g).renderOrder = 4;
+      windows.forEach(([wx, width], i) => {
+        const pick = hash(wx * 3.1 + base);
+        if (pick < 0.3) return;
+        const gx = wx - width / 2 + 0.3 + hash(i + base) * Math.max(0.1, width * 0.55 - 0.6);
+        const gy = lintel - 0.32 - hash(i * 5 + center) * 0.3;
+        glints.push([gx, gy, sz + 0.02, 0.3 + pick * 0.24, 0.026, 0.004, 0, 0, 0.95]);
+        if (pick > 0.62) glints.push([gx + 0.2, gy - 0.1, sz + 0.02, 0.2, 0.018, 0.004, 0, 0, 0.95]);
+      });
+      if (glints.length) instancedDetails(glints, train.geometry.detail, train.zoneGlass(zone, false, true), g).renderOrder = 4;
     }
     if (side < 0) {
       const lining = panels.map(([x, y, , w, h]) => [x, y, sz + 0.108, w, h, 0.02]);
@@ -111,7 +158,7 @@ export function buildCarShell(train, g, ci) {
   paintedFloor(train, g, (front - 6.9) / 2, front + 6.9 - 0.22, 1.78, 0, 4.52);
   if (isCab) {
     const sheet = train.weathered(M.copper);
-    curvedRoof(15.6, 5.5, 0.6, sheet, train.fadingMat(zone, sheet), 0.5, 5.05, g);
+    curvedRoof(15.6, 5.5, 0.6, sheet, train.fadingMat(zone, sheet), 0.5, 5.05, g, { patina: true });
   }
 
   // wheels: two bogies of two, both sides
@@ -123,7 +170,7 @@ export function buildCarShell(train, g, ci) {
         wheel.castShadow = true;
         g.add(wheel);
         train.wheels.push(wheel);
-        const hub = new THREE.Mesh(train.geometry.wheelHub, M.brass);
+        const hub = new THREE.Mesh(train.geometry.wheelHub, M.gearBrass);
         wheel.add(hub);
         const spokes = [];
         for (let a = 0; a < Math.PI - 0.01; a += Math.PI / 4) spokes.push([0, 0, Math.sign(wz) * 0.24, 1.5, 0.09, 0.06, 0, 0, a]);
@@ -138,10 +185,10 @@ export function buildCarShell(train, g, ci) {
     const pins = [];
     for (const bx of [-4.3, 4.3]) {
       bars.push([bx, 0.92, side * 2.86, 2.52, 0.13, 0.06]);
-      for (const wx of [-1.1, 1.1]) pins.push([bx + wx, 0.92, side * 2.85, 0.13, 0.13, 0.17]);
+      for (const wx of [-1.1, 1.1]) pins.push([bx + wx, 0.92, side * 2.85, 0.095, 0.095, 0.15]);
     }
     instancedDetails(bars, train.geometry.detail, M.iron, rods);
-    instancedDetails(pins, train.geometry.pin, M.brass, rods);
+    instancedDetails(pins, train.geometry.pin, M.gearBrass, rods);
     g.add(rods);
     train.rods.push(rods);
     train.tuck(rods);

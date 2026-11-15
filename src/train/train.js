@@ -6,7 +6,7 @@ import {
 import { TRAIN_LOOK, createTrainMaterials } from '../look.js';
 import { blockedAt } from '../collision.js';
 import { createRouteDisplay, updateRouteDisplay } from '../map/route-display.js';
-import { createSmoke, updateSmoke } from '../atmosphere/smoke.js';
+import { createSmoke, updateSmoke } from './smoke.js';
 import { TrailPath } from './trail.js';
 import { createTrainGeometry } from './parts.js';
 import { buildCarShell, buildCarFittings } from './shell.js';
@@ -60,7 +60,6 @@ export class Train {
     this.tuckedAway = false;
     this.glassMats = [];
     this.glassGlow = 0;
-    this._paneGlow = new THREE.Color(TRAIN_LOOK.spillLight);
     this.weatheredMats = new Map();
     this.rods = [];
     this.spinners = [];
@@ -134,7 +133,7 @@ export class Train {
   zoneGlass(zone, far, glint = false) {
     let entry = this.glassMats.find((e) => e.zone === zone && e.far === far && e.glint === glint);
     if (!entry) {
-      entry = { zone, far, glint, mat: (glint ? this.materials.paneGlint : this.materials.pane).clone(), fade: 1 };
+      entry = { zone, far, glint, mat: (glint ? this.materials.paneGlint : this.materials.pane).clone(), fade: 1, glow: new THREE.Color(TRAIN_LOOK.roomLight[zone]) };
       this.glassMats.push(entry);
     }
     return entry.mat;
@@ -287,7 +286,7 @@ export class Train {
     if (this.fireboxMat) {
       this.fireboxMat.emissiveIntensity = (0.15 + eff01 * 0.65) * flicker;
     }
-    this.fireLight.intensity = (3.5 + eff01 * 6.5) * (1 + 0.6 * Math.max(this.practicals.lamp, 0)) * flicker;
+    this.fireLight.intensity = (3.5 + eff01 * 6.5) * (1 + 1.1 * Math.max(this.practicals.lamp, 0)) * flicker;
 
     const plant01 = (this.plants - TUNING.plantFloor) / (100 - TUNING.plantFloor);
     if (this.plantPots) for (const pl of this.plantPots) pl.setHappiness(plant01, time, motion);
@@ -348,8 +347,8 @@ export class Train {
     for (let i = 0; i < this.glassMats.length; i++) {
       const entry = this.glassMats[i];
       entry.fade = damp(entry.fade, allOpaque || entry.zone !== zone ? 1 : 0, 7, dt);
-      if (entry.glint) entry.mat.opacity = this.materials.paneGlint.opacity * entry.fade * (1 - 0.6 * this.glassGlow);
-      else entry.mat.color.copy(this._paneGlow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.12 : 0.34));
+      if (entry.glint) entry.mat.opacity = this.materials.paneGlint.opacity * entry.fade * Math.max(0, 1 - 2.2 * this.glassGlow);
+      else entry.mat.color.copy(entry.glow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.1 : 0.2));
     }
     setPracticalsFocus(this);
   }

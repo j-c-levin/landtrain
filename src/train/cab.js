@@ -65,7 +65,7 @@ export function buildFrontCar(train, g) {
   box(0.23, 0.38, 4.3, M.woodDark, 7.96, 7.44, 0, g);
   box(0.18, 0.3, 4.4, M.woodDark, -4, 7.46, 0, g);
   const sheet = train.weathered(M.copper);
-  curvedRoof(13.3, 5.55, 0.72, sheet, train.fadingMat('cab', sheet), 2, 7.92, g);
+  curvedRoof(13.3, 5.55, 0.72, sheet, train.fadingMat('cab', sheet), 2, 7.92, g, { patina: true });
   const seams = [];
   for (const x of [-3.7, -1.2, 1.3, 3.8, 6.3]) seams.push([x, 7.935, 0, 0.045, 0.035, 1.85]);
   instancedDetails(seams, train.geometry.detail, M.hullDark, g);

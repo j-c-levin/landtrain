@@ -162,12 +162,13 @@ export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = 
   return mat;
 }
 
-export function softDiscTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)') {
+export function softDiscTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)', mid = null) {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const ctx = c.getContext('2d');
   const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 31);
   g.addColorStop(0, inner);
+  if (mid) g.addColorStop(0.42, mid);
   g.addColorStop(1, outer);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 64, 64);
@@ -553,15 +554,17 @@ export const TRAIN_LOOK = {
   leafGlow: 0x3b583c,
   cabLight: 0xffd5a4,
   fireLight: 0xff9c58,
-  readingLight: 0xffd6a1,
+  readingLight: 0xffc488,
   bunkLight: 0xffd3a3,
   wheelClean: [0.3, 0.05, 0.035],
   wheelRusted: [0.4, 0.24, 0.15],
   // night practicals: warm pools the windows and lamps throw on the ground
-  spill: ['rgba(255,186,104,0.7)', 'rgba(255,160,80,0)'],
+  spill: ['rgba(255,186,104,0.6)', 'rgba(255,160,80,0)', 'rgba(255,172,92,0.16)'],
+  smoke: { lit: '250,245,236', belly: '188,188,202' },
+  roomLight: { car0: 0xffc48c, car1: 0xff8c44, car2: 0xffb060, cab: 0xffcf98 },
   spillLight: 0xffb870,
   contact: ['rgba(34,24,18,0.62)', 'rgba(34,24,18,0)'],
-  lampHalo: ['rgba(255,214,150,0.9)', 'rgba(255,190,110,0)'],
+  lampHalo: ['rgba(255,214,150,0.75)', 'rgba(255,190,110,0)', 'rgba(255,200,124,0.1)'],
   windowGlow: ['rgba(255,176,96,0.5)', 'rgba(255,150,70,0)'],
 };
 
@@ -579,6 +582,7 @@ export function createTrainMaterials() {
     woodDark: std({ color: C.woodDark, roughness: 0.7 }),
     iron: std({ color: C.iron, roughness: 0.48, metalness: 0.55 }),
     brass: std({ color: C.brass, roughness: 0.24, metalness: 1.0 }),
+    gearBrass: std({ color: 0xb8872f, roughness: 0.62, metalness: 0.7 }),
     glow: std({ color: 0xffd9a0, emissive: 0xffb35c, emissiveIntensity: 1.6, roughness: 0.5 }),
     headlamp: std({ color: 0xffe9b0, emissive: 0xffc868, emissiveIntensity: 2.4 }),
     wheel: enamel({ color: 0x6b1c12, roughness: 0.5, vertexColors: true }, 0.35),
@@ -671,12 +675,12 @@ trainFx.windowGlow = () =>
 // every cool light swapped for cobalt so the lamps are the only warm thing.
 // Each list is [day, dusk, night].
 export const PAINT_LOOK = {
-  fill: [0x6c64b0, 0x5c4a96, 0x2a3c96],
-  fillGain: [0.62, 0.55, 0.6],
+  fill: [0x6c64b0, 0xc4825c, 0xa06642],
+  fillGain: [0.62, 0.95, 0.52],
   lift: [0.9, 0.8, 0.7],
   ambient: [0.5, 0.4, 0.4],
-  warm: [0.2, 0.3, 0.42],
-  tint: [0xffffff, 0x7e6cb4, 0x3c58e0],
+  warm: [0.2, 0.55, 0.6],
+  tint: [0xffffff, 0xa07a9c, 0x4a5ad0],
   tintGain: [1, 0.75, 0.7],
   mood: [0, 0.75, 1],
   band: [0.3, 0.34, 0.4],
