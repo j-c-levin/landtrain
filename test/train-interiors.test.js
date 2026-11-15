@@ -352,12 +352,11 @@ test('car groups follow distinct trail frames while wheels animate and smoke reu
   }
   const wheels = train.wheels.slice();
   const pool = train.smoke.slice();
-  assert.ok(pool.length > 0);
-  for (const puff of pool) {
-    assert.equal(puff.sprite.parent, scene);
-    assert.equal(puff.life, 0);
-    assert.equal(puff.sprite.visible, false);
-  }
+  assert.equal(pool.length, 1);
+  assert.equal(pool[0].sprite.parent, scene);
+  const fx = train.smokeFx;
+  assert.ok(fx.life.every((life) => life === 0));
+  const alive = () => [...fx.life.keys()].filter((i) => fx.life[i] > 0);
   const spin = wheels.map((wheel) => wheel.rotation.z);
   train.update(0.1, 0.1, []);
   assert.deepEqual(wheels.map((wheel) => wheel.rotation.z), spin, 'resting wheels stay still');
@@ -381,26 +380,27 @@ test('car groups follow distinct trail frames while wheels animate and smoke reu
   assert.ok(delta < 0);
   wheels.forEach((wheel, i) => near(wheel.rotation.z - spin[i], delta, 'wheel spin remains synchronized'));
   assert.deepEqual(train.smoke, pool);
-  assert.ok(pool.some((puff) => puff.life > 0 && puff.sprite.visible));
+  assert.deepEqual([...new Set(alive().map((i) => fx.kind[i]))].sort(), [0, 1, 2], 'under way: stack smoke, steam and wheel dust');
 
   train.paused = true;
   train.speed = 0;
-  train.update(3, 20, []);
-  assert.ok(pool.every((puff) => !puff.sprite.visible), 'puffs expire while stopped');
-  train.paused = false;
-  train.smokeTimer = 0;
-  train.update(0.1, 20.1, []);
-  const puff = pool.find((entry) => entry.life > 0);
-  assert.ok(puff, 'expired pool entries are reused');
+  for (let i = 0; i < 80; i++) train.update(0.1, 20 + i * 0.1, []);
+  assert.ok(alive().every((i) => fx.kind[i] !== 2), 'dust settles once stopped');
+  assert.ok(alive().length < fx.life.length, 'the pool never saturates');
+  const wisp = alive().filter((i) => fx.kind[i] === 0).sort((a, b) => fx.life[b] - fx.life[a])[0];
+  assert.ok(wisp !== undefined && fx.life[wisp] > 3, 'the stack idles with a wisp');
   const stack = train.cars[1].group.localToWorld(train.stackLocal.clone());
-  near(puff.sprite.position.x, stack.x, 'smoke stack world X');
-  near(puff.sprite.position.z, stack.z, 'smoke stack world Z');
-  near(puff.sprite.position.y, stack.y + 0.1 * 2.4, 'smoke rises from articulated stack');
-  const emitted = puff.sprite.position.clone();
-  train.smokeTimer = 10;
-  train.update(0.1, 20.2, []);
-  near(puff.sprite.position.x, emitted.x, 'emitted puff does not ride the car');
-  near(puff.sprite.position.z, emitted.z, 'emitted puff stays world-space');
+  const at = () => new THREE.Vector3().fromArray(fx.pos.array, wisp * 3);
+  const emitted = at();
+  assert.ok(Math.hypot(emitted.x - stack.x, emitted.z - stack.z) < 1.5, 'smoke leaves the articulated stack');
+  assert.ok(emitted.y >= stack.y, 'smoke rises from the chimney mouth');
+  train.paused = false;
+  const from = train.distanceTraveled;
+  for (let i = 0; i < 20; i++) train.update(0.1, 28 + i * 0.1, []);
+  assert.ok(train.distanceTraveled - from > 3);
+  assert.ok(fx.life[wisp] > 0);
+  assert.ok(Math.hypot(at().x - emitted.x, at().z - emitted.z) < 2, 'an emitted puff stays world-space, it does not ride the car');
+  assert.ok(at().y > emitted.y);
 });
 
 test('engine room is enclosed, and its running gear follows speed, upkeep and wear', (t) => {
