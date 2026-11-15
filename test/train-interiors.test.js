@@ -310,9 +310,15 @@ test('route line, waypoint dots and train ring retain ground-plane Y and overlay
   const expected = [[train.pos.x, 0, train.pos.z], [180, 0, 70], [260, 0, -90]];
   assert.equal(train.routeLine.geometry.drawRange.count, expected.length);
   const positions = train.routeLine.geometry.attributes.position;
-  for (let i = 0; i < expected.length; i++) {
+  for (let i = 1; i < expected.length; i++) {
     assert.deepEqual([positions.getX(i), positions.getY(i), positions.getZ(i)], expected[i].map(Math.fround));
   }
+  // the line is drawn up to the train, never across it: it starts on the first leg, clear of the nose
+  const lead = Math.hypot(positions.getX(0) - train.pos.x, positions.getZ(0) - train.pos.z);
+  const leg = Math.hypot(180 - train.pos.x, 70 - train.pos.z);
+  assert.equal(positions.getY(0), 0);
+  assert.ok(lead > 24 && lead < leg);
+  assert.ok(Math.abs(lead + Math.hypot(180 - positions.getX(0), 70 - positions.getZ(0)) - leg) < 1e-3);
   assert.equal(train.routeLine.renderOrder, 59);
   assert.equal(train.trainRing.renderOrder, 60);
   assert.equal(train.beacon.renderOrder, 61);

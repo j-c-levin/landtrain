@@ -194,7 +194,9 @@ const FRAG = /* glsl */ `
       float zc = linearZ(vUv);
       float lap = abs(linearZ(vUv - vec2(o.x, 0.0)) + linearZ(vUv + vec2(o.x, 0.0)) - 2.0 * zc)
                 + abs(linearZ(vUv - vec2(0.0, o.y)) + linearZ(vUv + vec2(0.0, o.y)) - 2.0 * zc);
-      float m = lap / (zc * uPxAngle * 1.5);
+      // a 24-bit depth step is this coarse at range; unsubtracted, its banding gets inked as a grid
+      float grain = zc * zc * (uFar - uNear) / (uNear * uFar) * 9e-7;
+      float m = max(lap - grain, 0.0) / (zc * uPxAngle * 1.5);
       float line = smoothstep(0.6, 2.4, m) * (0.72 + 0.28 * inkNoise(px * 0.03 + 11.0));
       float pool = inkNoise(px * 0.012) * 0.6 + inkNoise(px * 0.05 + 5.0) * 0.4;
       vec3 drawn = col * (1.0 + (pool - 0.5) * 0.08);

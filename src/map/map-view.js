@@ -20,7 +20,10 @@ export function pickGround(camera, clientX, clientY) {
 export function placeMarker(camera, tx, tz) {
   markerVec.set(tx, 0, tz).project(camera);
   const behind = markerVec.z > 1;
-  return edgePlacement(markerVec.x, markerVec.y, behind, 0.9);
+  const place = edgePlacement(markerVec.x, markerVec.y, behind, 0.9);
+  // off-screen chips ride below the top bar, not over it
+  if (!place.onScreen) place.sy = Math.max(place.sy, Math.min(0.3, 104 / window.innerHeight));
+  return place;
 }
 
 // Aimed along where the train FACES, so the cone exists from the first frame at spawn.
