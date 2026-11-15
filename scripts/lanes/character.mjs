@@ -190,7 +190,7 @@ async function main() {
   const errors = [];
   try {
     const context = await browser.newContext({
-      viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: 1,
+      viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.touch ? 3 : 1,
       hasTouch: profile.touch, isMobile: profile.touch, serviceWorkers: 'block', reducedMotion: 'no-preference',
     });
     await context.addInitScript(installLane);
@@ -226,7 +226,7 @@ async function main() {
           const [sx, sy] = seq.follow === false ? [profile.width / 2, profile.height / 2] : await page.evaluate(() => __lane.screen());
           const x = Math.round(Math.max(0, Math.min(profile.width - cw, sx - cw / 2)));
           const y = Math.round(Math.max(0, Math.min(profile.height - ch, sy - ch / 2)));
-          frames.push(await page.screenshot({ clip: { x, y, width: Math.min(cw, profile.width), height: Math.min(ch, profile.height) } }));
+          frames.push(await page.screenshot({ scale: 'css', clip: { x, y, width: Math.min(cw, profile.width), height: Math.min(ch, profile.height) } }));
         }
       }
       const cols = seq.cols ?? Math.min(frames.length, Math.max(1, Math.floor(1680 / Math.min(cw, profile.width))));

@@ -19,8 +19,12 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
   const X = axis === 'x';
   const low = getLookTier() === 'low';
   const boxes = [], stones = [], tallBoxes = [], tallStones = [], piles = [], glass = [], roofs = [], rings = [], pools = [];
-  const box = (list, u, y, v, lu, h, lv, color, ry = 0) =>
+  // the running way lies flush with the ground the wheels roll on
+  const SINK = 0.25;
+  const box = (list, u, y, v, lu, h, lv, color, ry = 0) => {
+    if (list === boxes) y -= SINK;
     list.push(X ? [u, y, v, lu, h, lv, ry, color] : [v, y, u, lv, h, lu, -ry, color]);
+  };
   const world = (u, v) => (X ? [u, v] : [v, u]);
 
   // the world stream is drawn exactly as before; all variety has its own
@@ -91,8 +95,10 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
   const lantern = (u, v, postH, foot, onWater = false) => {
     const [x, z] = world(u, v);
     const list = onWater ? boxes : tallBoxes;
-    box(list, u, (postH + foot) / 2, v, 0.42, postH - foot, 0.42, post);
-    box(list, u, postH + 0.02, v, 0.9, 0.12, 0.9, beam);
+    if (onWater) postH -= SINK;
+    const lift = onWater ? SINK : 0;
+    box(list, u, (postH + foot) / 2 + lift, v, 0.42, postH - foot, 0.42, post);
+    box(list, u, postH + 0.02 + lift, v, 0.9, 0.12, 0.9, beam);
     glass.push([x, postH + 0.42, z]);
     roofs.push([x, postH + 0.96, z]);
     const glow = new THREE.Sprite(glowMat);
@@ -114,7 +120,7 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
     let v = -vWidth / 2 - 0.4;
     while (v < vWidth / 2 + 0.4) {
       const w = Math.min(1.9 + local() * 1.6, vWidth / 2 + 0.4 - v);
-      box(stones, uEnd + end * 1.25, 0.02 + local() * 0.05, vCenter + v + w / 2, 2.3 + local() * 0.5, 0.36, w - 0.1, stone());
+      box(stones, uEnd + end * 1.25, -0.15 + local() * 0.04, vCenter + v + w / 2, 2.3 + local() * 0.5, 0.36, w - 0.1, stone());
       v += w;
     }
     for (const side of [-1, 1]) {

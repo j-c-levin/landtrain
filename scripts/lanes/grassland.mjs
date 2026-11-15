@@ -260,7 +260,7 @@ async function main() {
       const specs = SHOTS.filter((s) => s.profile === profile);
       if (!specs.length) continue;
       const context = await browser.newContext({
-        viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: 1,
+        viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.touch ? 3 : 1,
         hasTouch: profile.touch, isMobile: profile.touch, serviceWorkers: 'block',
         locale: 'en-US', timezoneId: 'UTC', colorScheme: 'light', reducedMotion: 'no-preference',
       });
@@ -285,7 +285,7 @@ async function main() {
             const r = __game.sky.renderer.info;
             return { drawCalls: r.render.calls, triangles: r.render.triangles, points: r.render.points };
           });
-          await writeFile(join(outDir, `${name}.png`), await page.screenshot({ animations: 'disabled', caret: 'hide' }));
+          await writeFile(join(outDir, `${name}.png`), await page.screenshot({ animations: 'disabled', caret: 'hide', scale: 'css' }));
           metrics.shots[name] = info;
           console.log(`ok   ${name}  ${info.drawCalls} calls  ${Math.round(info.triangles / 1000)}k tris`);
         } catch (error) {

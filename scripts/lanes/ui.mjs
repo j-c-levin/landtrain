@@ -126,7 +126,7 @@ async function run() {
 
   for (const [id, profile] of Object.entries(PROFILES)) {
     const context = await browser.newContext({
-      viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: 1,
+      viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.touch ? 3 : 1,
       hasTouch: profile.touch, isMobile: profile.touch, serviceWorkers: 'block',
     });
     await context.addInitScript(installPins, SKY);
@@ -140,7 +140,7 @@ async function run() {
     const snap = async (name) => {
       const file = `${id}--${name}`;
       if (only && !only.some((o) => file.includes(o))) return;
-      await page.screenshot({ path: join(outDir, `${file}.png`) });
+      await page.screenshot({ path: join(outDir, `${file}.png`), scale: 'css' });
       console.log(`ok   ${file}`);
     };
 

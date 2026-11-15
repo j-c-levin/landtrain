@@ -106,6 +106,15 @@ body.book-mode #scene:active {
   transition: opacity 0.8s ease;
 }
 
+#nightfall {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 56%, transparent 34%, rgba(10, 10, 34, 0.5) 78%, rgba(6, 6, 26, 0.86) 100%);
+  z-index: 5;
+  opacity: 0;
+}
+
 body.map-mode #vignette {
   opacity: 0.45;
 }

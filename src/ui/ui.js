@@ -1,4 +1,4 @@
-import { TRAIN_LOOK, CHART } from '../look.js';
+import { TRAIN_LOOK, CHART, GRADE_LOOK } from '../look.js';
 import { HUD_HTML, TAP_ICON, introCard, storyCard } from './hud.js';
 
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
@@ -46,6 +46,8 @@ export class UI {
     this.journeyDist = document.getElementById('j-dist');
     this.journeyStatus = document.getElementById('j-status');
     this.coachEl = document.getElementById('coach');
+    this.nightfallEl = document.getElementById('nightfall');
+    this.nightfall = 0;
 
     this.isTouch = window.matchMedia('(pointer: coarse)').matches;
     document.body.classList.toggle('touch', this.isTouch);
@@ -105,6 +107,13 @@ export class UI {
     this.toastEl.classList.add('visible');
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => this.toastEl.classList.remove('visible'), ms);
+  }
+
+  setNightfall(amount) {
+    const step = Math.round(amount * 40);
+    if (step === this.nightfall) return;
+    this.nightfall = step;
+    this.nightfallEl.style.opacity = String((step / 40) * GRADE_LOOK.plainNightfall);
   }
 
   setGauges(eff, wear) {

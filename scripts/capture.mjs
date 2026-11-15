@@ -383,8 +383,13 @@ function verify(snap, profile, spec, info) {
   eq('forced tier', snap.forced, profile.quality);
   eq('viewport w', snap.w, profile.width);
   eq('viewport h', snap.h, profile.height);
-  eq('buffer w', snap.bufW, profile.width);
-  eq('buffer h', snap.bufH, profile.height);
+  if (profile.touch) {
+    if (snap.bufW <= profile.width) problems.push(`buffer w ${snap.bufW} is not sharper than the ${profile.width} viewport`);
+    if (snap.bufW * snap.bufH > 900_000) problems.push(`buffer ${snap.bufW}x${snap.bufH} is over the low-tier pixel budget`);
+  } else {
+    eq('buffer w', snap.bufW, profile.width);
+    eq('buffer h', snap.bufH, profile.height);
+  }
   eq('speed', snap.speed, 0);
   if (spec.kind === 'intro') eq('intro card', snap.cardHidden, false);
   else if (spec.kind === 'ending') eq('end card', snap.cardHidden, false);
@@ -424,7 +429,7 @@ async function main() {
       const specs = selected.filter((s) => s.profile === profileId);
       if (!specs.length) continue;
       const context = await browser.newContext({
-        viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: 1,
+        viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.touch ? 3 : 1,
         hasTouch: profile.touch, isMobile: profile.touch, serviceWorkers: 'block',
         locale: 'en-US', timezoneId: 'UTC', colorScheme: 'light', reducedMotion: 'no-preference',
       });
@@ -458,7 +463,7 @@ async function main() {
           const snap = await snapshot(page);
           const problems = verify(snap, profile, spec, info);
           const m = await sampleFrames(page);
-          const buffer = await page.screenshot({ animations: 'disabled', caret: 'hide' });
+          const buffer = await page.screenshot({ animations: 'disabled', caret: 'hide', scale: 'css' });
           await writeFile(join(outDir, `${name}.png`), buffer);
           const stats = pngStats(buffer);
           if (stats.stdLuma < 6 || stats.meanLuma < 4) problems.push(`frame looks blank (mean ${stats.meanLuma.toFixed(1)}, std ${stats.stdLuma.toFixed(1)})`);

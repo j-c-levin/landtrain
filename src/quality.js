@@ -3,7 +3,9 @@ export const QUALITY_ORDER = Object.freeze(['low', 'medium', 'high']);
 export const QUALITY_TIERS = Object.freeze({
   low: Object.freeze({
     dpr: 1,
-    antialias: false,
+    dprCeiling: 2,
+    pixelBudget: 900_000,
+    antialias: true,
     shadowMapSize: 1024,
     shadowType: 'pcf',
     particleDensity: 0.45,
@@ -29,6 +31,13 @@ export const QUALITY_TIERS = Object.freeze({
     finishing: Object.freeze({ postProcessing: true, enhancedAtmosphere: true }),
   }),
 });
+
+export function renderScale(policy, devicePixelRatio, width, height) {
+  const device = devicePixelRatio || 1;
+  if (!policy.pixelBudget || !(width * height > 0)) return Math.min(device, policy.dpr);
+  const fit = Math.sqrt(policy.pixelBudget / (width * height));
+  return Math.min(device, Math.max(policy.dpr, Math.min(policy.dprCeiling, fit)));
+}
 
 export function selectInitialQuality({
   forcedTier,

@@ -29,6 +29,14 @@ export const CHART = {
   uChartPaperNight: { value: new THREE.Color(0x8a86a6) },
 };
 
+// Tiers without the finishing pass carry its shadow tint in the ground's own shaders.
+export const PLAIN = { uPlainShadow: { value: new THREE.Color(0, 0, 0) } };
+const PLAIN_FRAG = 'outgoingLight += uPlainShadow * pow2(1.0 - clamp(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0));';
+export const plainShadow = (fragmentShader) =>
+  fragmentShader
+    .replace('#include <common>', '#include <common>\nuniform vec3 uPlainShadow;')
+    .replace('#include <opaque_fragment>', `${PLAIN_FRAG}\n#include <opaque_fragment>`);
+
 // What the chart's standing symbols are lit by: paper white, amber at dusk, ink-indigo at night.
 export const chartLight = new THREE.Color(1, 1, 1);
 const CHART_DUSK = new THREE.Color(1.0, 0.8, 0.6);
@@ -261,6 +269,7 @@ export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = 
     uFlockMud: { value: new THREE.Color(mud) },
     uFlockSand: { value: new THREE.Color(sand) },
     ...CHART,
+    ...PLAIN,
   };
   mat.defines = { FLOCK_OCTAVES: lookTier === 'low' ? 2 : 4 };
   if (shore) mat.defines.FLOCK_SHORE = '';
@@ -288,11 +297,11 @@ export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = 
         #ifdef FLOCK_SHORE
           vShore = aShore;
         #endif`);
-    shader.fragmentShader = shader.fragmentShader
+    shader.fragmentShader = plainShadow(shader.fragmentShader)
       .replace('#include <common>', `#include <common>\n${FLOCK_PARS}`)
       .replace('#include <color_fragment>', `#include <color_fragment>\n${FLOCK_FRAG}`)
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>\n${FLOCK_SWELL}`)
-      .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, fChart, uChart);\n#include <opaque_fragment>');
+      .replace(PLAIN_FRAG, `${PLAIN_FRAG}\noutgoingLight = mix(outgoingLight, fChart, uChart);`);
   };
   mat.customProgramCacheKey = () => `flock-${shore}-${mat.defines.FLOCK_OCTAVES}-${!!region}-${swell}`;
   return mat;
@@ -495,6 +504,10 @@ export const GRADE_LOOK = {
   saturation: 0.07,
   contrast: 0.14,
   shadowTint: [0.035, 0.11, 0.04],
+  // the same tint where there is no finishing pass, laid into the ground shaders
+  plainShadow: [0.035, 0.11, 0.042],
+  // night edge darkening where there is no finishing pass, as a page overlay
+  plainNightfall: 0.8,
   shadowDay: 0x3050c0,
   shadowNight: 0x3040d0,
   shadowDusk: 0x5a3ce0,
@@ -504,6 +517,19 @@ export const GRADE_LOOK = {
   cloudShadowTint: 0x8f9cd0,
   cloudShadowDrift: [0.004, 0.0015],
 };
+
+const _plain = new THREE.Color();
+export function setPlainGrade(night, dusk, plain) {
+  const L = GRADE_LOOK;
+  const target = PLAIN.uPlainShadow.value;
+  if (!plain) {
+    target.setRGB(0, 0, 0);
+    return;
+  }
+  const low = dusk * (1 - night);
+  const gain = L.plainShadow[0] + (L.plainShadow[1] - L.plainShadow[0]) * low + (L.plainShadow[2] - L.plainShadow[0]) * night;
+  target.set(L.shadowDay).lerp(_plain.set(L.shadowDusk), low).lerp(_plain.set(L.shadowNight), night).multiplyScalar(gain * (1 - CHART.uChart.value));
+}
 
 export const SMOKE_LOOK = {
   soot: 0xd0cbc4,

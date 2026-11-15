@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { renderScale } from '../quality.js';
 
 export function createRenderer(canvas, policy) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: policy.antialias });
@@ -19,16 +20,17 @@ export function applyRenderQuality(renderer, scene, policy) {
       object.shadow.map = null;
     }
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, policy.dpr));
+  const canvas = renderer.domElement;
+  renderer.setPixelRatio(renderScale(policy, window.devicePixelRatio, canvas.clientWidth, canvas.clientHeight));
 }
 
 // Reconciled every frame rather than on 'resize': survives fullscreen, browser
 // zoom and display changes. Returns the new aspect when the buffer resized.
 export function syncRendererSize(renderer, canvas, policy) {
-  const dpr = Math.min(window.devicePixelRatio || 1, policy.dpr);
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   if (w === 0 || h === 0) return null;
+  const dpr = renderScale(policy, window.devicePixelRatio, w, h);
   const bw = Math.floor(w * dpr);
   const bh = Math.floor(h * dpr);
   if (canvas.width === bw && canvas.height === bh) return null;

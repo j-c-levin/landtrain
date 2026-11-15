@@ -4,6 +4,7 @@ import {
   QUALITY_TIERS,
   createQualityMonitor,
   lowerQualityTier,
+  renderScale,
   selectInitialQuality,
 } from '../src/quality.js';
 
@@ -14,6 +15,18 @@ test('quality policies respect roadmap rendering caps', () => {
   assert.ok(QUALITY_TIERS.high.dpr <= 2);
   assert.equal(QUALITY_TIERS.low.finishing.postProcessing, false);
   assert.equal(QUALITY_TIERS.medium.finishing.postProcessing, false);
+});
+
+test('low tier sharpens small screens inside a fixed pixel budget', () => {
+  const low = QUALITY_TIERS.low;
+  assert.equal(renderScale(low, 1, 390, 844), 1);
+  assert.equal(renderScale(low, 3, 1440, 900), 1);
+  const phone = renderScale(low, 3, 390, 844);
+  assert.ok(phone > 1.5 && phone <= low.dprCeiling);
+  assert.ok(390 * 844 * phone * phone <= low.pixelBudget + 1);
+  assert.equal(renderScale(low, 3, 320, 568), low.dprCeiling);
+  assert.equal(renderScale(QUALITY_TIERS.medium, 3, 390, 844), 1.5);
+  assert.equal(renderScale(QUALITY_TIERS.high, 1, 1440, 900), 1);
 });
 
 test('forced quality tier overrides capability selection', () => {

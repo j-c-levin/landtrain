@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { floraMaterials, jitterHSL, getLookTier } from './look.js';
+import { floraMaterials, jitterHSL, getLookTier, PLAIN, plainShadow } from './look.js';
 import { mulberry } from './prng.js';
 
 // Ground cover that sells the scale: instanced tufts, pebbles, flowers and
@@ -242,6 +242,7 @@ function wrapShader(shader, uniforms) {
     .replace('#include <common>', `#include <common>\n${WRAP_PARS}`)
     .replace('#include <project_vertex>', WRAP_PROJECT)
     .replace('#include <worldpos_vertex>', 'vec4 worldPosition = vec4(coverWorld, 1.0);');
+  if (shader.fragmentShader.includes('#include <opaque_fragment>')) shader.fragmentShader = plainShadow(shader.fragmentShader);
 }
 
 let whiteMask = null;
@@ -326,6 +327,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
     const [geometry, coarse = null] = [shapes].flat();
     const uniforms = {
       ...shared,
+      ...PLAIN,
       uCoverCentre: entry.centre,
       uCoverTile: { value: entry.tile },
       uCoverClear: entry.clear,

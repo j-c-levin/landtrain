@@ -189,7 +189,7 @@ async function stage(page, spec) {
 async function shoot(page, name) {
   await page.evaluate(() => { __cap.frozen = true; });
   await liveFor(page, 120);
-  await writeFile(join(outDir, `${name}.png`), await page.screenshot({ animations: 'disabled', caret: 'hide' }));
+  await writeFile(join(outDir, `${name}.png`), await page.screenshot({ animations: 'disabled', caret: 'hide', scale: 'css' }));
   await page.evaluate(() => { __cap.frozen = false; });
   console.log(`ok   ${name}`);
 }
@@ -250,7 +250,7 @@ async function main() {
       const specs = selected.filter((s) => s.profile === id);
       if (!specs.length) continue;
       const context = await browser.newContext({
-        viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: 1,
+        viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.touch ? 3 : 1,
         hasTouch: profile.touch, isMobile: profile.touch, serviceWorkers: 'block',
         locale: 'en-US', timezoneId: 'UTC', colorScheme: 'light',
       });

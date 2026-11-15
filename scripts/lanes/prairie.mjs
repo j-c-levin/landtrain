@@ -175,7 +175,7 @@ async function run() {
   const errors = [];
   for (const profile of [HIGH, LOW]) {
     const context = await browser.newContext({
-      viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: 1,
+      viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.touch ? 3 : 1,
       hasTouch: profile.touch, isMobile: profile.touch, serviceWorkers: 'block', reducedMotion: 'no-preference',
     });
     await context.addInitScript(installPins, { skyTimes: SKY });
@@ -217,7 +217,7 @@ async function run() {
       });
       metrics[name] = info;
       if (argv.includes('--probe')) console.log(await page.evaluate(probe));
-      await page.screenshot({ path: join(outDir, `${name}.png`) });
+      await page.screenshot({ path: join(outDir, `${name}.png`), scale: 'css' });
       console.log(`ok ${name} ${info.calls} calls ${Math.round(info.triangles / 1000)}k tris`);
     }
     await context.close();

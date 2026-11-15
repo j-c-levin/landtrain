@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TUNING, clamp, damp } from './constants.js';
 import { QUALITY_TIERS, createQualityMonitor, selectInitialQuality } from './quality.js';
-import { CHART, setChart, setLookTier, setPaintLight } from './look.js';
+import { CHART, setChart, setLookTier, setPaintLight, setPlainGrade } from './look.js';
 import { setCoverViewport } from './groundcover.js';
 import { registerServiceWorker } from './sw-register.js';
 import { installDebugHandle, bindSecretWarp } from './debug.js';
@@ -180,6 +180,7 @@ function tick(frameTime) {
     ui.setGauges(train.eff, train.wear);
     ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
     ui.setOrbitActive(rig.autoOrbit);
+    ui.setNightfall(post ? 0 : sky.nightness * (1 - CHART.uChart.value));
     // Edge markers are a map-view aid only.
     if (state.started && rig.mapEngaged) {
       const W = canvas.clientWidth;
@@ -199,6 +200,7 @@ function tick(frameTime) {
   followShadowBox(sunLight, train.pos, sky.keyDir, rig.mapBlend);
   followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity * (1 - CHART.uChart.value), sunLight.color, sky.duskness, CHART.uChart.value);
   setPaintLight(sky.nightness, sky.duskness);
+  setPlainGrade(sky.nightness, sky.duskness, !post);
   train.setNight(sky.nightness, sky.duskness);
   fog.setNight(sky.nightness);
   audio.update(dt, train.speed / TUNING.baseSpeed);
