@@ -20,6 +20,8 @@ export function createPracticals() {
     planMat: trainFx.chartShadow(),
     plans: [],
     lights: [],
+    // without the finishing pass's glow, the pools and window blooms carry the lamplight themselves
+    reach: getLookTier() === 'high' ? 1 : TRAIN_LOOK.plainReach,
     beam: null,
     night: -1,
     lamp: -1,
@@ -179,10 +181,10 @@ export function setPracticalsFocus(train) {
   P.nightContactMat.opacity = Math.max(P.night, 0) * (1 - chart);
   for (let i = 0; i < P.plans.length; i++) P.plans[i].visible = chart > 0.01;
   for (let i = 0; i < P.spillMats.length; i++) {
-    P.spillMats[i].opacity = 0.3 * Math.max(P.night, 0) * (0.3 + 0.7 * train.zoneMats['car' + i].opacity);
+    P.spillMats[i].opacity = 0.3 * P.reach * Math.max(P.night, 0) * (0.3 + 0.7 * train.zoneMats['car' + i].opacity);
   }
   for (let i = 0; i < P.glows.length; i++) {
     const { material, zone } = P.glows[i];
-    material.opacity = 0.22 * Math.max(P.night, 0) * train.zoneMats[zone].opacity;
+    material.opacity = 0.22 * P.reach * Math.max(P.night, 0) * train.zoneMats[zone].opacity;
   }
 }

@@ -509,7 +509,7 @@ export const GRADE_LOOK = {
   // the same tint where there is no finishing pass, laid into the ground shaders
   plainShadow: [0.035, 0.085, 0.042],
   // night edge darkening where there is no finishing pass, as a page overlay
-  plainNightfall: 0.8,
+  plainNightfall: 0.64,
   shadowDay: 0x3050c0,
   shadowNight: 0x3040d0,
   shadowDusk: 0x5a3ce0,
@@ -949,6 +949,7 @@ export const TRAIN_LOOK = {
   contact: ['rgba(34,24,18,0.62)', 'rgba(34,24,18,0)'],
   lampHalo: ['rgba(255,214,150,0.75)', 'rgba(255,190,110,0)', 'rgba(255,200,124,0.1)'],
   windowGlow: ['rgba(255,176,96,0.5)', 'rgba(255,150,70,0)'],
+  plainReach: 1.8,
 };
 
 export function createTrainMaterials() {
