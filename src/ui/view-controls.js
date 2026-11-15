@@ -1,5 +1,6 @@
 import { pickGround } from '../map/map-view.js';
 import { bindSceneGestures } from './gestures.js';
+import { createOnboarding } from './onboarding.js';
 
 // Pointer, wheel, button and hotkey control of the map and book views.
 export function bindViewControls({ canvas, camera, rig, train, player, ui, audio }) {
@@ -23,6 +24,9 @@ export function bindViewControls({ canvas, camera, rig, train, player, ui, audio
       if (hit && train.addWaypoint(hit.x, hit.z)) audio.chime('waypoint');
     },
   });
+
+  const onboarding = createOnboarding({ ui, rig, train, player });
+  rig.onCut = () => ui.cutFade();
 
   function toggleOrbitView() {
     if (rig.mode !== 'book' || rig.busy) return;
@@ -48,6 +52,7 @@ export function bindViewControls({ canvas, camera, rig, train, player, ui, audio
         audio.chime('soft');
       }
     },
+    onSound: () => ui.setMuted(audio.toggleMute()),
   });
 
   canvas.addEventListener(
@@ -72,6 +77,7 @@ export function bindViewControls({ canvas, camera, rig, train, player, ui, audio
         if (input.pressed('KeyC')) train.clearRoute();
       }
       if (input.pressed('KeyO')) toggleOrbitView();
+      onboarding.update();
     },
   };
 }
