@@ -800,8 +800,12 @@ export const GRASSLAND_LOOK = {
     halo: ['rgba(150,200,255,0.55)', 'rgba(150,200,255,0)'],
     bark: 0x8a7a6c,
     barkPale: 0xcfcac4,
-    leafShade: 0xb6bedb,
+    leafShade: 0xcdd3ea,
     leafLight: 0xfff6e6,
+    // the crown's own light: [by day, by night] strength, pearl by day, leafGlow by night
+    leafPearl: 0xe6e4f2,
+    crownGlow: [0.5, 0.32],
+    dew: 0xfffaf0,
     strand: [0xc4b8f0, 0xd9c8f4, 0xb7c6f2],
     flower: [0xffffff, 0xffe2ee, 0xfff6dc, 0xe9e2ff],
     petal: 0xf2f0ff,

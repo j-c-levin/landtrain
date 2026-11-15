@@ -121,6 +121,7 @@ const FRAG = /* glsl */ `
   uniform vec3 uCloudTint;
   uniform vec3 uCloudShadow;
   uniform float uStrength;
+  uniform float uBack;
   uniform float uMaxRadius;
   uniform float uVignette;
   uniform float uChart;
@@ -148,7 +149,7 @@ const FRAG = /* glsl */ `
     float z = (uNear * uFar) / (uFar - d * (uFar - uNear));
     float front = clamp((uFocus * 0.72 - z) / (uFocus * 0.5), 0.0, 1.0);
     float back = clamp((z - uFocus * 1.45) / (uFocus * 2.6), 0.0, 1.0);
-    return max(front, back * 0.8) * uStrength;
+    return max(front, back * 0.8 * uBack) * uStrength;
   }
 
   void main() {
@@ -257,6 +258,7 @@ export function createPost(renderer) {
     uTexel: { value: new THREE.Vector2(1, 1) },
     uFocus: { value: 30 },
     uStrength: { value: 1 },
+    uBack: { value: 1 },
     uMaxRadius: { value: 9 },
     uVignette: { value: 0.22 },
     uChart: CHART.uChart,
@@ -292,8 +294,8 @@ export function createPost(renderer) {
   };
 
   return {
-    // focus: view distance held sharp. strength: 0 disables the blur.
-    render(scene, camera, focus, strength) {
+    // focus: view distance held sharp. strength: 0 disables the blur. back: share of the blur kept behind the focus.
+    render(scene, camera, focus, strength, back = 1) {
       renderer.getDrawingBufferSize(size);
       if (size.x !== width || size.y !== height) {
         width = size.x;
@@ -312,6 +314,7 @@ export function createPost(renderer) {
       depth.uProj.value.set(tan * camera.aspect, tan);
       u.uFocus.value = focus;
       u.uStrength.value = strength;
+      u.uBack.value = back;
       u.uMaxRadius.value = height * 0.0062;
       u.uPxAngle.value = (2 * tan) / height;
 

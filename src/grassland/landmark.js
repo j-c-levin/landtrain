@@ -248,7 +248,37 @@ export function buildGrassLandmark(root) {
   const planCrown = new THREE.Mesh(planGeo, planMat);
   planCrown.visible = false;
   group.add(planCrown);
-  const detail = [crown, blossom, flowers, strands, lanterns, glow, halo];
+  // dew-bright points over the crown's sunlit top, so by day it reads as silver rather than cloud
+  const dewRand = mulberry(60617);
+  const DEW = low ? 26 : 60;
+  const dewPos = new Float32Array(DEW * 3);
+  const dewCol = new Float32Array(DEW * 3);
+  for (let i = 0; i < DEW; i++) {
+    const [x, y, z, r] = CROWN[i % CROWN.length];
+    const a = dewRand() * TAU;
+    const lift = 0.35 + dewRand() * 0.6;
+    const flat = Math.sqrt(1 - lift * lift);
+    dewPos.set([x + Math.cos(a) * flat * r * 1.02, y + lift * r * 0.8, z + Math.sin(a) * flat * r * 1.02], i * 3);
+    c1.set(S.dew).multiplyScalar(0.45 + dewRand() * 0.55).toArray(dewCol, i * 3);
+  }
+  const dewGeo = new THREE.BufferGeometry();
+  dewGeo.setAttribute('position', new THREE.BufferAttribute(dewPos, 3));
+  dewGeo.setAttribute('color', new THREE.BufferAttribute(dewCol, 3));
+  const dewMat = grasslandMaterials.glowPoints(6.5);
+  const dew = new THREE.Points(dewGeo, dewMat);
+  group.add(dew);
+
+  const crownMat = crown.material;
+  const pearl = new THREE.Color(S.leafPearl);
+  const moonlit = new THREE.Color(S.leafGlow);
+  group.userData.setLight = (night) => {
+    crownMat.emissive.copy(pearl).lerp(moonlit, night);
+    crownMat.emissiveIntensity = S.crownGlow[0] + (S.crownGlow[1] - S.crownGlow[0]) * night;
+    dewMat.opacity = 1 - 0.75 * night;
+  };
+  group.userData.setLight(0);
+
+  const detail = [crown, blossom, flowers, strands, lanterns, glow, halo, dew];
   group.userData.setChart = (chart) => {
     const drawn = chart > 0.7;
     planCrown.visible = chart > 0.3;

@@ -210,6 +210,15 @@ async function run() {
     await page.waitForFunction(() => !document.getElementById('card').classList.contains('hidden'), null, { timeout: 15000 });
     await wait(page, 1500);
     await snap('arrival');
+
+    await page.waitForFunction(() => !!__game.grassland, null, { timeout: 60000 });
+    await wait(page, 900);
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => document.getElementById('card').classList.contains('hidden'), null, { timeout: 5000 });
+    await place(page, STATIONS.engine, 'day', { x: 5324.6, z: 0, heading: 0 });
+    await page.waitForFunction(() => !document.getElementById('card').classList.contains('hidden'), null, { timeout: 15000 });
+    await wait(page, 4000);
+    await snap('ending');
     await context.close();
   }
 

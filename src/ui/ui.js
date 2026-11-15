@@ -290,6 +290,7 @@ export class UI {
 
   showCard(html, kind = '') {
     this.cardInner.className = kind;
+    this.cardEl.classList.toggle('aside', kind === 'aside');
     this.cardInner.innerHTML = html;
     this.cardEl.classList.remove('hidden');
     this.cardUp = true;
@@ -345,7 +346,7 @@ export class UI {
         more trees — but that’s a journey for another day.`,
       go: 'Stay a while',
       last: 'to be continued',
-    }));
+    }), 'aside');
     this.#dismissable(600);
   }
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TUNING, clamp, damp } from './constants.js';
+import { TUNING, clamp, damp, smootherstep } from './constants.js';
 import { QUALITY_TIERS, createQualityMonitor, selectInitialQuality } from './quality.js';
 import { CHART, setChart, setLookTier, setPaintLight, setPlainGrade } from './look.js';
 import { setCoverViewport } from './groundcover.js';
@@ -68,7 +68,7 @@ const audio = new AudioFX();
 const interactions = new Interactions({ train, player, rig, ui, audio });
 const chart = createChart({ renderer, canvas, train, fog });
 let post = null;
-const focus = { distance: 30, strength: 0, target: new THREE.Vector3() };
+const focus = { distance: 30, strength: 0, back: 1, target: new THREE.Vector3() };
 
 function applyQualityTier(tier) {
   if (!QUALITY_TIERS[tier]) return false;
@@ -214,7 +214,11 @@ function tick(frameTime) {
     focus.distance = damp(focus.distance, Math.max(6, camera.position.distanceTo(focus.target)), 6, rawDt);
     const want = (rig.mode === 'cabin' ? 0.35 : 1) * (1 - Math.min(1, rig.mapBlend * 2.5));
     focus.strength = damp(focus.strength, want, 5, rawDt);
-    post.render(scene, camera, focus.distance, focus.strength);
+    // the destination stays in focus as the train draws up to it
+    const goal = journey.goalPos;
+    const arriving = 1 - smootherstep((Math.hypot(train.pos.x - goal.x, train.pos.z - goal.z) - 260) / 340);
+    focus.back = damp(focus.back, 1 - 0.9 * arriving, 3, rawDt);
+    post.render(scene, camera, focus.distance, focus.strength, focus.back);
   } else if (!chart.render(scene, camera)) {
     renderer.render(scene, camera);
   }

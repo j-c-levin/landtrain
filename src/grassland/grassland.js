@@ -96,6 +96,7 @@ export function createGrassland(scene) {
       moat.glowMat.opacity = 1 - chart;
       island.userData.lampPools.opacity = (0.04 + 0.5 * night) * (1 - chart);
       landmark.userData.setChart(chart);
+      landmark.userData.setLight(night);
       const near = cameraPos.y < CLOSE_UP_CEILING;
       for (const o of closeUps) o.visible = near;
 

@@ -50,6 +50,9 @@ const TALL = {
   bookMax: 78,
   mapScale: 0.85,
   sway: 0.2,
+  vistaBack: 1.7,
+  vistaAlong: 0.85,
+  vistaLook: 22,
 };
 const SHORT_MAP_SCALE = 0.6;
 const tallness = (aspect) => clamp((1.05 - aspect) / 0.45, 0, 1);
@@ -175,8 +178,10 @@ export class CameraRig {
       const dz = this.vistaAt.z - f.z;
       const d = Math.hypot(dx, dz) || 1;
       const e = smootherstep(this.vistaBlend);
-      _vp.set(f.x - (dx / d) * 80 + 100 * sin, 19, f.z - (dz / d) * 80 + 100 * cos);
-      _vl.set(f.x + dx * 0.2, 42, f.z + dz * 0.2);
+      const back = lerp(1, TALL.vistaBack, w);
+      const along = lerp(0.2, TALL.vistaAlong, w);
+      _vp.set(f.x - (dx / d) * 80 * back + 100 * back * sin, 19, f.z - (dz / d) * 80 * back + 100 * back * cos);
+      _vl.set(f.x + dx * along, lerp(42, TALL.vistaLook, w), f.z + dz * along);
       _pos.lerp(_vp, e);
       _look.lerp(_vl, e);
     }

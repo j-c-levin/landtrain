@@ -905,6 +905,25 @@ body.touch #coach.walk .coach-right,
   opacity: 1;
 }
 
+/* the ending stands beside its view rather than over it */
+#card.aside {
+  place-items: end center;
+  background: linear-gradient(0deg, rgba(24, 15, 24, 0.5), rgba(24, 15, 24, 0.1) 60%, transparent 85%);
+}
+
+#card.aside #card-inner {
+  width: min(470px, 100%);
+  padding: 30px 36px 24px;
+}
+
+@media (min-width: 700px) and (min-aspect-ratio: 5/4) {
+  #card.aside {
+    place-items: center start;
+    padding-left: max(var(--left), 5vw);
+    background: linear-gradient(90deg, rgba(24, 15, 24, 0.46), rgba(24, 15, 24, 0.1) 52%, transparent 78%);
+  }
+}
+
 #card.hidden {
   opacity: 0;
   pointer-events: none;
