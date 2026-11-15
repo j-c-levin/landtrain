@@ -57,6 +57,8 @@ const BOOK_VIEWS = {
   side: { theta: -Math.PI / 2, phi: 0.26, dist: 'fit' },
   threeQuarter: { theta: (5 * Math.PI) / 4, phi: 0.26, dist: 'fit' },
   wide: { theta: null, phi: 0.26, dist: 75 },
+  // the framing the rig itself chooses, which is what a tall screen gets
+  rig: null,
 };
 
 // kind: intro | inhabit | cab | map | book ; world: prairie | grassland
@@ -92,7 +94,7 @@ const SHOTS = [
   shot(P, 'inhabit-plants', 'day', { kind: 'inhabit', station: 'plants' }),
   shot(P, 'cab', 'day', { kind: 'cab' }),
   shot(P, 'map-prairie', 'day', { kind: 'map' }),
-  shot(P, 'book-side', 'night', { kind: 'book', view: 'side' }),
+  shot(P, 'book-default', 'night', { kind: 'book', view: 'rig' }),
   shot(L, 'inhabit-reading', 'day', { kind: 'inhabit', station: 'reading' }),
   shot(L, 'cab', 'night', { kind: 'cab' }),
   shot(L, 'map-prairie', 'day', { kind: 'map' }),
@@ -361,6 +363,7 @@ async function runShot(page, profile, spec) {
     await page.waitForFunction(() => __game.rig.mode === 'book' && !__game.rig.busy, null, { timeout: 15000 });
     await page.evaluate((view) => {
       const { rig, camera } = __game;
+      if (!view) return;
       const fit = Math.min(rig.maxOrbit, Math.max(55, 28 / (Math.tan((21 * Math.PI) / 180) * camera.aspect)));
       rig.autoOrbit = false;
       rig.recentering = false;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAR_LEN, CAR_CENTERS, LADDERS } from '../constants.js';
+import { CAR_LEN, CAR_CENTERS, LADDERS, LADDER_Z } from '../constants.js';
 import { painted, shaded, getLookTier } from '../look.js';
 import { box, profiledBox, curvedRoof, instancedDetails, shadeInstances, hash } from './parts.js';
 import { exteriorKit } from './interior-kit.js';
@@ -265,11 +265,12 @@ export function buildCarFittings(train, g, ci) {
     if (Math.abs(rel) > CAR_LEN / 2 + 1.5) continue;
     const tall = l.levels.includes('roof');
     const h = tall ? 5.3 : 2.6;
-    for (const rz of [0.62, 1.18]) {
-      ladderParts.push([rel, h / 2, rz + 0.95, 0.13, h, 0.13]);
+    // square-on to the lens and behind the walkway, so whoever climbs it stays in full view
+    for (const rx of [-0.33, 0.33]) {
+      ladderParts.push([rel + rx, h / 2, LADDER_Z, 0.1, h, 0.1]);
     }
     for (let y = 0.45; y < h - 0.1; y += 0.48) {
-      ladderParts.push([rel, y, 1.85, 0.11, 0.11, 0.62]);
+      ladderParts.push([rel, y, LADDER_Z, 0.66, 0.08, 0.08]);
     }
   }
   if (ladderParts.length) instancedDetails(ladderParts, train.geometry.detail, M.iron, g, true);

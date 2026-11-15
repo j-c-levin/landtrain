@@ -4,7 +4,8 @@
 // the camera (project() mirrors such points, so we flip them). `inset` is the
 // fraction of the half-extent at which markers ride the edge (0.9 ≈ 10% in).
 // Returns screen fractions sx, sy in [0,1] with y DOWN (CSS convention) and the
-// pointing angle in radians (0 = right, measured for a y-down screen).
+// pointing angle in radians (0 = right, measured for a y-down screen), plus the
+// target's own unclamped screen fractions px, py.
 export function edgePlacement(ndcX, ndcY, behind, inset = 0.9) {
   let x = ndcX;
   let y = ndcY;
@@ -24,5 +25,5 @@ export function edgePlacement(ndcX, ndcY, behind, inset = 0.9) {
   const sy = -ey * 0.5 + 0.5;
   // angle for a y-down screen: up is -y
   const angle = Math.atan2(-y, x);
-  return { onScreen, sx, sy, angle };
+  return { onScreen, sx, sy, angle, px: x * 0.5 + 0.5, py: -y * 0.5 + 0.5 };
 }

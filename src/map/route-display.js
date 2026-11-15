@@ -191,7 +191,7 @@ export function createRouteDisplay(scene) {
     beaconPos: new THREE.Vector3(2450, 80, 0),
     routeMarks: {
       trail, heading, ghostLeg, ghostDot, blocks,
-      blockCount: 0, blockLeg: 0, blockKey: NaN, obstacles: null, fog: null, epoch: 0,
+      blockCount: 0, blockLeg: 0, blockExit: 0, blockKey: NaN, obstacles: null, fog: null, epoch: 0,
       pend: new Float32Array(HOLD * 4), pendN: 0, pendHead: 0,
       scale: 1, night: 0,
       ghostOn: false, ghostX: 0, ghostZ: 0,
@@ -285,7 +285,13 @@ function findBlocks(m, pos, route) {
       const sx = px + ((x - px) * t) / len;
       const sz = pz + ((z - pz) * t) / len;
       if (m.fog.isKnown(sx, sz) && blockedAt(m.obstacles, sx, sz, TUNING.obstaclePad)) {
-        if (n === 0) m.blockLeg = i;
+        if (n === 0) {
+          m.blockLeg = i;
+          // where the leg comes out the far side, so the faded plan is not inked across the obstacle
+          let out = t + 6;
+          while (out < len && blockedAt(m.obstacles, px + ((x - px) * out) / len, pz + ((z - pz) * out) / len, TUNING.obstaclePad + 4)) out += 6;
+          m.blockExit = out;
+        }
         m.blocks[n++].position.set(sx, ROUTE_Y, sz);
         break;
       }
@@ -369,6 +375,7 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
           start = lead;
         }
         if (beyond || (start + end) / 2 > stop) {
+          if (!beyond && start < m.blockExit) continue;
           if (fadedCount < MAX_DASHES / 2) {
             writeQuad(faded, fadedCount++, px + ux * (start + k), pz + uz * (start + k), px + ux * (end - k), pz + uz * (end - k), -uz, ux, 0.55 * k);
           }

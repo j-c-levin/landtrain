@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LEVELS, LADDERS, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from '../constants.js';
+import { LEVELS, LADDERS, LADDER_Z, TRAIN_HALF, CAR_CENTERS, TUNING, clamp, damp } from '../constants.js';
 import { figureShadow } from '../look.js';
 import { Figure, STRIDE_TIME } from './figure.js';
 import { Pour } from './pour.js';
@@ -11,7 +11,7 @@ const POTS = [[3.05, 3.0, -1.44], [4.33, 3.0, -1.62]];
 const POT_REACH = 1.3;
 const _v = new THREE.Vector3();
 const WALK_Z = 0.35;
-const CLIMB_Z = 1.85;
+const CLIMB_Z = LADDER_Z + 0.42;
 const REACH_Z = { plants: -0.5, engine: 0.15, tread: 1.0, tread2: 1.0 };
 const STRIDE_RATE = (Math.PI * 2) / STRIDE_TIME;
 const ACTION_POSE = { engine: 'tend', plants: 'water', tread: 'tread', tread2: 'tread' };
@@ -24,6 +24,7 @@ export class Player {
     this.train = train;
     this.scene = scene;
     this.docked = null; // null = free on the trail; else the car index we're bolted to
+    this.climbTurn = 0;
     this.x = 12; // spawn on the front-car deck, ladder to the cab nearby
     this.level = 'deck';
     this.y = LEVELS.deck;
@@ -76,6 +77,7 @@ export class Player {
   update(dt, input, time = 0) {
     this.settle = damp(this.settle, 0, 9, dt);
     this.#move(dt, input);
+    this.climbTurn = damp(this.climbTurn, this.climbing ? 1 : 0, 9, dt);
     this.#sync();
     const f = this.figure;
     let view = -this.facing * 1.57;
@@ -190,7 +192,7 @@ export class Player {
       // subtracting the car centre; Y (height) and Z (depth) are already the
       // car's local axes; the parent group supplies the heading.
       this.group.position.set(this.x - CAR_CENTERS[this.docked], this.y + this.settle, this.z);
-      this.group.rotation.set(0, this.facing > 0 ? 0 : Math.PI, 0);
+      this.group.rotation.set(0, this.#yaw(), 0);
     } else {
       // Free on the train: map train-arc coordinates onto the world through the
       // trail the cars follow, so walking the corridor stays straight mid-turn.
@@ -198,8 +200,14 @@ export class Player {
       const sin = Math.sin(f.theta);
       const cos = Math.cos(f.theta);
       this.group.position.set(f.x + this.z * sin, this.y + this.settle, f.z + this.z * cos);
-      this.group.rotation.y = f.theta + (this.facing > 0 ? 0 : Math.PI);
+      this.group.rotation.y = f.theta + this.#yaw();
     }
+  }
+
+  // On a ladder the figure turns its back to the lens to face the rungs.
+  #yaw() {
+    const turn = this.climbTurn * Math.PI * 0.5;
+    return this.facing > 0 ? turn : Math.PI - turn;
   }
 
   // Which car (0 cab, 1 engine, 2 living) owns a given train-arc X — the same

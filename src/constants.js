@@ -23,6 +23,9 @@ export const LADDERS = [
   { x: 24.0, levels: ['under', 'deck'] },
 ];
 
+// Depth the ladders stand at, behind the walking line.
+export const LADDER_Z = -0.45;
+
 // The raised cab occupies the front-car rooftop from this local X forward.
 export const CAB_FROM_X = 12.6;
 

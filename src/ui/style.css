@@ -1228,6 +1228,11 @@ body.map-mode #btn-sound.muted {
 
 /* ---------- a phone held upright: one slim instrument row ---------- */
 @media (max-width: 720px) and (orientation: portrait) {
+  .coach-left,
+  .coach-right {
+    top: 74%;
+  }
+
   #gauges {
     gap: 8px;
     padding: 6px 9px 5px;

@@ -55,6 +55,9 @@ const TALL = {
   vistaLook: 22,
 };
 const SHORT_MAP_SCALE = 0.6;
+// A phone on its side has little height to give the rooms, so the cutaway moves in.
+const SHORT = { inhabitDist: 13, inhabitUp: 2.0, inhabitLook: 1.0 };
+const shortness = (aspect) => (aspect > 1.3 ? clamp((560 - (globalThis.innerHeight ?? 900)) / 170, 0, 1) : 0);
 const tallness = (aspect) => clamp((1.05 - aspect) / 0.45, 0, 1);
 
 const FOV = 42;
@@ -86,6 +89,7 @@ export class CameraRig {
     this.mapBlend = 0;
     this.aspect = camera.aspect;
     this.tall = tallness(camera.aspect);
+    this.short = shortness(camera.aspect);
     this.settled = false;
     this.lead = 0;
     this.swayPhase = 0;
@@ -170,9 +174,10 @@ export class CameraRig {
     const sin = Math.sin(f.theta);
     const cos = Math.cos(f.theta);
     const lvlY = this.followY;
-    const dist = lerp(20.5, TALL.inhabitDist, w);
-    _pos.set(f.x + dist * sin, lvlY + lerp(2.4, TALL.inhabitUp, w), f.z + dist * cos);
-    _look.set(f.x, lvlY + lerp(0.55, TALL.inhabitLook, w), f.z);
+    const s = this.short;
+    const dist = lerp(lerp(20.5, TALL.inhabitDist, w), SHORT.inhabitDist, s);
+    _pos.set(f.x + dist * sin, lvlY + lerp(lerp(2.4, TALL.inhabitUp, w), SHORT.inhabitUp, s), f.z + dist * cos);
+    _look.set(f.x, lvlY + lerp(lerp(0.55, TALL.inhabitLook, w), SHORT.inhabitLook, s), f.z);
     if (this.vistaBlend > 0) {
       const dx = this.vistaAt.x - f.x;
       const dz = this.vistaAt.z - f.z;
@@ -459,6 +464,7 @@ export class CameraRig {
     this.aspect = aspect;
     this.mapScale = clamp((globalThis.innerHeight ?? 900) / 700, SHORT_MAP_SCALE, lerp(1, TALL.mapScale, tallness(aspect)));
     if (!this.settled) this.tall = tallness(aspect);
+    this.short = shortness(aspect);
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
   }

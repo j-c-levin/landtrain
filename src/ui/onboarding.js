@@ -22,7 +22,7 @@ function remember() {
 export function createOnboarding({ ui, rig, train, player }) {
   const text = ui.isTouch
     ? {
-        walk: '',
+        walk: 'hold a side to walk',
         climb: 'find a ladder and climb to the roof',
         cab: 'the cab is up front, along the roof',
       }

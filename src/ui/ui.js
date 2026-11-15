@@ -1,6 +1,9 @@
 import { TRAIN_LOOK, CHART, GRADE_LOOK } from '../look.js';
 import { HUD_HTML, TAP_ICON, introCard, storyCard } from './hud.js';
 
+// how near the train's mark a chip may sit, and how far it steps aside
+const CHIP_REACH = 200;
+const CHIP_CLEAR = 62;
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
 
 function installPalette() {
@@ -266,15 +269,29 @@ export class UI {
   }
 
   // placement = { onScreen, sx, sy, angle } from edgePlacement(); w,h = viewport px.
-  setEdgeMarker(name, placement, w, h) {
+  setEdgeMarker(name, placement, w, h, avoid = null) {
     const el = name === 'tree' ? this.markerTree : this.markerTrain;
     if (placement.onScreen) {
       el.hidden = true;
       return;
     }
     el.hidden = false;
-    el.style.left = `${Math.min(w - 34, Math.max(34, placement.sx * w))}px`;
-    el.style.top = `${Math.min(h - 34, Math.max(92, placement.sy * h))}px`;
+    let left = Math.min(w - 34, Math.max(34, placement.sx * w));
+    let top = Math.min(h - 34, Math.max(92, placement.sy * h));
+    // a chip that would sit on the mark it shares the frame with slides along its edge instead
+    if (avoid && avoid.onScreen) {
+      const dx = left - avoid.px * w;
+      const dy = top - avoid.py * h;
+      if (dx * dx + dy * dy < CHIP_REACH * CHIP_REACH) {
+        if (Math.abs(Math.cos(placement.angle)) > 0.7) {
+          if (Math.abs(dy) < CHIP_CLEAR) top = avoid.py * h + (dy > 1 ? CHIP_CLEAR : -CHIP_CLEAR);
+        } else if (Math.abs(dx) < CHIP_CLEAR) {
+          left = avoid.px * w + (dx > 1 ? CHIP_CLEAR : -CHIP_CLEAR);
+        }
+      }
+    }
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
     const arrow = name === 'tree' ? this.arrowTree : this.arrowTrain;
     arrow.style.transform = `translate(0, -50%) rotate(${placement.angle}rad)`;
   }

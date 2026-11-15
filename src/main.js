@@ -186,8 +186,9 @@ function tick(frameTime) {
       const W = canvas.clientWidth;
       const H = canvas.clientHeight;
       const goal = journey.goalPos;
-      ui.setEdgeMarker('tree', placeMarker(camera, goal.x, goal.z), W, H);
-      ui.setEdgeMarker('train', placeMarker(camera, train.pos.x, train.pos.z), W, H);
+      const trainAt = placeMarker(camera, train.pos.x, train.pos.z);
+      ui.setEdgeMarker('tree', placeMarker(camera, goal.x, goal.z), W, H, trainAt);
+      ui.setEdgeMarker('train', trainAt, W, H);
     } else {
       ui.hideEdgeMarkers();
     }
