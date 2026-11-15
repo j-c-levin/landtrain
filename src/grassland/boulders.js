@@ -7,7 +7,7 @@ const stone = new THREE.Color();
 const moss = new THREE.Color(GRASSLAND_LOOK.moss);
 const tint = new THREE.Color();
 // grey stone flocked with moss wherever a face looks up
-const mossy = (base) => (_h, up) => {
+export const mossy = (base) => (_h, up) => {
   stone.set(base);
   return tint.copy(stone).lerp(moss, Math.min(1, Math.max(0, (up - 0.25) / 0.5)));
 };
@@ -38,7 +38,7 @@ export function buildKnollBoulders({ root, rand }) {
   const bMat = grasslandMaterials.boulder();
   for (let i = 0; i < 8; i++) {
     const a = rand() * Math.PI * 2;
-    const r = 52 + rand() * 8;
+    const r = 63 + rand() * 9;
     const s = 4 + rand() * 4;
     const dark = rand() > 0.5;
     const geo = crag(rand, s, 0.8 + rand() * 0.5, mossy(dark ? GRASSLAND_LOOK.boulderDark : GRASSLAND_LOOK.boulder));

@@ -90,7 +90,8 @@ const FLOCK_FRAG = /* glsl */ `
     float fGrain = fNoise(fp * 5.3) * 0.6 + fNoise(fp * 13.0) * 0.4;
     fc *= 1.0 + (fGrain - 0.5) * 0.34 * fNear + (fNoise(fp * 0.7) - 0.5) * 0.14;
     #ifdef FLOCK_SHORE
-      fc = mix(fc, uFlockSand, vShore.y);
+      float fEdge = (fNoise(fp * 0.19) - 0.5) * 0.6 + (fNoise(fp * 0.83) - 0.5) * 0.22;
+      fc = mix(fc, uFlockSand * (0.9 + 0.2 * fNoise(fp * 3.1)), smoothstep(0.3, 0.7, vShore.y + fEdge));
       fc = mix(fc, uFlockMud, vShore.x);
     #endif
     #ifdef FLOCK_REGION
@@ -624,6 +625,17 @@ export const GRASSLAND_LOOK = {
   flower: { hues: [0.0, 0.13, 0.78, 0.92], s: 0.9, l: [0.68, 0.12] },
   water: 0x2f7f93,
   waterDeep: 0x1c5a72,
+  waterShallow: 0x7cc4b0,
+  waterFoam: 0xf6f2e2,
+  waterGlint: 0xd4f0ee,
+  waterMoatGlint: 0xdce8ff,
+  waterBank: 0x3d6b48,
+  waterChart: 0x6f97a6,
+  reed: { h: [0.22, 0.07, 'mid'], s: [0.46, 0.18, 'mid'], l: [0.4, 0.14, 'mid'] },
+  bankStone: { h: [0.12, 0.08, 'mid'], s: [0.08, 0.08, 'mid'], l: [0.6, 0.22, 'mid'] },
+  bankFlower: [0xffd84a, 0xfff2c8, 0xb48cf0, 0xff9fb8],
+  islandFlower: [0xdfeaff, 0xb9cdfa, 0xf4f6ff, 0xc9b8f4],
+  lilyBloom: [0xfff6f0, 0xffc4d6],
   cattailStalk: { h: [0.26, 0.06, 'mid'], s: [0.45, 0.2, 'mid'], l: [0.35, 0.16, 'mid'] },
   cattailHead: 0x8a6a42,
   lilyPad: { h: [0.3, 0.08, 'mid'], s: [0.5, 0.2, 'mid'], l: [0.36, 0.14, 'mid'] },
@@ -637,6 +649,8 @@ export const GRASSLAND_LOOK = {
   causeway: {
     deck: 0xa9754a,
     deckJitter: 0.07,
+    runner: 0xc09a6c,
+    pool: 'rgba(255,190,110,0.9)',
     beam: 0x6e4a2e,
     post: 0x7a5230,
     rail: 0x8a6a48,
@@ -645,17 +659,32 @@ export const GRASSLAND_LOOK = {
     glow: ['rgba(255,196,110,0.5)', 'rgba(255,196,110,0)'],
   },
   moatGlow: ['rgba(140,190,255,0.5)', 'rgba(140,190,255,0)'],
+  stonework: { h: [0.085, 0.04, 'mid'], s: [0.32, 0.1, 'mid'], l: [0.47, 0.16, 'mid'] },
+  brass: 0xb88a3c,
+  iron: 0x3a342e,
+  pathEarth: 0x9a8258,
+  lanternMoss: 0x7d9a5c,
   silverTree: {
     knoll: 0x6a9a4e,
     knollFoot: 0x5a8442,
     trunk: 0x6a5340,
-    leaf: 0xa9c0dc,
+    leaf: 0xdde2f0,
     leafGlow: 0x9fb6d8,
-    accent: 0xe8f0fa,
+    accent: 0xfbeff6,
     accentGlow: 0xcfe0f2,
     lantern: 0xd6ecff,
     lanternGlow: 0x9fd4ff,
     halo: ['rgba(150,200,255,0.55)', 'rgba(150,200,255,0)'],
+    bark: 0x8a7a6c,
+    barkPale: 0xcfcac4,
+    leafShade: 0xb6bedb,
+    leafLight: 0xfff6e6,
+    strand: [0xc4b8f0, 0xd9c8f4, 0xb7c6f2],
+    flower: [0xffffff, 0xffe2ee, 0xfff6dc, 0xe9e2ff],
+    petal: 0xf2f0ff,
+    stoneGlow: 0xa8d4ff,
+    stonePool: 'rgba(170,205,255,0.9)',
+    chartCrown: 0xe4e9f4,
   },
 };
 
@@ -708,6 +737,36 @@ export const grasslandMaterials = {
       color: GRASSLAND_LOOK.causeway.lantern, emissive: GRASSLAND_LOOK.causeway.lanternGlow, emissiveIntensity: 1.6,
     }),
   causewayPlank: () => std({ color: 0xffffff, roughness: 0.78 }),
+  causewayStone: () => std({ color: 0xffffff, roughness: 0.95, flatShading: true }),
+  causewayIron: () => std({ color: GRASSLAND_LOOK.iron, roughness: 0.6, metalness: 0.5 }),
+  causewayBrass: () => std({ color: GRASSLAND_LOOK.brass, roughness: 0.38, metalness: 0.85 }),
+  lightPool: (inner, opacity = 0.5) =>
+    new THREE.MeshBasicMaterial({
+      map: softDiscTexture(inner, 'rgba(0,0,0,0)'), transparent: true, opacity, depthWrite: false,
+      blending: THREE.AdditiveBlending, fog: false,
+    }),
+  bankStone: () => std({ color: 0xffffff, roughness: 0.94, flatShading: true }),
+  reed: () => std({ roughness: 1, vertexColors: true, side: THREE.DoubleSide }),
+  lilyPads: () => std({ color: 0xffffff, roughness: 0.5, side: THREE.DoubleSide }),
+  bloom: (glow = 0) =>
+    std({ color: 0xffffff, roughness: 0.8, vertexColors: true, side: THREE.DoubleSide, emissive: 0x9fb6d8, emissiveIntensity: glow }),
+  islandTurf: () => flockMaterial({ tints: GRASSLAND_LOOK.flock, fog: false, vertexColors: true }),
+  glowPoints: (size) =>
+    new THREE.PointsMaterial({
+      map: softDiscTexture(), size, sizeAttenuation: true, vertexColors: true, transparent: true,
+      depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    }),
+  treeBark: () => std({ color: 0xffffff, roughness: 0.9, fog: false, vertexColors: true }),
+  treeCrown: () =>
+    std({
+      color: 0xffffff, roughness: 0.75, fog: false, vertexColors: true,
+      emissive: GRASSLAND_LOOK.silverTree.leafGlow, emissiveIntensity: 0.32,
+    }),
+  treeBlossom: () =>
+    std({
+      color: GRASSLAND_LOOK.silverTree.accent, roughness: 0.6, fog: false,
+      emissive: GRASSLAND_LOOK.silverTree.accentGlow, emissiveIntensity: 0.4,
+    }),
   knoll: () => std({ color: GRASSLAND_LOOK.silverTree.knoll, roughness: 0.95, fog: false, flatShading: true }),
   knollFoot: () => std({ color: GRASSLAND_LOOK.silverTree.knollFoot, roughness: 0.95, fog: false, flatShading: true }),
   trunk: () => std({ color: GRASSLAND_LOOK.silverTree.trunk, roughness: 0.9, fog: false }),

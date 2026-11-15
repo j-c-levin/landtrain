@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GRASSLAND, clamp } from '../constants.js';
-import { GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
+import { CHART, GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
 import { createGroundCover, coverMask } from '../groundcover.js';
 import { mulberry } from '../prng.js';
 import { disposeSubtree } from '../dispose.js';
@@ -11,6 +11,11 @@ import { buildRivers } from './rivers.js';
 import { buildMoat } from './moat.js';
 import { mossyBoulders, buildKnollBoulders } from './boulders.js';
 import { buildGrassLandmark } from './landmark.js';
+import { buildIsland, buildPetals } from './island.js';
+import { WATER_TIME } from './water.js';
+import { NIGHT, nightTame, nearCullSprite } from './fade.js';
+
+const CLOSE_UP_CEILING = 150;
 
 // The eastern region of the seamless world. It shares ONE sky, sun and haze
 // with the prairie: it creates no directional light and never touches scene.fog.
@@ -24,7 +29,6 @@ export function createGrassland(scene) {
 
   const randX = () => xMin + rand() * xSpan;
   const randZ = () => zMin + rand() * zSpan;
-  // a random ground position that isn't over a channel (re-roll, capped)
   const randClearXZ = () => {
     let x = randX(), z = randZ(), n = 0;
     while (onWater(x, z) && ++n < 10) { x = randX(); z = randZ(); }
@@ -42,11 +46,13 @@ export function createGrassland(scene) {
     look: GRASSLAND_LOOK, seed: 5150616, clipX: [GRASSLAND.minX, GRASSLAND.maxX + 400], mask,
   });
   root.add(cover.group);
+  const tamed = new Set();
+  cover.group.traverse((o) => { if (o.material) tamed.add(o.material); });
+  for (const mat of tamed) nightTame(mat);
 
-  // One glow sprite material shared by every causeway lantern.
-  const bridgeGlowMat = grasslandMaterials.causewayGlow();
-  const waters = buildRivers(ctx, bridgeGlowMat);
-  buildMoat(ctx, bridgeGlowMat, waters);
+  const bridgeGlowMat = nearCullSprite(grasslandMaterials.causewayGlow());
+  buildRivers(ctx, bridgeGlowMat);
+  const moat = buildMoat(ctx, bridgeGlowMat);
 
   const trees = buildWillows(ctx);
   buildHills(ctx);
@@ -57,6 +63,12 @@ export function createGrassland(scene) {
 
   const landmark = buildGrassLandmark(root);
   buildKnollBoulders(ctx);
+  const island = buildIsland(root);
+  const key = scene.children.find((o) => o.isDirectionalLight && o.castShadow);
+  const petals = buildPetals(root, scene);
+
+  const closeUps = [];
+  root.traverse((o) => { if (o.userData.closeUp) closeUps.push(o); });
 
   function dispose() {
     cover.dispose();
@@ -73,16 +85,19 @@ export function createGrassland(scene) {
     landmarkPos: { x: GRASS_LANDMARK.x, z: GRASS_LANDMARK.z },
     arriveRadius: GRASS_ARRIVE_RADIUS,
     update(_dt, time, trainPos, cameraPos, camera, heading = 0) {
-      if (camera) cover.update(time, camera, trainPos, heading);
-      // `dir` flips the scroll for the dense overlay layer so its tiling
-      // drifts opposite the base layer instead of lining up with it.
-      for (const w of waters) {
-        const dir = w.dir || 1;
-        const off = (time * 0.04 * dir) % 1;
-        const axis = w.axis || 'y';
-        const tex = w.mat.normalMap || w.mat.map;
-        if (tex) tex.offset[axis] = off;
+      if (camera) {
+        cover.update(time, camera, trainPos, heading);
+        petals.update(time, camera);
       }
+      WATER_TIME.value = time;
+      const chart = CHART.uChart.value;
+      const night = key ? clamp((key.color.b - key.color.r) * 2, 0, 1) : 0;
+      NIGHT.value = night * (1 - chart);
+      moat.glowMat.opacity = 1 - chart;
+      island.userData.lampPools.opacity = (0.04 + 0.5 * night) * (1 - chart);
+      landmark.userData.setChart(chart);
+      const near = cameraPos.y < CLOSE_UP_CEILING;
+      for (const o of closeUps) o.visible = near;
 
       for (const t of trees) {
         const d = Math.hypot(t.group.position.x - cameraPos.x, t.group.position.z - cameraPos.z);

@@ -158,6 +158,10 @@ function tick(frameTime) {
     }
 
     journey.update();
+    if (journey.stage === 'done') {
+      state.endedAt ??= elapsed;
+      rig.vista = elapsed - state.endedAt < 2 || !ui.cardEl.classList.contains('hidden') ? journey.goalPos : null;
+    }
   }
 
   rig.update(dt, elapsed);

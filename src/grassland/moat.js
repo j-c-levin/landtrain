@@ -1,126 +1,114 @@
 import * as THREE from 'three';
-import { grasslandMaterials } from '../look.js';
-import { clamp } from '../constants.js';
-import { GRASS_LANDMARK, WATER_Y, DEPTH, channelY } from './layout.js';
-import { waterNormalTexture } from './water.js';
+import { GRASSLAND_LOOK, grasslandMaterials, getLookTier } from '../look.js';
+import {
+  GRASS_LANDMARK, WATER_Y, ISLAND_R, MOAT_R, RING_MID, RING_W, RING_BANK, RING_SHORE, channelY,
+} from './layout.js';
+import { waterMaterial, sheetGeometry } from './water.js';
 import { buildCauseway } from './causeway.js';
+import { dressBanks } from './banks.js';
+import { shoreAttr } from './rivers.js';
+import { nightTame } from './fade.js';
+
+const BED_D = [0, 9, RING_W, 22, 26, 30, RING_SHORE, 35.5, 38, RING_BANK + RING_W];
+const WATER_D = [0, 12, 20, 26, 30, RING_SHORE, RING_SHORE + 1.4];
+const mirrored = (d) => [...d.slice(1).reverse().map((v) => -v), ...d];
+
+// Crossings as angles around the island: west (the way in), north and south.
+export const MOAT_CROSSINGS = [Math.PI, Math.PI / 2, -Math.PI / 2];
+export const MOAT_GAP = 0.16;
+const DECK_W = 30;
 
 // The sunken ring channel around the tree: banks, water, glow pools, collision
-// and the two radial causeways. Appends its water to `waters`.
-export function buildMoat({ root, rand, obstacles }, bridgeGlowMat, waters) {
-  // --- ring channel terrain (sunken annulus around the tree) --------------
-  // Grassy banks slope from the island edge (r=150) and outer ground (r=230)
-  // down to the channel floor near r=190. The water + bridges are added later.
+// and the radial causeways.
+export function buildMoat({ root, rand, obstacles }, bridgeGlowMat) {
+  const low = getLookTier() === 'low';
+  const SEG = low ? 64 : 96;
+  const { x: cx, z: cz } = GRASS_LANDMARK;
+
   {
-    const R_INNER = 150, R_OUTER = 230, R_MID = 190, W_RING = 18, BANK_RING = 22;
-    const rgeo = new THREE.RingGeometry(R_INNER, R_OUTER, 72, 14);
-    rgeo.rotateX(-Math.PI / 2); // ring lies in XZ
-    const rpos = rgeo.attributes.position;
-    const shore = new Float32Array(rpos.count * 2);
-    for (let i = 0; i < rpos.count; i++) {
-      const r = Math.hypot(rpos.getX(i), rpos.getZ(i)); // distance from centre
-      const y = channelY(Math.abs(r - R_MID), W_RING, BANK_RING);
-      rpos.setY(i, y);
-      const depthFrac = clamp(-y / DEPTH, 0, 1);
-      shore[i * 2] = clamp((depthFrac - 0.55) / 0.35, 0, 1);
-      shore[i * 2 + 1] = clamp((depthFrac - 0.08) / 0.22, 0, 1);
-    }
-    rpos.needsUpdate = true;
-    rgeo.setAttribute('aShore', new THREE.BufferAttribute(shore, 2));
-    rgeo.computeVertexNormals();
-    const ringTerrain = new THREE.Mesh(rgeo, grasslandMaterials.shore());
-    ringTerrain.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
-    ringTerrain.receiveShadow = true;
-    root.add(ringTerrain);
+    const cols = mirrored(BED_D);
+    const shore = new Float32Array(SEG * cols.length * 2);
+    const geo = sheetGeometry(SEG, cols.length, (i, j, out) => {
+      const a = (i / SEG) * Math.PI * 2;
+      const r = RING_MID + cols[j];
+      const y = channelY(Math.abs(cols[j]), RING_W, RING_BANK);
+      out[0] = cx + Math.cos(a) * r; out[1] = y; out[2] = cz + Math.sin(a) * r;
+      shore.set(shoreAttr(y), (i * cols.length + j) * 2);
+    }, { closed: true });
+    geo.deleteAttribute('aFlow');
+    geo.setAttribute('aShore', new THREE.BufferAttribute(shore, 2));
+    geo.computeVertexNormals();
+    const bed = new THREE.Mesh(geo, nightTame(grasslandMaterials.shore()));
+    bed.receiveShadow = true;
+    root.add(bed);
   }
 
-  // ring water — a flat annulus sitting on the channel floor, sunken below the
-  // banks; same scrolling-ripple trick as the rivers. RingGeometry's default
-  // UVs are planar (projected onto the unit square), which smears a repeating
-  // pattern anisotropically across an annulus — rewritten below to polar UVs
-  // (U = angle around the ring, V = radial fraction across the band) so the
-  // ripple stays round and can flow around the ring instead of sliding
-  // linearly across it.
   {
-    const ripple = waterNormalTexture();
-    // Local TILE, kept in sync with the river block's `const TILE = 30`
-    // above — that one is scoped inside the `for (const def of riverDefs)`
-    // loop and isn't visible down here.
-    const TILE = 30;
-    const RTHETA = 48, RPHI = 1; // must match the RingGeometry args below
-    // U repeat rounded to an integer so the seam column (U=1.0) tiles
-    // cleanly against the start column (U=0).
-    ripple.repeat.set(Math.round((2 * Math.PI * 190) / TILE), (208 - 172) / TILE); // (40, 1.2)
-    const deltaMat = grasslandMaterials.moatWater(ripple);
-    waters.push({ mat: deltaMat, axis: 'x' }); // flow scrolls U — around the ring
-    // fill the flat floor band (R_MID +/- W_RING = 172..208)
-    const rgeo = new THREE.RingGeometry(172, 208, RTHETA, RPHI);
-    // Rewrite UVs to polar. Per three.js's RingGeometry source, vertices are
-    // built with the outer loop j = 0..phiSegments walking the radius from
-    // innerRadius to outerRadius, and the inner loop i = 0..thetaSegments
-    // walking theta around the ring (the seam column is duplicated: i=0 and
-    // i=thetaSegments are separate vertices at the same position). Index =
-    // j*(thetaSegments+1) + i, so U = i/thetaSegments gives the last seam
-    // column exactly 1.0 (no wrap to 0), and V = j/phiSegments spans the band.
-    const ruv = rgeo.attributes.uv;
-    for (let j = 0; j <= RPHI; j++) {
-      for (let i = 0; i <= RTHETA; i++) {
-        ruv.setXY(j * (RTHETA + 1) + i, i / RTHETA, j / RPHI);
-      }
-    }
-    ruv.needsUpdate = true;
-    const ring = new THREE.Mesh(rgeo, deltaMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.set(GRASS_LANDMARK.x, WATER_Y, GRASS_LANDMARK.z); // WATER_Y
-    root.add(ring);
+    // open at the west crossing, so the pattern's seam hides under the deck
+    const cols = mirrored(WATER_D);
+    const geo = sheetGeometry(SEG + 1, cols.length, (i, j, out) => {
+      const a = Math.PI + (i / SEG) * Math.PI * 2;
+      const r = RING_MID + cols[j];
+      out[0] = cx + Math.cos(a) * r; out[1] = WATER_Y; out[2] = cz + Math.sin(a) * r;
+      out[3] = cols[j]; out[4] = (i / SEG) * Math.PI * 2 * RING_MID;
+      out[5] = RING_SHORE - Math.abs(cols[j]);
+    });
+    geo.computeVertexNormals();
+    const water = new THREE.Mesh(geo, waterMaterial({ flow: [0, 0.7], glint: GRASSLAND_LOOK.waterMoatGlint }));
+    water.receiveShadow = true;
+    // faded willows write depth: the water must be laid down before them
+    water.renderOrder = -1;
+    root.add(water);
   }
 
-  // glow reflection pools — four soft discs lying flat on the ring water at
-  // the compass points, reading as the landmark's glow caught in the moat.
-  // Local dressing (not a horizon silhouette like the landmark halo), so NOT
-  // fog:false. One shared material+texture for all four.
+  // the tree's glow caught in the still water beside each crossing
+  const glowMat = grasslandMaterials.moatGlow();
   {
-    const glowMat = grasslandMaterials.moatGlow();
     const discGeo = new THREE.CircleGeometry(1, 24);
-    for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    discGeo.rotateX(-Math.PI / 2);
+    for (const a of [0, Math.PI * 0.75, -Math.PI * 0.75, Math.PI * 0.25, -Math.PI * 0.25]) {
       const disc = new THREE.Mesh(discGeo, glowMat);
-      disc.rotation.x = -Math.PI / 2;
-      disc.scale.setScalar(40);
-      disc.position.set(
-        GRASS_LANDMARK.x + Math.cos(a) * 190,
-        WATER_Y + 0.05,
-        GRASS_LANDMARK.z + Math.sin(a) * 190
-      );
+      disc.scale.set(34, 1, 34);
+      disc.position.set(cx + Math.cos(a) * RING_MID, WATER_Y + 0.05, cz + Math.sin(a) * RING_MID);
       root.add(disc);
     }
   }
 
-  // ring collision: impassable annulus with two bridge gaps (north +z, south -z)
-  {
-    const GAP_A = 0.16; // angular half-gap
-    obstacles.push({
-      type: 'ring', x: GRASS_LANDMARK.x, z: GRASS_LANDMARK.z, rInner: 150, rOuter: 230,
-      gaps: [
-        { a0: Math.PI / 2 - GAP_A, a1: Math.PI / 2 + GAP_A },   // north (+z)
-        { a0: -Math.PI / 2 - GAP_A, a1: -Math.PI / 2 + GAP_A }, // south (-z)
-      ],
-    });
+  obstacles.push({
+    type: 'ring', x: cx, z: cz, rInner: ISLAND_R, rOuter: MOAT_R,
+    gaps: MOAT_CROSSINGS.map((a) => ({ a0: a - MOAT_GAP, a1: a + MOAT_GAP })),
+  });
 
-    // two lantern causeways crossing the channel radially at north and south,
-    // at the train's level. Each runs from the island edge (r=150) to outer
-    // bank (r=230) along z, flush planks stepping across that span, path
-    // width along x; posts + lanterns sit at the island-side and outer-side
-    // corners (same buildCauseway treatment as the river decks, axis 'z').
-    const rIn = 150, rOut = 230, span = rOut - rIn; // 80
-    const deckW = 30; // path width (tangential, along x)
-    for (const dir of [1, -1]) { // +1 = north (+z), -1 = south (-z)
-      buildCauseway(root, rand, bridgeGlowMat, {
-        axis: 'z',
-        uCenter: GRASS_LANDMARK.z + dir * (rIn + span / 2),
-        uSpan: span,
-        vCenter: GRASS_LANDMARK.x,
-        vWidth: deckW,
-      });
-    }
+  const span = MOAT_R - ISLAND_R;
+  // north then south draw from the world stream as they always have
+  for (const dir of [1, -1]) {
+    buildCauseway(root, rand, bridgeGlowMat, {
+      axis: 'z', uCenter: cz + dir * RING_MID, uSpan: span, vCenter: cx, vWidth: DECK_W, shore: RING_SHORE,
+    });
   }
+  buildCauseway(root, () => 0, bridgeGlowMat, {
+    axis: 'x', uCenter: cx - RING_MID, uSpan: span, vCenter: cz, vWidth: DECK_W, shore: RING_SHORE,
+  });
+
+  const clearArc = (DECK_W / 2 + 7) / RING_MID;
+  dressBanks(root, {
+    seed: 9311,
+    s0: 0,
+    s1: Math.PI * 2 * RING_MID,
+    at: (s, d, out) => out.set(cx + Math.cos(s / RING_MID) * (RING_MID + d), cz + Math.sin(s / RING_MID) * (RING_MID + d)),
+    bedY: (d) => channelY(Math.abs(d), RING_W, RING_BANK),
+    shore: RING_SHORE,
+    lip: RING_W + RING_BANK,
+    keepClear: (s) => MOAT_CROSSINGS.some((a) => {
+      const da = Math.abs(((s / RING_MID - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      return da < clearArc;
+    }),
+    feature: MOAT_CROSSINGS.flatMap((a) => {
+      const s = ((a + Math.PI * 2) % (Math.PI * 2)) * RING_MID;
+      return [s - 40, s + 40];
+    }),
+    flowers: GRASSLAND_LOOK.islandFlower,
+    glow: 0.25,
+  });
+  return { glowMat };
 }

@@ -13,6 +13,8 @@ const wrapAngle = (a) => {
   while (a < -Math.PI) a += Math.PI * 2;
   return a;
 };
+const _vp = new THREE.Vector3();
+const _vl = new THREE.Vector3();
 
 // Driver's-cab forward view: sat back behind the cab and off to the open
 // (near) side, looking lengthwise down the cabin and out the big front
@@ -74,6 +76,10 @@ export class CameraRig {
     // WITHOUT marking the rig busy — the player keeps walking, the train
     // keeps rolling, the camera just slides into place.
     this.soft = null;
+    // a place ({ x, z }) the cutaway leans back to take in; null lets it settle home
+    this.vista = null;
+    this.vistaAt = null;
+    this.vistaBlend = 0;
     this.mapBlend = 0;
     this.aspect = camera.aspect;
     this.tall = tallness(camera.aspect);
@@ -164,6 +170,16 @@ export class CameraRig {
     const dist = lerp(20.5, TALL.inhabitDist, w);
     _pos.set(f.x + dist * sin, lvlY + lerp(2.4, TALL.inhabitUp, w), f.z + dist * cos);
     _look.set(f.x, lvlY + lerp(0.55, TALL.inhabitLook, w), f.z);
+    if (this.vistaBlend > 0) {
+      const dx = this.vistaAt.x - f.x;
+      const dz = this.vistaAt.z - f.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const e = smootherstep(this.vistaBlend);
+      _vp.set(f.x - (dx / d) * 80 + 100 * sin, 19, f.z - (dz / d) * 80 + 100 * cos);
+      _vl.set(f.x + dx * 0.2, 42, f.z + dz * 0.2);
+      _pos.lerp(_vp, e);
+      _look.lerp(_vl, e);
+    }
   }
 
   #computeMap() {
@@ -333,6 +349,8 @@ export class CameraRig {
     this.tall = damp(this.tall, tallness(this.aspect), 3.5, dt);
     const walking = this.mode === 'inhabit' && !this.player.sitting;
     this.lead = damp(this.lead, walking ? this.player.facing * TALL.lead * this.tall : 0, 1.6, dt);
+    if (this.vista) this.vistaAt = this.vista;
+    this.vistaBlend = clamp(this.vistaBlend + (this.vista ? dt : -dt) / 2.2, 0, 1);
     this.followX = damp(this.followX, this.player.x, 5, dt);
     this.followY = damp(this.followY, this.player.sitting ? LEVELS.deck : this.player.y, 4, dt);
 
