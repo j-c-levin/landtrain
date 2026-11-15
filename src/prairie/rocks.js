@@ -1,94 +1,309 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { clamp } from '../constants.js';
-import { PRAIRIE_LOOK, prairieMaterials } from '../look.js';
+import { PRAIRIE_LOOK, prairieMaterials, jitterHSL, getLookTier } from '../look.js';
+import { mulberry } from '../prng.js';
 import { crag } from '../shapes.js';
+
+const _c = new THREE.Color();
+const _d = new THREE.Color();
+
+// [height, radius] rows, foot to cap
+const BUTTE = [[0, 1], [0.2, 0.8], [0.4, 0.64], [0.45, 0.55], [0.93, 0.5], [1, 0.45]];
+export const TERRACE = [[0, 1], [0.34, 0.955], [0.4, 0.8], [0.8, 0.76], [0.86, 0.6], [1, 0.58]];
+
+// A stepped butte: talus skirt, ledge, fluted cliff, cap. Rows are painted
+// foot-to-cap; the strata material draws the fine banding.
+export function butteGeometry(rand, radius, height, {
+  radial = 20, profile = BUTTE, bands = PRAIRIE_LOOK.mesaBands, foot = PRAIRIE_LOOK.flock[3], cap = PRAIRIE_LOOK.mesaCap,
+  stretch = 1, flute = 0.1,
+} = {}) {
+  const rows = profile.length;
+  const geo = new THREE.CylinderGeometry(radius, radius, height, radial, rows - 1);
+  const p = geo.attributes.position;
+  const palette = bands.map((c) => new THREE.Color(c));
+  const col = new Float32Array(p.count * 3);
+  const ph1 = rand() * 6.28;
+  const ph2 = rand() * 6.28;
+  const first = Math.floor(rand() * palette.length);
+  const local = mulberry((ph1 * 1e6) | 0);
+  const ribs = [];
+  for (let i = 0; i < radial; i++) ribs.push(1 + (local() - 0.5) * 2 * flute);
+  for (let i = 0; i < p.count; i++) {
+    const row = Math.round(clamp(p.getY(i) / height + 0.5, 0, 1) * (rows - 1));
+    const [t, r] = profile[row];
+    const a = Math.atan2(p.getZ(i), p.getX(i));
+    const column = ((Math.round((a / (Math.PI * 2)) * radial) % radial) + radial) % radial;
+    const cliff = clamp(t * 3, 0, 1);
+    const k = r * (0.84 + 0.2 * Math.sin(a * 3 + ph1) + 0.1 * Math.sin(a * 7 + ph2)) * (1 + (ribs[column] - 1) * cliff);
+    p.setXYZ(i, p.getX(i) * k * stretch, t * height, p.getZ(i) * k);
+    _c.copy(palette[(first + row) % palette.length]);
+    if (row === 0) _c.set(foot);
+    else if (row === 1) _c.lerp(_d.set(foot), 0.45);
+    else if (row === rows - 1) _c.set(cap);
+    if (row > 0 && row < rows - 1) _c.multiplyScalar(1 + ((ribs[column] - 1) / flute) * 0.07);
+    _c.toArray(col, i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+export const mesaGeometry = (rand, radius, height) => butteGeometry(rand, radius, height);
+
+export const terraceGeometry = (rand, radius, height, look) =>
+  butteGeometry(rand, radius, height, { profile: TERRACE, radial: 24, flute: 0.05, ...look });
+
+function boulderPaint(base, sun, dust) {
+  return (height, up) => {
+    _c.copy(base);
+    _c.lerp(sun, clamp(up * 0.9, 0, 0.75));
+    _c.lerp(dust, clamp(1 - (height - 0.38) * 5, 0, 0.8));
+    return _c;
+  };
+}
+
+function pebble(rand, radius, squash, paint) {
+  const geo = new THREE.IcosahedronGeometry(radius, 0);
+  const p = geo.attributes.position;
+  const col = new Float32Array(p.count * 3);
+  const ph = rand() * 9;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i) / radius;
+    const k = 0.8 + 0.34 * Math.sin(p.getX(i) * 2.9 / radius + ph) * Math.cos(p.getZ(i) * 3.3 / radius + ph);
+    p.setXYZ(i, p.getX(i) * k, Math.max(y, -0.3) * radius * squash, p.getZ(i) * k);
+    paint(y * 0.5 + 0.5, y).toArray(col, i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
 
 export function bigRockCluster(rand, cx, cz, r, root, obstacles) {
   const group = new THREE.Group();
-  const mat = prairieMaterials.rock(PRAIRIE_LOOK.rock);
-  const matDark = prairieMaterials.rock(PRAIRIE_LOOK.rockDark);
+  const mat = prairieMaterials.crag();
+  const light = new THREE.Color(PRAIRIE_LOOK.rock);
+  const dark = new THREE.Color(PRAIRIE_LOOK.rockDark);
+  const sun = new THREE.Color(PRAIRIE_LOOK.rockSun);
+  const dust = new THREE.Color(PRAIRIE_LOOK.flock[3]);
   const n = 4 + Math.floor(rand() * 3);
   for (let i = 0; i < n; i++) {
     const s = r * (0.32 + rand() * 0.45);
-    const dark = rand() > 0.5;
+    const isDark = rand() > 0.5;
     const a = rand() * Math.PI * 2;
     const d = rand() * r * 0.55;
     const rot = [rand() * Math.PI, rand() * Math.PI, rand() * Math.PI];
     const squash = 0.9 + rand() * 0.7;
-    const rock = new THREE.Mesh(crag(rand, s, squash), dark ? matDark : mat);
+    const rock = new THREE.Mesh(crag(rand, s, squash, boulderPaint(isDark ? dark : light, sun, dust)), mat);
     rock.position.set(cx + Math.cos(a) * d, s * 0.2, cz + Math.sin(a) * d);
     rock.rotation.y = rot[1];
     rock.castShadow = true;
     rock.receiveShadow = true;
     group.add(rock);
   }
+
+  const local = mulberry((cx * 7919 + cz * 104729) | 0);
+  const scree = [];
+  const count = getLookTier() === 'low' ? 7 : 13;
+  for (let i = 0; i < count; i++) {
+    const a = local() * Math.PI * 2;
+    const d = r * (0.5 + local() * 0.62);
+    const s = 1.2 + local() * local() * 6.5;
+    const g = pebble(local, s, 0.55 + local() * 0.4, boulderPaint(local() > 0.5 ? dark : light, sun, dust));
+    g.rotateY(local() * Math.PI);
+    g.translate(cx + Math.cos(a) * d, s * 0.12, cz + Math.sin(a) * d);
+    scree.push(g);
+  }
+  const rubble = new THREE.Mesh(mergeGeometries(scree), mat);
+  for (const g of scree) g.dispose();
+  rubble.castShadow = true;
+  rubble.receiveShadow = true;
+  group.add(rubble);
+
   root.add(group);
   obstacles.push({ type: 'circle', x: cx, z: cz, r });
 }
 
+function crestProfile(rand, len) {
+  const peaks = [];
+  let at = 30 + rand() * 50;
+  while (at < len - 30) {
+    const tall = rand();
+    peaks.push({ at, h: 24 + tall * tall * 38 + rand() * 6, w: 26 + rand() * 46, skew: (rand() - 0.5) * 0.8 });
+    at += 44 + rand() * rand() * 170;
+  }
+  return (d) => {
+    let h = 9 + 5 * Math.sin(d * 0.021 + len);
+    for (const p of peaks) {
+      const k = (d - p.at) / (p.w * (d < p.at ? 1 - p.skew : 1 + p.skew));
+      if (Math.abs(k) < 1) h = Math.max(h, p.h * (1 - Math.abs(k) ** 1.5));
+    }
+    return h;
+  };
+}
+
+// One long hogback: a scree skirt, a bench, cliffs and a crest of massifs and saddles, closed at both noses.
+function ridgeWall(rand, x1, z1, dx, dz, len) {
+  const columns = Math.ceil(len / 12);
+  const ux = dx / len;
+  const uz = dz / len;
+  const tones = PRAIRIE_LOOK.ridgeBands.map((c) => new THREE.Color(c));
+  const dust = new THREE.Color(PRAIRIE_LOOK.flock[3]);
+  const sun = new THREE.Color(PRAIRIE_LOOK.rockSun);
+  const scree = dust.clone().lerp(tones[1], 0.45);
+  const profile = crestProfile(rand, len);
+  const wander = [rand() * 6.28, rand() * 6.28];
+  const pos = [];
+  const col = [];
+  const idx = [];
+  const ROWS = 9;
+  let tone = tones[0];
+  for (let i = 0; i <= columns; i++) {
+    const t = i / columns;
+    const ends = Math.min(1, Math.sin(t * Math.PI) * 6);
+    const along = i === 0 || i === columns ? 0 : (rand() - 0.5) * 7;
+    const d = t * len + along;
+    const crest = (profile(d) + rand() * 5) * ends;
+    const sway = (4.5 * Math.sin(d * 0.017 + wander[0]) + 2.5 * Math.sin(d * 0.053 + wander[1])) * ends;
+    const cx = x1 + ux * d - uz * sway;
+    const cz = z1 + uz * d + ux * sway;
+    if (rand() > 0.55) tone = tones[Math.floor(rand() * tones.length)];
+    const lean = (rand() - 0.5) * 6;
+    const reach = (0.42 + 0.58 * ends) * (0.88 + crest / 300);
+    // [offset across the ridge, height, colour] for one flank, foot to shoulder
+    const flank = () => {
+      const foot = (28 + rand() * 11) * reach;
+      const apron = (19 + rand() * 6) * reach;
+      const bench = apron - (2 + rand() * 2.5) * reach;
+      const ledge = 0.3 + rand() * 0.16;
+      return [
+        [foot, -1, dust],
+        [apron, 1 + crest * 0.1, scree],
+        [bench, crest * ledge, tone],
+        [bench - (6 + rand() * 5) * reach, crest * (ledge + 0.02), sun],
+        [(2 + rand() * 3) * reach, crest * (0.8 + rand() * 0.12), tone],
+      ];
+    };
+    const near = flank();
+    const far = flank().reverse();
+    for (const [off, y, c] of near) {
+      pos.push(cx + uz * off, y, cz - ux * off);
+      col.push(c.r, c.g, c.b);
+    }
+    pos.push(cx - uz * lean, crest, cz + ux * lean);
+    col.push(sun.r, sun.g, sun.b);
+    for (const [off, y, c] of far) {
+      pos.push(cx - uz * off, y, cz + ux * off);
+      col.push(c.r, c.g, c.b);
+    }
+    if (i < columns) {
+      for (let j = 0; j < ROWS + 1; j++) {
+        const a = i * (ROWS + 2) + j;
+        idx.push(a, a + 1, a + ROWS + 3, a, a + ROWS + 3, a + ROWS + 2);
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function tintedBlob(local, radius, squash, hsl) {
+  const g = new THREE.IcosahedronGeometry(radius, 0);
+  const p = g.attributes.position;
+  const col = new Float32Array(p.count * 3);
+  jitterHSL(_c, local, hsl);
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i) / radius;
+    p.setY(i, Math.max(y, -0.2) * radius * squash);
+    const lift = 0.62 + 0.5 * (y * 0.5 + 0.5);
+    col[i * 3] = _c.r * lift;
+    col[i * 3 + 1] = _c.g * lift;
+    col[i * 3 + 2] = _c.b * lift;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
 export function ridge(rand, x1, z1, x2, z2, root, obstacles) {
   const group = new THREE.Group();
-  const mat = prairieMaterials.rock(PRAIRIE_LOOK.ridge);
-  const matWarm = prairieMaterials.rock(PRAIRIE_LOOK.ridgeWarm);
+  const mat = prairieMaterials.ridge();
   const dx = x2 - x1;
   const dz = z2 - z1;
   const len = Math.hypot(dx, dz);
-  const steps = Math.ceil(len / 24);
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const s = 13 + rand() * 11;
-    const tall = 2.1 + rand() * 0.9;
-    const warm = rand() > 0.5;
-    const geo = new THREE.ConeGeometry(s, s * tall, 7, 3);
-    const p = geo.attributes.position;
-    const ph = rand() * 6;
-    for (let v = 0; v < p.count; v++) {
-      const k = 0.86 + 0.22 * Math.sin(p.getY(v) * 0.4 + Math.atan2(p.getZ(v), p.getX(v)) * 3 + ph);
-      p.setX(v, p.getX(v) * k);
-      p.setZ(v, p.getZ(v) * k);
-    }
-    geo.computeVertexNormals();
-    const rock = new THREE.Mesh(geo, warm ? matWarm : mat);
-    rock.position.set(
-      x1 + dx * t + (rand() - 0.5) * 10,
-      s * 0.7,
-      z1 + dz * t + (rand() - 0.5) * 10
-    );
-    rock.rotation.y = rand() * Math.PI;
-    rock.rotation.x = (rand() - 0.5) * 0.14;
-    rock.castShadow = true;
-    group.add(rock);
+  const ux = dx / len;
+  const uz = dz / len;
+  const wall = new THREE.Mesh(ridgeWall(rand, x1, z1, dx, dz, len), mat);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
+  group.add(wall);
+
+  const local = mulberry((x1 * 31 + z1 * 17 + z2) | 0);
+  const low = getLookTier() === 'low';
+  const dust = new THREE.Color(PRAIRIE_LOOK.flock[3]);
+  const sun = new THREE.Color(PRAIRIE_LOOK.rockSun);
+  const tones = PRAIRIE_LOOK.ridgeBands.map((c) => new THREE.Color(c));
+  const paint = () => boulderPaint(tones[Math.floor(local() * tones.length)], sun, dust);
+  const parts = [];
+  const at = (t, off) => [x1 + dx * t + uz * off, z1 + dz * t - ux * off];
+
+  const blocks = Math.round((len / 24) * (low ? 0.7 : 2));
+  for (let i = 0; i < blocks; i++) {
+    const t = 0.03 + local() * 0.94;
+    const out = local();
+    const off = (local() > 0.5 ? 1 : -1) * (16 + out * out * 40);
+    const s = Math.abs(off) > 31 ? 0.5 + local() * 0.9 : 1.6 + local() * local() * 6.5;
+    const g = pebble(local, s, 0.6 + local() * 0.5, paint());
+    g.rotateY(local() * Math.PI);
+    const [x, z] = at(t, off);
+    g.translate(x, s * 0.14 + Math.max(0, 1 - Math.abs(off) / 30) * 5, z);
+    parts.push(g);
   }
+
+  const shrubs = Math.round((len / 24) * (low ? 0.4 : 1.1));
+  for (let i = 0; i < shrubs; i++) {
+    const t = 0.04 + local() * 0.92;
+    const off = (local() > 0.5 ? 1 : -1) * (21 + local() * 15);
+    const s = 1.2 + local() * 1.8;
+    const g = tintedBlob(local, s, 0.6 + local() * 0.25, PRAIRIE_LOOK.bush);
+    g.rotateY(local() * Math.PI);
+    const [x, z] = at(t, off);
+    g.translate(x, s * 0.3 + Math.max(0, 1 - Math.abs(off) / 30) * 4, z);
+    parts.push(g);
+  }
+
+  for (const t of [0.18 + local() * 0.12, 0.45 + local() * 0.15, 0.72 + local() * 0.08]) {
+    const off = -(54 + local() * 26);
+    const [x, z] = at(t, off);
+    const r = 9 + local() * 5;
+    for (const [scale, squash] of [[1, 2.2 + local() * 1.2], [0.6, 1.4 + local()]]) {
+      const a = local() * Math.PI * 2;
+      const d = scale < 1 ? r * 0.75 : 0;
+      const g = crag(local, r * scale, squash, paint());
+      g.rotateY(local() * Math.PI);
+      g.translate(x + Math.cos(a) * d, r * scale * 0.2, z + Math.sin(a) * d);
+      parts.push(g);
+    }
+    for (let k = 0; k < 4; k++) {
+      const a = local() * Math.PI * 2;
+      const s = 1.5 + local() * 3;
+      const b = pebble(local, s, 0.7, paint());
+      b.translate(x + Math.cos(a) * (r + s * 0.4), s * 0.15, z + Math.sin(a) * (r + s * 0.4));
+      parts.push(b);
+    }
+    obstacles.push({ type: 'circle', x, z, r: r + 3 });
+  }
+
+  const rubble = new THREE.Mesh(mergeGeometries(parts), mat);
+  for (const g of parts) g.dispose();
+  rubble.castShadow = true;
+  rubble.receiveShadow = true;
+  group.add(rubble);
+
   root.add(group);
   obstacles.push({ type: 'seg', x1, z1, x2, z2, w: 16 });
-}
-
-// Stepped butte for the backscene: talus skirt, cliff bands, flat cap, strata painted by height.
-export function mesaGeometry(rand, radius, height) {
-  const geo = new THREE.CylinderGeometry(radius, radius, height, 20, 5);
-  const p = geo.attributes.position;
-  const profile = [1.0, 0.78, 0.72, 0.58, 0.54, 0.47];
-  const bands = PRAIRIE_LOOK.mesaBands.map((c) => new THREE.Color(c));
-  const col = new Float32Array(p.count * 3);
-  const ph1 = rand() * 6.28;
-  const ph2 = rand() * 6.28;
-  const first = Math.floor(rand() * bands.length);
-  const tint = new THREE.Color();
-  for (let i = 0; i < p.count; i++) {
-    const t = clamp(p.getY(i) / height + 0.5, 0, 1);
-    const row = Math.round(t * 5);
-    const a = Math.atan2(p.getZ(i), p.getX(i));
-    const k = profile[row] * (0.84 + 0.2 * Math.sin(a * 3 + ph1) + 0.1 * Math.sin(a * 7 + ph2));
-    p.setX(i, p.getX(i) * k);
-    p.setZ(i, p.getZ(i) * k);
-    tint.copy(bands[(first + row) % bands.length]);
-    if (row === 0) tint.set(PRAIRIE_LOOK.flock[3]);
-    col[i * 3] = tint.r;
-    col[i * 3 + 1] = tint.g;
-    col[i * 3 + 2] = tint.b;
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  geo.translate(0, height / 2, 0);
-  geo.computeVertexNormals();
-  return geo;
 }

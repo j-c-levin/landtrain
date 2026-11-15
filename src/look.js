@@ -46,6 +46,14 @@ const FLOCK_PARS = /* glsl */ `
   #ifdef FLOCK_SHORE
     varying vec2 vShore;
   #endif
+  #ifdef FLOCK_REGION
+    uniform sampler2D uFlockRegion;
+    uniform vec4 uFlockRegionRect;
+    uniform vec3 uFlockLush;
+    uniform vec3 uFlockParched;
+    uniform vec3 uFlockBare;
+    uniform vec3 uFlockPale;
+  #endif
   float fHash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
@@ -85,6 +93,79 @@ const FLOCK_FRAG = /* glsl */ `
       fc = mix(fc, uFlockSand, vShore.y);
       fc = mix(fc, uFlockMud, vShore.x);
     #endif
+    #ifdef FLOCK_REGION
+      vec4 fRegion = texture2D(uFlockRegion, (fp - uFlockRegionRect.xy) * uFlockRegionRect.zw);
+      float fTorn = (fMid - 0.5) * 0.5 + (fGrain - 0.5) * 0.22 * fNear;
+      float fLush = smoothstep(0.52, 0.86, fRegion.g + fTorn * 0.6);
+      float fParched = 1.0 - smoothstep(0.12, 0.46, fRegion.g + fTorn * 0.6);
+      float fBareness = smoothstep(0.3, 0.62, fRegion.b + fTorn);
+      float fSand = fRegion.a + fTorn * 0.5;
+      float fPaleness = smoothstep(0.36, 0.64, fSand);
+      float fDist = length(vViewPosition);
+      float fTone = dot(fc, vec3(0.3, 0.59, 0.11)) / dot(uFlockB, vec3(0.3, 0.59, 0.11));
+      fc = mix(fc, uFlockParched * fTone, fParched * 0.6);
+      fc = mix(fc, uFlockLush * fTone, fLush * 0.78);
+      // a scald on the plain is pale ochre; only the pans run to red earth
+      float fRed = smoothstep(0.4, 0.85, fRegion.b);
+      vec3 fEarth = mix(uFlockD * 1.12, uFlockBare, fRed) * mix(1.0, fTone, 0.7);
+      fEarth *= mix(vec3(1.0), vec3(0.9, 0.84, 0.8), smoothstep(0.44, 0.62, fBig * 0.5 + fBare * 0.5) * fRed);
+      fc = mix(fc, fEarth, fBareness * 0.86);
+      // cracked pan floor: darker rim where the sand meets the earth
+      float fRim = fPaleness * (1.0 - smoothstep(0.5, 0.74, fSand));
+      fc = mix(fc, mix(fc, uFlockPale, 0.55) * 0.9, smoothstep(0.04, 0.36, fSand) * (1.0 - fPaleness));
+      vec3 fBed = uFlockPale * (0.86 + 0.12 * fGrain + 0.14 * smoothstep(0.6, 1.0, fRegion.a));
+      fBed *= 1.0 + (fNoise(fp * vec2(0.035, 0.31) + 5.0) - 0.5) * 0.16;
+      fc = mix(fc, fBed, fPaleness * (0.62 + 0.38 * smoothstep(0.55, 0.95, fRegion.a)));
+      fc *= 1.0 - fRim * 0.2;
+      // painted tufts and scrub stand in for the cover beyond the instanced tiles
+      {
+        float fGrow = clamp(0.2 + 0.9 * fRegion.g, 0.0, 0.85) * (1.0 - fBareness * 0.9) * (1.0 - smoothstep(0.1, 0.4, fSand)) * fRegion.r;
+        vec2 fT = fp * 0.42;
+        vec2 fTi = floor(fT);
+        float fTuft = 1.0 - smoothstep(0.06, 0.16 + 0.2 * fHash(fTi + 9.4), length(fract(fT) - 0.5 - (vec2(fHash(fTi + 3.1), fHash(fTi + 5.9)) - 0.5) * 0.7));
+        fTuft *= step(fHash(fTi + 7.7), fGrow) * (1.0 - smoothstep(0.3, 0.8, max(fwidth(fT.x), fwidth(fT.y))));
+        vec2 fS = fp * 0.085 + 11.0;
+        vec2 fSi = floor(fS);
+        float fSr = fHash(fSi + 1.3);
+        float fShrub = 1.0 - smoothstep(0.06 + 0.1 * fSr, 0.12 + 0.2 * fSr, length(fract(fS) - 0.5 - (vec2(fHash(fSi + 4.2), fHash(fSi + 8.6)) - 0.5) * 0.6));
+        fShrub *= step(fHash(fSi + 2.9), fGrow * 0.6) * (1.0 - smoothstep(0.3, 0.8, max(fwidth(fS.x), fwidth(fS.y))));
+        fc = mix(fc, fc * vec3(0.74, 0.8, 0.58), fTuft * 0.75 * smoothstep(45.0, 110.0, fDist));
+        fc = mix(fc, uFlockLush * 0.5, fShrub * 0.85 * smoothstep(170.0, 330.0, fDist));
+      }
+      // dried mud: a net of fine cracks across pans and scalds, close to the lens
+      float fClose = 1.0 - smoothstep(50.0, 240.0, fDist);
+      float fDry = fClose * (0.34 * fPaleness + 0.2 * fRed * (1.0 - fPaleness));
+      #if FLOCK_OCTAVES <= 2
+      if (fDry > 0.004) {
+        vec2 fCell = fp * 0.2 + (fNoise(fp * 0.07) - 0.5) * 1.4;
+        vec2 fId = floor(fCell - 0.5);
+        float fD1 = 8.0;
+        float fD2 = 8.0;
+        for (int k = 0; k < 4; k++) {
+          vec2 fG = fId + vec2(float(k - (k / 2) * 2), float(k / 2));
+          float fD = length(fG + 0.5 + (vec2(fHash(fG), fHash(fG + 19.19)) - 0.5) * 0.5 - fCell);
+          if (fD < fD1) { fD2 = fD1; fD1 = fD; } else if (fD < fD2) { fD2 = fD; }
+        }
+        fc *= 1.0 - (1.0 - smoothstep(0.02, 0.1, fD2 - fD1)) * fDry * 1.2;
+      }
+      #else
+      if (fDry > 0.004) {
+        vec2 fCell = fp * 0.27 + (fNoise(fp * 0.09) - 0.5) * 1.6;
+        vec2 fId = floor(fCell);
+        vec2 fIn = fract(fCell);
+        float fD1 = 8.0;
+        float fD2 = 8.0;
+        for (int cy = -1; cy <= 1; cy++) {
+          for (int cx = -1; cx <= 1; cx++) {
+            vec2 fG = vec2(float(cx), float(cy));
+            float fD = length(fG + vec2(fHash(fId + fG), fHash(fId + fG + 19.19)) - fIn);
+            if (fD < fD1) { fD2 = fD1; fD1 = fD; } else if (fD < fD2) { fD2 = fD; }
+          }
+        }
+        fc *= 1.0 - (1.0 - smoothstep(0.015, 0.075, fD2 - fD1)) * fDry;
+      }
+      #endif
+    #endif
     diffuseColor.rgb *= fc;
 
     // chart: three flat washes glazed over each other, pooling darker at their edges
@@ -108,6 +189,12 @@ const FLOCK_FRAG = /* glsl */ `
       wash = mix(wash, uFlockSand, vShore.y * 0.85);
       wash = mix(wash, uFlockMud, vShore.x * 0.85);
     #endif
+    #ifdef FLOCK_REGION
+      wash = mix(wash, uFlockLush * 1.22, fLush * 0.4);
+      wash = mix(wash, uFlockBare * 1.12, fBareness * 0.5);
+      wash = mix(wash, uFlockPale, fPaleness * 0.8);
+      wash *= 1.0 - fRim * 0.22;
+    #endif
     wash *= 1.0 - 0.07 * (fNoise(fp * 0.9) - 0.5) - 0.08 * (fNoise(fp * 0.016) - 0.5);
     wash = mix(wash, uChartIndigo * (0.55 + 0.9 * dot(wash, vec3(0.3, 0.59, 0.11))), uChartNight);
     // pen stipple: a short dry stroke in the odd cell
@@ -126,7 +213,21 @@ const FLOCK_FRAG = /* glsl */ `
 
 // Static-grass flock: world-space noise blends four paint tints so the ground
 // never tiles; `shore` adds a per-vertex mud/sand blend (attribute aShore).
-export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = false, ...params }) {
+const FLOCK_SWELL = /* glsl */ `
+  #ifdef FLOCK_SWELL
+  {
+    vec2 sp = vFlockPos.xz + (fNoise(vFlockPos.xz * 0.006) - 0.5) * 90.0;
+    vec2 sg = vec2(0.8, 0.6) * cos(dot(sp, vec2(0.8, 0.6)) * 0.023 + 1.3);
+    sg += vec2(-0.5, 0.866) * cos(dot(sp, vec2(-0.5, 0.866)) * 0.037 + 4.1) * 0.7;
+    sg += vec2(0.2, -0.98) * cos(dot(sp, vec2(0.2, -0.98)) * 0.061 + 2.2) * 0.45;
+    normal = normalize(normal - (viewMatrix * vec4(sg.x, 0.0, sg.y, 0.0)).xyz * float(FLOCK_SWELL));
+  }
+  #endif
+`;
+
+// `region`: { texture, rect, lush, parched, bare, pale } tints the flock from a region map.
+// `swell`: strength of a painted-in roll to the ground's shading.
+export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = false, region = null, swell = 0, ...params }) {
   const mat = std({ color: 0xffffff, roughness: 1, ...params });
   const uniforms = {
     uFlockA: { value: new THREE.Color(tints[0]) },
@@ -139,6 +240,16 @@ export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = 
   };
   mat.defines = { FLOCK_OCTAVES: lookTier === 'low' ? 2 : 4 };
   if (shore) mat.defines.FLOCK_SHORE = '';
+  if (swell) mat.defines.FLOCK_SWELL = swell.toFixed(3);
+  if (region) {
+    mat.defines.FLOCK_REGION = '';
+    uniforms.uFlockRegion = { value: region.texture };
+    uniforms.uFlockRegionRect = { value: region.rect };
+    uniforms.uFlockLush = { value: new THREE.Color(region.lush) };
+    uniforms.uFlockParched = { value: new THREE.Color(region.parched) };
+    uniforms.uFlockBare = { value: new THREE.Color(region.bare) };
+    uniforms.uFlockPale = { value: new THREE.Color(region.pale) };
+  }
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -156,9 +267,10 @@ export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${FLOCK_PARS}`)
       .replace('#include <color_fragment>', `#include <color_fragment>\n${FLOCK_FRAG}`)
+      .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>\n${FLOCK_SWELL}`)
       .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, fChart, uChart);\n#include <opaque_fragment>');
   };
-  mat.customProgramCacheKey = () => `flock-${shore}-${mat.defines.FLOCK_OCTAVES}`;
+  mat.customProgramCacheKey = () => `flock-${shore}-${mat.defines.FLOCK_OCTAVES}-${!!region}-${swell}`;
   return mat;
 }
 
@@ -347,13 +459,17 @@ export const floraMaterials = {
 };
 
 // Backscene pieces take only part of the haze, so far hills keep their paint.
-function backdrop(mat, haze = 0.5) {
+// `rise`: world height over which the haze thins from full at the ground to `haze`.
+function backdrop(mat, haze = 0.5, rise = 0) {
+  const thin = rise
+    ? `mix(1.0, ${haze.toFixed(2)}, smoothstep(0.0, ${rise.toFixed(1)}, (modelMatrix * vec4(transformed, 1.0)).y))`
+    : haze.toFixed(2);
   mat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader.replace(
-      '#include <fog_vertex>', `#ifdef USE_FOG\n  vFogDepth = -mvPosition.z * ${haze.toFixed(2)};\n#endif`
+      '#include <fog_vertex>', `#ifdef USE_FOG\n  vFogDepth = -mvPosition.z * ${thin};\n#endif`
     );
   };
-  mat.customProgramCacheKey = () => `backdrop-${haze}`;
+  mat.customProgramCacheKey = () => `backdrop-${haze}-${rise}`;
   return mat;
 }
 
@@ -366,47 +482,129 @@ export const PRAIRIE_LOOK = {
   ground: 0xd0ae62,
   // straw flock, sun-bleached flock, dry olive, bare ochre earth
   flock: [0xcfb46c, 0xdcc88e, 0xb3aa62, 0xc09a66],
+  // region tints: thornveld green, parched straw, red pan earth, wash sand
+  regionLush: 0xa9a855,
+  regionParched: 0xe6d49e,
+  regionBare: 0xc5825a,
+  regionPale: 0xeadbb6,
+  // what the same regions do to the cover growing on them
+  coverLush: [0.86, 1.0, 0.64],
+  coverParched: [1.1, 1.0, 0.86],
+  coverBare: [1.08, 0.86, 0.7],
   tuft: { h: [0.11, 0.06], s: [0.5, 0.2], l: [0.4, 0.13] },
   tussock: { h: [0.12, 0.07], s: [0.42, 0.2], l: [0.44, 0.14] },
   bush: { h: [0.21, 0.07], s: [0.24, 0.14], l: [0.33, 0.09] },
   stone: { h: [0.07, 0.03], s: [0.2, 0.12], l: [0.36, 0.14] },
   flower: { hues: [0.02, 0.13, 0.94, 0.14], s: 0.92, l: [0.6, 0.12] },
+  seedGrass: { h: [0.115, 0.03], s: [0.5, 0.16], l: [0.5, 0.1] },
+  seedHead: [1.5, 1.38, 1.02],
+  scrub: { h: [0.095, 0.025], s: [0.3, 0.1], l: [0.5, 0.08] },
+  aloe: { h: [0.17, 0.04], s: [0.3, 0.1], l: [0.42, 0.08] },
+  aloeBloom: [3.1, 0.9, 0.34],
   treeTrunk: 0x6f4a30,
   treeLeaf: { h: [0.2, 0.08], s: [0.4, 0.16], l: [0.36, 0.1] },
+  snag: 0xb9a98e,
   hill: 0xc98f62,
   mesaBands: [0xc8855a, 0xdba878, 0xb06a48, 0xe6c092],
+  mesaCap: 0xe3c79a,
+  dune: [0xb9a45e, 0xd6c080, 0xc9a56a],
+  rangeNear: [0xc79872, 0xdcb48e],
+  rangeFar: [0xa9a0b8, 0xc6bccb],
   rock: 0xa38a72,
   rockDark: 0x846a58,
+  rockSun: 0xcdb596,
   ridge: 0x8f705c,
   ridgeWarm: 0xb28a66,
+  ridgeBands: [0x9a7458, 0xbf9670, 0x80604c, 0xcaa680],
   greatTree: {
     mesa: 0xb87852,
+    mesaBands: [0xb87852, 0xd29c6c, 0xa3643f, 0xdcb488],
+    turf: 0x93a550,
     trunk: 0x6e4a33,
+    bark: [0x5a3b28, 0x8a6244],
     leaf: 0xa6b455,
+    leafHsl: { h: [0.2, 0.07], s: [0.42, 0.16], l: [0.34, 0.1] },
+    leafGold: { h: [0.125, 0.03], s: [0.55, 0.15], l: [0.43, 0.08] },
     leafGlow: 0x33401a,
     lantern: 0xffd27c,
     lanternGlow: 0xffaa44,
     halo: ['rgba(255,196,110,0.55)', 'rgba(255,196,110,0)'],
+    glow: ['rgba(255,214,150,0.7)', 'rgba(255,170,80,0)'],
+    stone: 0xb7a48c,
+    stair: 0xdcbb92,
+    timber: 0x4c3222,
+    pennants: [0xc9452f, 0xf0e2c0, 0x2f7f78, 0xe2a53a],
+    bird: 0x3a2e2a,
   },
 };
 
+// Sedimentary banding painted across steep faces by world height; flats keep their vertex paint.
+function strata(mat, pitch, depth = 0.3) {
+  const inner = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    inner?.(shader, renderer);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vStrataPos;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvStrataPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vStrataPos;')
+      .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+        {
+          float sUp = dot(vec3(viewMatrix[0].y, viewMatrix[1].y, viewMatrix[2].y), normal);
+          float sy = vStrataPos.y * ${pitch.toFixed(3)} + sin(vStrataPos.x * 0.021) * 0.7 + sin(vStrataPos.z * 0.017) * 0.7;
+          float sId = floor(sy);
+          float sTone = fract(sin(sId * 12.9898) * 43758.5453);
+          float sLine = smoothstep(0.82, 0.97, fract(sy));
+          float sSteep = (1.0 - smoothstep(0.35, 0.8, sUp)) * (1.0 - smoothstep(0.12, 0.4, fwidth(sy)));
+          diffuseColor.rgb *= 1.0 + sSteep * (${depth.toFixed(2)} * (sTone - 0.5) - 0.16 * sLine);
+        }`);
+  };
+  const key = mat.customProgramCacheKey;
+  mat.customProgramCacheKey = () => `${key ? key.call(mat) : ''}strata-${pitch}-${depth}`;
+  return mat;
+}
+
+const TREE_HAZE = 0.32;
+const TREE_RISE = 50;
+
 export const prairieMaterials = {
-  ground: () =>
-    flockMaterial({ tints: PRAIRIE_LOOK.flock, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }),
-  hill: () => backdrop(std({ color: 0xffffff, roughness: 1, flatShading: true, vertexColors: true })),
+  ground: (region = null) =>
+    flockMaterial({
+      tints: PRAIRIE_LOOK.flock, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2,
+      region: region && {
+        ...region, lush: PRAIRIE_LOOK.regionLush, parched: PRAIRIE_LOOK.regionParched,
+        bare: PRAIRIE_LOOK.regionBare, pale: PRAIRIE_LOOK.regionPale,
+      },
+      swell: region ? 0.15 : 0,
+    }),
+  hill: () => strata(backdrop(std({ color: 0xffffff, roughness: 1, flatShading: true, vertexColors: true }), 0.5, 50), 0.12),
+  dune: () => backdrop(std({ color: 0xffffff, roughness: 1, vertexColors: true }), 0.8),
+  range: (amount, pitch) =>
+    strata(backdrop(std({ color: 0xffffff, roughness: 1, vertexColors: true, flatShading: true, side: THREE.DoubleSide }), amount), pitch, 0.2),
   rock: (color) => std({ color, roughness: 0.92, flatShading: true }),
-  mesa: () => std({ color: 0xffffff, roughness: 0.95, fog: false, flatShading: true, vertexColors: true }),
-  trunk: () => std({ color: PRAIRIE_LOOK.greatTree.trunk, roughness: 0.9, fog: false }),
+  crag: (pitch = 0.42) => strata(std({ color: 0xffffff, roughness: 0.92, flatShading: true, vertexColors: true }), pitch, 0.24),
+  ridge: () =>
+    strata(backdrop(std({ color: 0xffffff, roughness: 0.92, flatShading: true, vertexColors: true, side: THREE.DoubleSide }), 0.25, 36), 0.2, 0.24),
+  snag: () => std({ color: PRAIRIE_LOOK.snag, roughness: 0.9, transparent: true }),
+  mesa: () => strata(backdrop(std({ color: 0xffffff, roughness: 0.95, flatShading: true, vertexColors: true }), TREE_HAZE, TREE_RISE), 0.36, 0.34),
+  trunk: () => backdrop(std({ color: 0xffffff, roughness: 0.9, vertexColors: true }), TREE_HAZE, TREE_RISE),
   leaf: () =>
-    std({
-      color: PRAIRIE_LOOK.greatTree.leaf, roughness: 0.85, fog: false,
-      emissive: PRAIRIE_LOOK.greatTree.leafGlow, emissiveIntensity: 0.45, flatShading: true,
-    }),
+    backdrop(std({
+      color: 0xffffff, roughness: 0.85, vertexColors: true,
+      emissive: PRAIRIE_LOOK.greatTree.leafGlow, emissiveIntensity: 0.3, flatShading: true,
+    }), TREE_HAZE, TREE_RISE),
+  dressing: () => backdrop(std({ color: 0xffffff, roughness: 0.9, vertexColors: true, flatShading: true, side: THREE.DoubleSide }), TREE_HAZE, TREE_RISE),
   lantern: () =>
-    std({
+    backdrop(std({
       color: PRAIRIE_LOOK.greatTree.lantern, emissive: PRAIRIE_LOOK.greatTree.lanternGlow,
-      emissiveIntensity: 2.2, fog: false,
+      emissiveIntensity: 2.2,
+    }), TREE_HAZE, TREE_RISE),
+  lanternGlow: () =>
+    new THREE.PointsMaterial({
+      map: softDiscTexture(...PRAIRIE_LOOK.greatTree.glow), size: 9, sizeAttenuation: true, transparent: true,
+      depthWrite: false, fog: false, blending: THREE.AdditiveBlending, opacity: 0.55,
     }),
+  bird: () => new THREE.MeshBasicMaterial({ color: PRAIRIE_LOOK.greatTree.bird, side: THREE.DoubleSide, fog: false }),
   halo: () => haloMaterial(PRAIRIE_LOOK.greatTree.halo),
 };
 
