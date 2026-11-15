@@ -81,7 +81,7 @@ export class SkyCycle {
         uMoonSea: { value: new THREE.Color(SKY_LOOK.moonSea) }, uMoonVis: { value: 0 }, uNight: { value: 0 },
         uGalaxy: { value: new THREE.Vector3().crossVectors(GALAXY_U, galaxyW) },
         uGalaxyCol: { value: new THREE.Color(SKY_LOOK.galaxy) },
-        uCloudLit: color(), uCloudShade: color(), uMottle: { value: (ATMOS.mottle = mottleTexture(lcg(77003))) },
+        uCloudLit: color(), uCloudShade: color(), uCloudRim: { value: new THREE.Color(SKY_LOOK.cloudNightRim) }, uMottle: { value: (ATMOS.mottle = mottleTexture(lcg(77003))) },
       },
       vertexShader: DOME_VERT,
       fragmentShader: DOME_FRAG,

@@ -72,6 +72,10 @@ export function createBounceLight(scene) {
   const light = new THREE.DirectionalLight(SKY_LOOK.bounce, 0);
   scene.add(light);
   scene.add(light.target);
+  const fill = new THREE.DirectionalLight(SKY_LOOK.roomFill, 0);
+  scene.add(fill);
+  scene.add(fill.target);
+  light.userData.fill = fill;
   return light;
 }
 
@@ -86,6 +90,13 @@ export function followBounceLight(light, trainPos, heading, intensity, color, du
   light.target.updateMatrixWorld();
   light.intensity = intensity;
   light.color.copy(color).lerp(_cool, 0.42 * dusk);
+  const fill = light.userData.fill;
+  _side.y = 0.04;
+  fill.position.copy(trainPos).addScaledVector(_side, 80);
+  fill.target.position.copy(trainPos);
+  fill.target.updateMatrixWorld();
+  const f = SKY_LOOK.roomFillI;
+  fill.intensity = lerp(lerp(f[0], f[1], ATMOS.dusk), f[2], ATMOS.night);
 }
 
 // The chart is drawn, not lit: the key light and its shadows give way to an

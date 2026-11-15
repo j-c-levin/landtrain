@@ -71,11 +71,17 @@ const BRIGHT_FRAG = /* glsl */ `
   uniform sampler2D tColor;
   uniform vec2 uTexel;
   uniform float uThreshold;
+  uniform float uClamp;
   varying vec2 vUv;
+  vec4 tap(vec2 o) {
+    vec3 c = texture2D(tColor, vUv + uTexel * o).rgb;
+    float w = 1.0 / (1.0 + max(c.r, max(c.g, c.b)));
+    return vec4(c * w, w);
+  }
   void main() {
-    vec3 c = texture2D(tColor, vUv + uTexel * vec2(-1.0, -1.0)).rgb + texture2D(tColor, vUv + uTexel * vec2(1.0, -1.0)).rgb
-           + texture2D(tColor, vUv + uTexel * vec2(-1.0, 1.0)).rgb + texture2D(tColor, vUv + uTexel * vec2(1.0, 1.0)).rgb;
-    c = min(c * 0.25, vec3(6.0));
+    vec4 sum = tap(vec2(-1.0, -1.0)) + tap(vec2(1.0, -1.0)) + tap(vec2(-1.0, 1.0)) + tap(vec2(1.0, 1.0));
+    vec3 c = sum.rgb / sum.a;
+    c *= min(1.0, uClamp / max(max(c.r, max(c.g, c.b)), 1e-4));
     float peak = max(c.r, max(c.g, c.b));
     gl_FragColor = vec4(c * smoothstep(uThreshold, uThreshold + 0.9, peak), 1.0);
   }
@@ -103,6 +109,7 @@ const FRAG = /* glsl */ `
   uniform vec3 uAoTint;
   uniform float uAo;
   uniform float uBloom;
+  uniform float uClamp;
   uniform vec3 uSunView;
   uniform vec3 uGlow;
   uniform float uGlowI;
@@ -165,6 +172,7 @@ const FRAG = /* glsl */ `
     float depth = texture2D(tDepth, vUv).x;
     float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
     if (depth < 0.99999) {
+      col *= min(1.0, uClamp / max(max(col.r, max(col.g, col.b)), 1e-4));
       vec2 o = uTexel * 1.5;
       float ao = 0.25 * (texture2D(tAo, vUv + o).r + texture2D(tAo, vUv - o).r
         + texture2D(tAo, vUv + vec2(o.x, -o.y)).r + texture2D(tAo, vUv + vec2(-o.x, o.y)).r);
@@ -234,7 +242,7 @@ export function createPost(renderer) {
     new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader, depthTest: false, depthWrite: false });
   const aoMat = pass(AO_FRAG, { ...depth, uTexel: { value: new THREE.Vector2(1, 1) }, uRadius: { value: GRADE_LOOK.aoRadius } });
   const brightMat = pass(BRIGHT_FRAG, {
-    tColor: { value: target.texture }, uTexel: { value: new THREE.Vector2(1, 1) }, uThreshold: { value: 1 },
+    tColor: { value: target.texture }, uTexel: { value: new THREE.Vector2(1, 1) }, uThreshold: { value: 1 }, uClamp: { value: GRADE_LOOK.bloomClamp },
   });
   const blurMat = pass(BLUR_FRAG, { tColor: { value: null }, uStep: { value: new THREE.Vector2() } });
   const material = pass(FRAG, {
@@ -253,6 +261,7 @@ export function createPost(renderer) {
     uAoTint: { value: new THREE.Color(GRADE_LOOK.aoTint) },
     uAo: { value: 1 },
     uBloom: { value: 0.3 },
+    uClamp: { value: GRADE_LOOK.bloomClamp },
     uSunView: { value: new THREE.Vector3(0, 0, -1) },
     uGlow: { value: ATMOS.glow },
     uGlowI: { value: 0 },
@@ -304,14 +313,13 @@ export function createPost(renderer) {
 
       const L = GRADE_LOOK;
       const night = ATMOS.night;
-      const low = Math.max(night, ATMOS.dusk);
       const dusk = ATMOS.dusk * (1 - night);
       u.uAo.value = triple(L.ao, dusk, night);
       u.uBloom.value = triple(L.bloom, dusk, night);
       brightMat.uniforms.uThreshold.value = triple(L.bloomThreshold, dusk, night);
       u.uGrade.value.set(L.saturation, L.contrast * (1 - (1 - L.nightContrast) * night), triple(L.shadowTint, dusk, night), 0);
       u.uVignette.value = triple(L.vignette, dusk, night);
-      u.uShadowTint.value.set(L.shadowDay).lerp(_shadow.set(L.shadowNight), low);
+      u.uShadowTint.value.set(L.shadowDay).lerp(_shadow.set(L.shadowDusk), dusk).lerp(_shadow.set(L.shadowNight), night);
       u.uGlowI.value = ATMOS.glowI * L.sunHaze;
       u.uCamWorld.value.copy(camera.matrixWorld);
       u.uMottle.value = ATMOS.mottle;

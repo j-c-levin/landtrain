@@ -4,7 +4,7 @@ import { CHART, SMOKE_LOOK } from '../look.js';
 import { lcg } from '../prng.js';
 import { ATMOS } from './shared.js';
 
-const POOL = 220;
+const POOL = 260;
 const SMOKE = 0;
 const STEAM = 1;
 const DUST = 2;
@@ -60,21 +60,32 @@ const FRAG = /* glsl */ `
     float kind = floor(vMisc.w);
     float age = fract(vMisc.w);
     float seed = vMisc.z;
-    float ca = cos(seed * 6.283);
-    float sa = sin(seed * 6.283);
-    vec2 q = vec2(vP.x * ca - vP.y * sa, vP.x * sa + vP.y * ca);
-    float wob = pNoise(q * 3.1 + seed * 37.0 + age * 0.6) * 0.55 + pNoise(q * 6.7 + seed * 11.0) * 0.45;
-    float r = length(vP) + (wob - 0.5) * 0.42;
-    float a = (1.0 - smoothstep(0.52, 0.9, r)) * vMisc.y * uFade;
+    vec2 p = vP;
+    if (kind > 1.5) p.y = p.y * 1.5 + 0.2;
+    float best = -1.0;
+    vec3 n = vec3(0.0, 0.0, 1.0);
+    for (int i = 0; i < 4; i++) {
+      float fi = float(i);
+      float ang = seed * 6.283 + fi * 2.094 + sin(seed * 40.0 + fi) * 0.5;
+      float rad = i == 0 ? 0.5 : 0.28 + 0.2 * fract(seed * (7.3 + fi * 3.1));
+      vec2 d = (p - vec2(cos(ang), sin(ang)) * (i == 0 ? 0.0 : 0.44)) / rad;
+      float h = 1.0 - dot(d, d);
+      if (h > best) {
+        best = h;
+        n = vec3(d, sqrt(max(h, 0.0)));
+      }
+    }
+    float late = smoothstep(0.5, 1.0, age);
+    float body = min(best, best * 0.7 + pNoise(vP * 3.4 + seed * 31.0) * 0.6 - late * 1.25);
+    float a = smoothstep(0.0, fwidth(body) * 1.5 + 1e-4, body) * vMisc.y * uFade;
     if (a < 0.004) discard;
-    float z = sqrt(max(0.0, 1.0 - min(1.0, dot(vP, vP))));
-    vec3 n = normalize(vec3(vP + (wob - 0.5) * 0.7, z + 0.3));
-    float l = dot(n, vKey) * 0.5 + 0.5;
-    float tone = 0.45 * smoothstep(0.36, 0.44, l) + 0.55 * smoothstep(0.58, 0.68, l);
+    float l = dot(n, normalize(vec3(vKey.xy, max(vKey.z, 0.0)) + vec3(0.0, 0.55, 0.3)));
+    float tone = 0.5 * smoothstep(-0.02, 0.02, l) + 0.5 * smoothstep(0.5, 0.54, l);
     vec3 albedo = mix(uSoot, uAsh, smoothstep(0.0, 0.45, age));
     if (kind > 1.5) albedo = uGround;
     else if (kind > 0.5) albedo = uSteam;
-    vec3 c = albedo * mix(uShade, uLit * 1.15, tone);
+    vec3 c = albedo * mix(mix(uShade, uLit, kind > 1.5 ? 0.45 : 0.2), uLit * 1.15, tone);
+    if (kind > 1.5) a *= 1.0 - age * age;
     if (kind < 0.5) c += uEmber * (1.0 - smoothstep(0.0, 0.08, age)) * (0.35 + 0.65 * (1.0 - tone));
     gl_FragColor = vec4(c, a);
     #include <tonemapping_fragment>
@@ -138,6 +149,7 @@ export function createSmoke(scene) {
     chuff: 0,
     dust: 0,
     side: 1,
+    wheel: 0,
   };
   return { smoke: [{ sprite: mesh }], smokeTimer: 0, smokeFx: fx };
 }
@@ -174,11 +186,11 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
       if (moving) {
         fx.stack = lerp(0.42, 0.11, speed01);
         spawn(fx, SMOKE, p.x + jit(0.2), p.y, p.z + jit(0.2), jit(0.5), 3.0 + rand() * 1.4, jit(0.5),
-          3.0 + rand() * 1.2, 0.62, 3.2 + rand() * 1.4, 0.5);
+          3.0 + rand() * 1.2, 0.7, 2.6 + rand() * 1.2, 1);
       } else {
         fx.stack = 0.55 + rand() * 0.3;
         spawn(fx, SMOKE, p.x + jit(0.15), p.y, p.z + jit(0.15), jit(0.2), 1.25 + rand() * 0.5, jit(0.2),
-          4.6 + rand() * 1.2, 0.5, 2.3 + rand() * 0.8, 0.5);
+          4.6 + rand() * 1.2, 0.55, 1.7 + rand() * 0.7, 1);
       }
     }
 
@@ -187,7 +199,7 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
     if (fx.whistle <= 0 && !moving) {
       fx.whistle = 0.5 + rand() * 0.5;
       engine.localToWorld(_v.set(-1.25, 5.74, -1.55));
-      spawn(fx, STEAM, _v.x, _v.y, _v.z, jit(0.25), 1.5 + rand() * 0.6, jit(0.25), 1.1 + rand() * 0.5, 0.12, 0.7 + rand() * 0.3, 0.5);
+      spawn(fx, STEAM, _v.x, _v.y, _v.z, jit(0.25), 1.5 + rand() * 0.6, jit(0.25), 1.1 + rand() * 0.5, 0.14, 0.7 + rand() * 0.3, 1);
     }
 
     if (moving) {
@@ -200,18 +212,19 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
           const out = (0.9 + rand() * 0.9) * fx.side;
           const ry = engine.rotation.y;
           spawn(fx, STEAM, _v.x, _v.y, _v.z, Math.sin(ry) * out + jit(0.4), 0.5 + rand() * 0.7, Math.cos(ry) * out + jit(0.4),
-            0.6 + rand() * 0.4, 0.2, 0.8 + rand() * 0.4, 0.34);
+            0.6 + rand() * 0.4, 0.22, 0.8 + rand() * 0.4, 0.9);
         }
       }
       fx.dust -= dt * speed01;
       while (fx.dust <= 0) {
-        fx.dust += 0.022;
-        const wheel = state.wheels[Math.floor(rand() * state.wheels.length)];
-        const e = wheel.matrixWorld.elements;
-        const carry = speed * 0.4;
+        fx.dust += 0.28 / state.wheels.length;
+        fx.wheel = (fx.wheel + 1) % state.wheels.length;
+        const e = state.wheels[fx.wheel].matrixWorld.elements;
+        const carry = speed * 0.3;
         const ry = engine.rotation.y;
-        spawn(fx, DUST, e[12] + jit(0.9), 0.3, e[14] + jit(2.2), Math.cos(ry) * carry + jit(0.6), 0.3 + rand() * 0.6,
-          -Math.sin(ry) * carry + jit(0.6), 1.3 + rand() * 0.9, 0.6, 2.0 + rand() * 1.2, 0.5 * speed01);
+        spawn(fx, DUST, e[12] - Math.cos(ry) * 0.9 + jit(0.4), 0.3, e[14] + Math.sin(ry) * 0.9 + jit(0.4),
+          Math.cos(ry) * carry + jit(0.5), 0.9 + rand() * 0.8, -Math.sin(ry) * carry + jit(0.5),
+          0.9 + rand() * 0.5, 0.3, (0.9 + rand() * 0.5) * (0.6 + 0.4 * speed01), 0.9);
       }
     }
 
@@ -238,7 +251,7 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
       P[i * 3 + 1] += fx.vel[i * 3 + 1] * dt;
       P[i * 3 + 2] += (fx.vel[i * 3 + 2] + WIND[2] * drift - sway * 0.6) * dt;
       M[i * 4] = lerp(fx.grow[i * 2], fx.grow[i * 2 + 1], ease);
-      M[i * 4 + 1] = fx.alpha[i] * Math.min(1, t * 12) * Math.pow(1 - t, 1.25);
+      M[i * 4 + 1] = fx.alpha[i] * Math.min(1, t * 12);
       M[i * 4 + 3] = kind + Math.min(0.999, t);
     }
     fx.pos.needsUpdate = true;

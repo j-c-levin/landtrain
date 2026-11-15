@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SKY_KEYS_PRAIRIE, SKY_KEYS_GRASSLAND, GRADE_LOOK } from '../src/look.js';
+import { SKY_KEYS_PRAIRIE, SKY_KEYS_GRASSLAND, GRADE_LOOK, SKY_LOOK } from '../src/look.js';
 import { QUALITY_TIERS } from '../src/quality.js';
 
 const hue = (c) => {
@@ -52,7 +52,18 @@ test('dusk holds a real hue range: cool zenith and fill against a warm key and g
 test('only the top tier pays for finishing passes', () => {
   assert.equal(QUALITY_TIERS.low.finishing.postProcessing, false);
   assert.equal(QUALITY_TIERS.medium.finishing.postProcessing, false);
-  for (const triple of [GRADE_LOOK.ao, GRADE_LOOK.bloom, GRADE_LOOK.bloomThreshold, GRADE_LOOK.shadowTint]) {
+  for (const triple of [GRADE_LOOK.ao, GRADE_LOOK.bloom, GRADE_LOOK.bloomThreshold, GRADE_LOOK.shadowTint, SKY_LOOK.roomFillI, SKY_LOOK.bounceI]) {
     assert.equal(triple.length, 3);
+  }
+});
+
+test('midday holds a clean cool sky until the golden hour', () => {
+  for (const keys of [SKY_KEYS_PRAIRIE, SKY_KEYS_GRASSLAND]) {
+    const [noon, hold] = keys;
+    assert.ok(hold.t > 0.2 && hold.t < 0.36);
+    assert.equal(hold.fog.getHex(), noon.fog.getHex());
+    assert.equal(hold.glowI, noon.glowI);
+    assert.ok(noon.fog.b > noon.fog.r, 'haze is cool');
+    assert.ok(noon.sky[3].b > noon.sky[3].r, 'horizon is cool');
   }
 });
