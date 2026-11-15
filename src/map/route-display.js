@@ -421,7 +421,9 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
   const pulse = 1 + Math.sin(time * 2.4) * 0.12;
   d.trainRing.position.set(pos.x, ROUTE_Y, pos.z);
   d.trainRing.scale.setScalar(pulse * k);
-  d.trainRing.material.opacity = mapBlend * 0.95;
+  // the symbols drawn round the model wait for the chart, so the climb does not carry a grey ring up with it
+  const late = Math.min(1, Math.max(0, (mapBlend - 0.6) / 0.35));
+  d.trainRing.material.opacity = late * 0.95;
 
   const fx = Math.cos(d.heading);
   const fz = -Math.sin(d.heading);
@@ -429,7 +431,7 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
   m.heading.position.set(pos.x + fx * reach, ROUTE_Y, pos.z + fz * reach);
   m.heading.rotation.y = d.heading;
   m.heading.scale.setScalar(k);
-  m.heading.material.opacity = mapBlend * 0.95;
+  m.heading.material.opacity = late * 0.95;
 
   if (m.dirty) {
     m.dirty = false;
@@ -437,7 +439,7 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
     m.trail.geometry.attributes.aOff.needsUpdate = true;
     m.trail.geometry.setDrawRange(0, Math.min(m.crumbs, TRAIL_MAX) * 6);
   }
-  m.trail.material.uniforms.uOpacity.value = mapBlend * 0.78;
+  m.trail.material.uniforms.uOpacity.value = late * 0.78;
   m.trail.material.uniforms.uScale.value = k;
 
   CHART.uChartLamp.value.set(pos.x, pos.z, 1 / MAP_LOOK.lampRadius);

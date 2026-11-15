@@ -35,7 +35,6 @@ const PAPER = '#f4e9d0';
 const CSS = `
 #chart-furniture { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.6s ease; color: ${INK}; }
 #chart-furniture.on { opacity: 1; }
-#map-rose { display: none; }
 .chart-cartouche {
   position: absolute; top: 20px; left: 22px; width: 232px; padding: 11px 15px 12px;
   background: rgba(244, 233, 208, 0.94);
@@ -65,7 +64,7 @@ const CSS = `
   .chart-rose { width: 76px; height: 76px; left: 12px; bottom: 92px; }
 }
 @media (pointer: coarse) and (max-width: 600px) {
-  .chart-cartouche { top: 78px; width: 168px; }
+  .chart-cartouche { top: 116px; width: 168px; }
   .chart-goal { font-size: 10.5px; }
 }
 @media (max-height: 520px), (pointer: coarse) and (max-width: 600px) {

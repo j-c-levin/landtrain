@@ -104,17 +104,6 @@ export const HUD_HTML = `
     <input id="sound-volume" type="range" min="0" max="100" step="1" aria-label="volume">
     <button id="sound-music" type="button" aria-pressed="true">music</button>
   </div>
-
-  <svg id="map-rose" viewBox="-52 -52 104 104" aria-hidden="true">
-    <g fill="none" stroke="var(--ink)" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round">
-      <circle r="30"/>
-      <circle r="34" stroke-dasharray="1.5 4.2"/>
-      <path d="M0-44 6-6 44 0 6 6 0 44-6 6-44 0-6-6z" fill="var(--paper)"/>
-      <path d="M0-44 0 0 6-6zM44 0 0 0 6 6zM0 44 0 0-6 6zM-44 0 0 0-6-6z" fill="var(--ink)"/>
-      <path d="M-21-21-4-9M21-21 9-4M21 21 4 9M-21 21-9 4"/>
-    </g>
-    <text y="-45.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-size="11" fill="var(--rust)">N</text>
-  </svg>
 `;
 
 const ORNAMENT = `

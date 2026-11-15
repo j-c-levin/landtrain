@@ -245,7 +245,7 @@ function buildExteriorDetails(train, g, ci) {
   }
   buildUnderframe(train, g, ci);
   instancedDetails(runningGear, train.geometry.detail, M.frameIron, g, true);
-  instancedDetails(springs, train.geometry.detail, M.engine, g);
+  instancedDetails(springs, train.geometry.detail, M.teal, g);
 
   for (const gapX of ci === 0 ? [-8.55] : ci === 2 ? [8.55] : []) {
     instancedDetails([

@@ -1161,21 +1161,6 @@ body.map-mode #btn-sound.muted {
   color: color-mix(in srgb, var(--ink) 55%, transparent);
 }
 
-#map-rose {
-  position: absolute;
-  left: calc(var(--left) + 8px);
-  bottom: calc(var(--bottom) + 8px);
-  width: 104px;
-  height: 104px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.6s ease;
-}
-
-body.map-mode #map-rose {
-  opacity: 0.9;
-}
-
 /* ---------- roomy screens: instruments read from arm's length ---------- */
 @media (min-width: 1100px) and (min-height: 700px) {
   #gauges {
@@ -1202,12 +1187,6 @@ body.map-mode #map-rose {
     padding: 0 13px 0 10px;
   }
 
-  #map-rose {
-    width: 72px;
-    height: 72px;
-    left: var(--left);
-    bottom: calc(var(--bottom) + 92px);
-  }
 
   #card-inner {
     padding: 32px 26px 26px;
@@ -1289,14 +1268,11 @@ body.map-mode #map-rose {
 
   #map-help,
   body.map-mode #map-help {
-    top: var(--top);
-    left: var(--left);
+    top: calc(var(--top) + 52px);
+    left: auto;
+    right: var(--right);
     transform: none;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px 14px;
-    min-height: 44px;
-    max-width: calc(100vw - var(--left) - var(--right) - 350px);
+    gap: 14px;
     padding: 6px 16px;
     font-size: 12.5px;
   }
@@ -1310,12 +1286,6 @@ body.map-mode #map-rose {
     bottom: calc(var(--bottom) + 52px);
   }
 
-  #map-rose {
-    width: 72px;
-    height: 72px;
-    left: var(--left);
-    bottom: var(--bottom);
-  }
 
   #card-inner {
     width: min(760px, 100%);
