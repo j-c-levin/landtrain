@@ -31,7 +31,6 @@ registerServiceWorker();
 
 const input = createInput();
 
-// ----------------------------------------------------------------- setup
 const canvas = document.getElementById('scene');
 const params = new URLSearchParams(location.search);
 const forcedQuality = params.get('quality');
@@ -94,7 +93,6 @@ audio.attach({ train, player, rig, sky, tier: () => qualityTier });
 
 const state = {
   started: false,
-  // distance travelled at the last fog reveal
   lastRevealAt: 0,
 };
 
@@ -103,7 +101,6 @@ const timeScale = clamp(parseFloat(params.get('ts') || '1') || 1, 0.1, 20);
 
 revealAhead(fog, train);
 
-// ----------------------------------------------------------------- input
 const walking = () => (rig.mode === 'inhabit' || rig.mode === 'cabin') && !rig.busy;
 const views = bindViewControls({ canvas, camera, rig, train, player, ui, audio });
 bindTouchZones(canvas, input, walking);
@@ -122,12 +119,12 @@ function syncSize() {
 }
 syncSize();
 
-// ------------------------------------------------------------------- loop
 const clock = new THREE.Clock();
 let elapsed = 0;
 let animationFrame = null;
 let previousFrameTime = 0;
 let slowUpdateElapsed = Infinity;
+let chartWarmedFor;
 
 function tick(frameTime) {
   animationFrame = requestAnimationFrame(tick);
@@ -146,8 +143,7 @@ function tick(frameTime) {
     views.updateHotkeys(input);
     interactions.update(dt, input);
 
-    // Always update so the player rig re-syncs onto the (still-moving) train
-    // every frame; only feed real input when it's drivable.
+    // Always update, so the player re-syncs onto the moving train; input only when walking.
     player.update(dt, walking() ? input : NEUTRAL_INPUT, elapsed);
     player.syncDock(rig.mode);
 
@@ -181,7 +177,6 @@ function tick(frameTime) {
     ui.setMode(rig.busy ? (rig.mapEngaged ? 'map' : 'transition') : rig.mode);
     ui.setOrbitActive(rig.autoOrbit);
     ui.setNightfall(post ? 0 : sky.nightness * (1 - CHART.uChart.value));
-    // Edge markers are a map-view aid only.
     if (state.started && rig.mapEngaged && rig.mapBlend > 0.9) {
       const W = canvas.clientWidth;
       const H = canvas.clientHeight;
@@ -223,6 +218,10 @@ function tick(frameTime) {
     post.render(scene, camera, focus.distance, focus.strength, focus.back);
   } else if (!chart.render(scene, camera)) {
     renderer.render(scene, camera);
+    if (chartWarmedFor !== journey.grassland) {
+      chartWarmedFor = journey.grassland;
+      chart.prewarm(scene, camera);
+    }
   }
 }
 

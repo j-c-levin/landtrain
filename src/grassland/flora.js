@@ -62,10 +62,10 @@ function willow(rand, h) {
     }
   }
   for (let i = 0; i < parts.length; i++) {
-    const flat = parts[i].toNonIndexed();
+    const flat = parts[i].index ? parts[i].toNonIndexed() : parts[i];
     flat.deleteAttribute('uv');
     flat.computeVertexNormals();
-    parts[i].dispose();
+    if (flat !== parts[i]) parts[i].dispose();
     parts[i] = flat;
   }
   const crown = new THREE.Mesh(shadeByHeight(mergeGeometries(parts), 0.6, 1.16), leafMat);

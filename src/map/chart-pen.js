@@ -63,6 +63,12 @@ export function createChartPen(renderer) {
       stats.points += points;
       stats.lines += lines;
     },
+    // Drawing into the target needs its own variant of every program; building them here spares the first map opening a freeze.
+    prewarm(scene, camera) {
+      renderer.setRenderTarget(target);
+      renderer.compileAsync(scene, camera).catch(() => {});
+      renderer.setRenderTarget(null);
+    },
     dispose() {
       target.dispose();
       depthTexture.dispose();

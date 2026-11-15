@@ -13,12 +13,10 @@ export function disposeSubtree(rootObj) {
     mat.dispose();
   };
   rootObj.traverse((obj) => {
-    if (obj.isMesh || obj.isInstancedMesh || obj.isSprite) {
-      if (obj.geometry) obj.geometry.dispose();
-      const mat = obj.material;
-      if (Array.isArray(mat)) mat.forEach(disposeMat);
-      else disposeMat(mat);
-      if (obj.instanceColor) obj.instanceColor.dispose?.();
-    }
+    if (obj.isInstancedMesh) obj.dispose();
+    if (obj.geometry) obj.geometry.dispose();
+    const mat = obj.material;
+    if (Array.isArray(mat)) mat.forEach(disposeMat);
+    else disposeMat(mat);
   });
 }

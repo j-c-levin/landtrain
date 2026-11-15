@@ -3,13 +3,9 @@ import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferG
 import { floraMaterials, jitterHSL, getLookTier, PLAIN, plainShadow } from './look.js';
 import { mulberry } from './prng.js';
 
-// Ground cover that sells the scale: instanced tufts, pebbles, flowers and
-// shrubs laid out once inside a square tile, then wrapped around a moving
-// centre in the vertex shader. A given world position always shows the same
-// instance, so the cover is deterministic without storing a world's worth of it.
+// Instances are laid out once in a square tile and wrapped round a moving centre in the vertex shader.
 
-// *Cells: each layer is cut into an n-by-n grid so whole cells can be skipped
-// when they sit outside the lens, the wrap disc, or (for shadows) the key light's box.
+// *Cells: each layer is cut n-by-n so whole cells can be skipped outside the lens or the key light's box.
 const TIERS = {
   high: { microTile: 56, micro: 7000, microCells: 5, fineTile: 170, tufts: 10000, flowers: 1500, pebbles: 1500, fineCells: 8, midTile: 880, tussocks: 4200, shrubs: 1700, stones: 700, midCells: 9, shadows: true },
   medium: { microTile: 48, micro: 3600, microCells: 4, fineTile: 130, tufts: 5200, flowers: 800, pebbles: 700, fineCells: 5, midTile: 700, tussocks: 2400, shrubs: 1100, stones: 400, midCells: 7, shadows: false },
@@ -87,8 +83,7 @@ export function shadeByHeight(geo, lo, hi) {
   return geo;
 }
 
-// Clump foliage: a few lumpy puffs welded into one soft-shaded shrub. Every
-// requested detail level is built from the same draws, so they share a shape.
+// Every requested detail level is built from the same draws, so they share a shape.
 function blobCluster(rand, n, details) {
   const parts = details.map(() => []);
   for (let i = 0; i < n; i++) {
@@ -282,11 +277,7 @@ const _inverse = new THREE.Matrix4();
 const _frustum = new THREE.Frustum();
 const _sphere = new THREE.Sphere();
 
-// look: { tuft, tussock, bush, stone, flower } HSL specs. clipX: world x-range
-// the cover may occupy. mask: optional coverMask() result.
-// Opt-in extras: regions { lush, parched, bare, kinds } reads the mask's g/b/a
-// channels as a region map; gust { dir, strength } adds rolling wind; extend(ctx)
-// adds a biome's own cover types after the standard ones.
+// regions reads the mask's g/b/a as a region map; extend(ctx) adds a biome's own cover after the standard kinds.
 export function createGroundCover({ look, seed, clipX, mask = null, regions = null, gust = null, extend = null }) {
   const tier = TIERS[getLookTier()] || TIERS.medium;
   const rand = mulberry(seed);
@@ -445,12 +436,12 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
   const bladeMats = new Set(group.children.map((mesh) => mesh.material).filter((mat) => mat.side === THREE.DoubleSide));
   for (const mat of bladeMats) litBothSides(mat);
 
-  // A cell's instances wrap around the layer centre, so it can show on either
-  // side of the seam: it is drawn if any of its wrapped images is wanted.
+  // A cell wraps round the layer centre, so it is drawn if any of its wrapped images is wanted.
   function cull(entry, { n, meshes, geometry, coarse, pad }, clipLo, clipHi, trainPos, eye, shadowReach) {
     const size = entry.tile / n;
     const half = entry.tile / 2;
     const radius = size * 0.7072 + pad;
+    const reach = half + radius;
     const cx = entry.centre.value.x;
     const cz = entry.centre.value.y;
     for (let cell = 0; cell < n * n; cell++) {
@@ -464,7 +455,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
       for (let image = 0; image < 4; image++) {
         const ix = image & 1 ? rx - Math.sign(rx || 1) * entry.tile : rx;
         const iz = image & 2 ? rz - Math.sign(rz || 1) * entry.tile : rz;
-        if (Math.hypot(ix, iz) > half + radius) continue;
+        if (ix * ix + iz * iz > reach * reach) continue;
         const wx = cx + ix;
         const wz = cz + iz;
         if (wx + radius < clipLo || wx - radius > clipHi) continue;
@@ -472,7 +463,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
         _sphere.radius = radius;
         if (!_frustum.intersectsSphere(_sphere)) continue;
         seen = true;
-        nearest = Math.min(nearest, Math.hypot(wx - eye.x, wz - eye.z) - radius);
+        nearest = Math.min(nearest, Math.sqrt((wx - eye.x) ** 2 + (wz - eye.z) ** 2) - radius);
         if (Math.abs(wx - trainPos.x) < shadowReach + radius && Math.abs(wz - trainPos.z) < shadowReach + radius) shades = true;
       }
       mesh.visible = seen;
@@ -491,8 +482,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
 
   return {
     group,
-    // The tile centre leads the camera along its gaze so the cover sits where
-    // the lens is pointed, not behind it.
+    // The tile centre leads the camera along its gaze, so the cover sits where the lens points.
     update(time, camera, trainPos, heading) {
       // the other biome's cover is clipped to nothing out here: skip its draws
       group.visible = trainPos.x > clipX[0] - 600 && trainPos.x < clipX[1] + 600;

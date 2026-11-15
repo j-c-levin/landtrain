@@ -24,8 +24,7 @@ export function applyRenderQuality(renderer, scene, policy) {
   renderer.setPixelRatio(renderScale(policy, window.devicePixelRatio, canvas.clientWidth, canvas.clientHeight));
 }
 
-// Reconciled every frame rather than on 'resize': survives fullscreen, browser
-// zoom and display changes. Returns the new aspect when the buffer resized.
+// Reconciled every frame, not on 'resize': survives fullscreen, zoom and display changes.
 export function syncRendererSize(renderer, canvas, policy) {
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;

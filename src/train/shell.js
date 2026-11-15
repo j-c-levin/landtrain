@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CAR_LEN, CAR_CENTERS, LADDERS, LADDER_Z } from '../constants.js';
-import { painted, shaded, getLookTier } from '../look.js';
+import { TRAIN_LOOK, painted, shaded, getLookTier } from '../look.js';
 import { box, profiledBox, curvedRoof, instancedDetails, shadeInstances, hash } from './parts.js';
 import { exteriorKit } from './interior-kit.js';
 
@@ -12,8 +12,8 @@ export const CAR_WINDOWS = [
 // how brightly each window in CAR_WINDOWS order is lit from inside
 export const WINDOW_LIGHT = { car0: [0.8, 1, 0.3], car1: [0.5, 1, 0.78], car2: [0.9, 1, 0.28], cab: [1, 0.62] };
 
-const PATCH = new THREE.Color(0.86, 0.82, 0.74);
-const DUST = new THREE.Color(0.7, 0.5, 0.3);
+const PATCH = new THREE.Color(...TRAIN_LOOK.weatherPatch);
+const DUST = new THREE.Color(...TRAIN_LOOK.weatherDust);
 
 // Rain streaks under sills and eaves and the odd off-tone panel, laid matte over the enamel.
 function weatherSide(train, g, material, wall, seed, side, sz, center, length, base, eave, sill, lintel, windows) {

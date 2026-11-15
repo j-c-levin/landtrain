@@ -1,5 +1,4 @@
-// Fed to the player while it shouldn't be driving (mid-transition, map, book)
-// so its rig still re-syncs onto the train each frame without taking input.
+// Fed to the player while it should not be driving, so its rig still re-syncs onto the train.
 export const NEUTRAL_INPUT = { down: () => false, pressed: () => false };
 
 // One virtual key set, fed by the keyboard and by synthesized touch zones.

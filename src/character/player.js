@@ -16,9 +16,7 @@ const REACH_Z = { plants: -0.5, engine: 0.15, tread: 1.0, tread2: 1.0 };
 const STRIDE_RATE = (Math.PI * 2) / STRIDE_TIME;
 const ACTION_POSE = { engine: 'tend', plants: 'water', tread: 'tread', tread2: 'tread' };
 
-// The character lives in TRAIN-ARC space: `x` is a position along the
-// train's length, mapped onto the world through the same trail the cars
-// follow — so walking the corridor stays straight even mid-turn.
+// The character lives in TRAIN-ARC space: x runs along the trail the cars follow.
 export class Player {
   constructor(train, scene) {
     this.train = train;
@@ -145,7 +143,6 @@ export class Player {
       return;
     }
 
-    // start a climb?
     const ladder = this.nearestLadder();
     if (ladder !== null && (up || down)) {
       const idx = LEVEL_ORDER.indexOf(this.level);
@@ -159,7 +156,6 @@ export class Player {
       }
     }
 
-    // walk
     let move = 0;
     if (left) move -= 1;
     if (right) move += 1;
@@ -184,18 +180,11 @@ export class Player {
 
   #sync() {
     if (this.docked != null) {
-      // Riding inside a car: express the pose in that car's LOCAL frame so the
-      // player is a rigid part of the car group — inheriting its trail position,
-      // yaw AND the suspension roll/pitch/bob. There's no second world-space
-      // sampling to drift against, so the cab can't wobble out from under us and
-      // the per-frame judder is gone. Train-arc X maps to car-local X by simply
-      // subtracting the car centre; Y (height) and Z (depth) are already the
-      // car's local axes; the parent group supplies the heading.
+      // Docked: the pose is in the car's LOCAL frame, so it inherits the suspension and cannot judder against it.
       this.group.position.set(this.x - CAR_CENTERS[this.docked], this.y + this.settle, this.z);
       this.group.rotation.set(0, this.#yaw(), 0);
     } else {
-      // Free on the train: map train-arc coordinates onto the world through the
-      // trail the cars follow, so walking the corridor stays straight mid-turn.
+      // Free: train-arc coordinates map onto the world through the trail.
       const f = this.train.frameAt(this.x);
       const sin = Math.sin(f.theta);
       const cos = Math.cos(f.theta);
@@ -210,17 +199,12 @@ export class Player {
     return this.facing > 0 ? turn : Math.PI - turn;
   }
 
-  // Which car (0 cab, 1 engine, 2 living) owns a given train-arc X — the same
-  // split the see-through walls use, at the ~±8.3 coupling gaps.
+  // The same split the see-through walls use, at the ±8.3 coupling gaps.
   #carIndexAt(x) {
     return x > 8.3 ? 0 : x < -8.3 ? 2 : 1;
   }
 
-  // Reconcile rigid-parenting each frame (called from the main loop). The player
-  // is bolted into a car group while the camera is locked close inside it — the
-  // driver's cab (cabin mode) and the two seated views — so it rides the car's
-  // suspension sway instead of hanging static above a wobbling floor. Otherwise
-  // it rides the trail free in world space. A no-op when nothing changed.
+  // Bolted into a car while the camera is locked close inside it (cab, seated views); free on the trail otherwise.
   syncDock(mode) {
     let car = null;
     if (mode === 'cabin') car = 0;

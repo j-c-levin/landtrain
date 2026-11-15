@@ -130,7 +130,6 @@ export class Soundscape {
       return g;
     };
 
-    // ------------------------------------------------------------ train
     this.trainBus = gain(1);
     this.trainLP = biquad('lowpass', 5200, 0.5);
     this.trainBus.connect(this.trainLP).connect(out('train'));
@@ -162,7 +161,6 @@ export class Soundscape {
       white.connect(biquad('highpass', 2200)).connect(this.crackEnv).connect(this.trainBus);
     }
 
-    // ------------------------------------------------------------ world
     this.worldBus = gain(1);
     this.worldLP = biquad('lowpass', 9000, 0.5);
     const worldOut = out('world');
@@ -209,7 +207,6 @@ export class Soundscape {
     this.low = { osc: osc('triangle', 300), env: gain(0) };
     this.low.osc.connect(this.low.env).connect(this.worldBus);
 
-    // ------------------------------------------------- near, ui, music
     this.nearBus = out('near');
     this.tickBP = biquad('bandpass', 400, 2);
     this.tickEnv = gain(0);

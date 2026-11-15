@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import { lcg } from './prng.js';
 
-// Hand-painted interiors: a matte material shaded in three flat steps, with
-// brushed wash variation and a coloured fill in the shadow step. Positions are
-// taken in object space so the brushwork rides with the car.
+// Positions are taken in object space so the brushwork rides with the car.
 
 function tileNoise(S, lx, ly, rand) {
   const lattice = new Float32Array(lx * ly);
@@ -92,10 +90,7 @@ function rampTexture() {
 let brush = null;
 let ramp = null;
 
-// uPaintFill: colour added to whatever the lamps and sun leave dim.
-// uPaintLift: x fill threshold, y saturation, z ambient taken, w bleach of lamplight toward uPaintWarm
-// uPaintTint: what cool light (sky, moon) turns into as the room goes over to its lamps
-// uPaintMood: x how far cool light is swapped for uPaintTint, y value step under the ceiling, z rim, w brightest lit paint
+// uPaintLift: fill threshold, saturation, ambient, lamp bleach. uPaintMood: cool-light swap, ceiling step, rim, cap.
 export const PAINT = {
   uPaintBrush: { value: null },
   uPaintFill: { value: new THREE.Color(0.2, 0.2, 0.32) },
@@ -142,8 +137,7 @@ const FRAG_ALBEDO = /* glsl */ `
 }
 `;
 
-// The ground-bounce light shines up into the cutaway and would flatten every
-// room, so painted surfaces ignore any directional light that comes from below.
+// Painted surfaces ignore directional light from below, or the ground bounce would flatten every room.
 const NO_BOUNCE = /* glsl */ `
 getDirectionalLightInfo( directionalLight, directLight );
 #ifdef PAINT_SHADE

@@ -1,7 +1,6 @@
 import { GRASSLAND } from '../constants.js';
 
-// Pure placement maths for the grassland: every builder derives from the same
-// river centrelines and channel profile, so they can never drift apart.
+// Every builder derives from the same river centrelines and channel profile, so they cannot drift apart.
 
 export const GRASS_LANDMARK = { x: GRASSLAND.maxX - 250, z: 0 };
 export const GRASS_ARRIVE_RADIUS = 95;
@@ -24,8 +23,7 @@ export const RING_W = 18;
 export const RING_BANK = 22;
 
 const smooth = (t) => t * t * (3 - 2 * t);
-// Height at distance `d` from a channel centre line with flat-floor
-// half-width `w` and slope width `bank`.
+// Height at distance d from a channel centre line with flat-floor half-width w and slope width bank.
 export const channelY = (d, w, bank) => {
   if (d <= w) return -DEPTH;
   if (d >= w + bank) return 0;
@@ -44,8 +42,7 @@ export const shoreDist = (w, bank) => {
 export const RIVER_SHORE = shoreDist(RIVER_W, BANK);
 export const RING_SHORE = shoreDist(RING_W, RING_BANK);
 
-// Each river meanders as a sine wave around its base x, south (t=0) to north
-// (t=1), with one bridge gap.
+// Each river is a sine about its base x, south (t=0) to north (t=1), with one bridge gap.
 export const riverDefs = [
   { x: xMin + 420, w: RIVER_W, amp: 45, waves: 2.0, phase: 0.4, gaps: [{ t0: 0.58, t1: 0.62 }] },
   { x: xMin + 1180, w: RIVER_W, amp: 60, waves: 1.5, phase: 2.1, gaps: [{ t0: 0.29, t1: 0.33 }] },

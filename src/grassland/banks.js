@@ -36,7 +36,7 @@ function reedTuft(rand) {
 
 function flowerClump(rand, n = 4) {
   const pos = [], col = [], nor = [], idx = [];
-  const head = new THREE.OctahedronGeometry(1, 0).toNonIndexed();
+  const head = new THREE.OctahedronGeometry(1, 0);
   const hp = head.attributes.position;
   for (let f = 0; f < n; f++) {
     const a = rand() * Math.PI * 2;
@@ -107,9 +107,7 @@ export function instanced(parent, geometry, material, items, shadow = false) {
   return mesh;
 }
 
-// Reed beds, waterline stones, flower drifts and lily blooms for one water
-// body. `body.at(s, d, out)` maps distance along (s) and signed distance from
-// the centre line (d) to world x/z.
+// body.at(s, d, out) maps distance along (s) and signed distance from the centre line (d) to world x/z.
 export function dressBanks(root, body) {
   const k = bankKit();
   const tier = getLookTier();

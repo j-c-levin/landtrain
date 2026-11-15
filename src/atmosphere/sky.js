@@ -9,9 +9,7 @@ import { STAR_VERT, STAR_FRAG, FIREFLY_VERT, FIREFLY_FRAG, DOME_VERT, DOME_FRAG 
 import { cloudPanorama, mottleTexture } from './clouds.js';
 import { ATMOS } from './shared.js';
 
-// One full day every two minutes. The whole pass is a keyframed colour
-// timeline sampled by phase — twilight gets its own palette instead of a
-// blue→black lerp, which is what makes dusk and daybreak feel painted.
+// One full day every two minutes, as a keyframed colour timeline sampled by phase.
 export const DAY_LENGTH = 120;
 
 // Sun crosses the horizon at these phases; the moon owns the gap between.
@@ -67,7 +65,6 @@ export class SkyCycle {
     this.rig = new THREE.Group();
     scene.add(this.rig);
 
-    // --- dome: gradient, sun, moon and the cloud panorama in one shader ----
     this.cloudTex = cloudPanorama(lcg(40417), getLookTier() === 'low' ? 0.5 : 1);
     const galaxyW = new THREE.Vector3().crossVectors(GALAXY_U, new THREE.Vector3(0, 0, 1)).normalize();
     const color = () => ({ value: new THREE.Color() });
@@ -96,7 +93,6 @@ export class SkyCycle {
     this.rig.add(dome);
     this.sunDir = new THREE.Vector3(0, 1, 0);
 
-    // --- stars + milky way --------------------------------------------------
     this.starMat = new THREE.ShaderMaterial({
       uniforms: {
         ...this.cloudUniforms, uTime: { value: 0 }, uAlpha: { value: 0 }, uPR: { value: 1 },
@@ -108,10 +104,9 @@ export class SkyCycle {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-    this.rig.add(this.#makeStars(1400, false));
-    this.rig.add(this.#makeStars(900, true));
+    this.stars = [this.#makeStars(1400, false), this.#makeStars(900, true)];
+    this.rig.add(...this.stars);
 
-    // --- shooting stars ------------------------------------------------------
     this.meteorTimer = 5;
     this.meteors = [];
     const mTex = meteorTexture();
@@ -123,7 +118,7 @@ export class SkyCycle {
       this.meteors.push({ sprite: sp, pos: new THREE.Vector3(), vel: new THREE.Vector3(), life: 0, ttl: 1 });
     }
 
-    // --- fireflies: a loose swarm that lags dreamily behind the train --------
+    // fireflies: a loose swarm that lags behind the train
     this.fireflies = new THREE.Group();
     scene.add(this.fireflies);
     this.fireflyMat = new THREE.ShaderMaterial({
@@ -216,9 +211,6 @@ export class SkyCycle {
     return pts;
   }
 
-  // Retarget the per-frame recolouring onto a different directional light. The
-  // grassland builds its own sun; when the prairie is disposed the old light is
-  // gone, so the sky must point at the replacement.
   setSunLight(light) {
     this.sunLight = light;
   }
@@ -233,8 +225,7 @@ export class SkyCycle {
     return out;
   }
 
-  // Both tables share identical t keyframes, so one bracketing index and
-  // interpolant serve both; biomeBlend crossfades the results.
+  // Both tables share t keyframes, so one bracketing index serves both; biomeBlend crossfades them.
   #sample(phase, out) {
     let i = 0;
     while (KEYS[i + 1].t < phase) i++;
@@ -277,7 +268,6 @@ export class SkyCycle {
     du.uCloudLit.value.copy(k.cloud);
     du.uCloudShade.value.copy(k.sky[0]).lerp(k.cloud, SKY_LOOK.cloudShade[0]).multiplyScalar(SKY_LOOK.cloudShade[1]);
 
-    // atmosphere + lights
     sceneFog.color.copy(k.fog);
     this.hemi.color.copy(k.hemiSky);
     this.hemi.groundColor.copy(k.hemiGround);
@@ -288,7 +278,7 @@ export class SkyCycle {
     this.renderer.toneMappingExposure = k.exp;
     this.scene.environmentIntensity = k.env;
 
-    // --- sun: rises ahead of the train (+X, toward the destination) -------
+    // the sun rises ahead of the train (+X, toward the destination)
     const su = (((phase - SUNRISE) % 1) + 1) % 1 / DAY_SPAN;
     const sa = su * Math.PI;
     const alt = Math.sin(sa);
@@ -311,7 +301,7 @@ export class SkyCycle {
     const ember = smootherstep(lowness / 0.5);
     du.uSunCol.value.lerpColors(_c1, _c2, ember).multiplyScalar(lerp(SKY_LOOK.sunGain[0], SKY_LOOK.sunGain[1], ember));
 
-    // --- moon: skims low behind the train all night, a lantern in the window ---
+    // the moon skims low behind the train all night, a lantern in the window
     const mu = (((phase - SUNSET - 0.005) % 1) + 1) % 1 / (1 - DAY_SPAN);
     const ma = mu * Math.PI;
     const malt = Math.sin(ma);
@@ -337,17 +327,16 @@ export class SkyCycle {
     ATMOS.shade.setRGB(_c1.r * 0.06 + _c2.r * 0.9, _c1.g * 0.06 + _c2.g * 0.9, _c1.b * 0.06 + _c2.b * 0.9);
     ATMOS.ground.copy(k.hemiGround);
 
-    // stars + fireflies
     this.starMat.uniforms.uTime.value = time;
     this.starMat.uniforms.uAlpha.value = k.stars;
     this.starMat.uniforms.uPR.value = this.renderer.getPixelRatio();
     this.fireflyMat.uniforms.uTime.value = time;
     this.fireflyMat.uniforms.uAlpha.value = k.stars * 0.9;
     this.fireflyMat.uniforms.uPR.value = this.renderer.getPixelRatio();
+    this.stars[0].visible = this.stars[1].visible = this.fireflies.visible = k.stars > 0;
     this.fireflies.position.x = damp(this.fireflies.position.x, trainPos.x, 0.5, dt);
     this.fireflies.position.z = damp(this.fireflies.position.z, trainPos.z, 0.5, dt);
 
-    // --- shooting stars ------------------------------------------------------
     if (k.stars > 0.65) {
       this.meteorTimer -= dt;
       if (this.meteorTimer <= 0) {

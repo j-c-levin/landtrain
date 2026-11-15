@@ -74,8 +74,6 @@ const PARS = /* glsl */ `
   }
 `;
 
-// Resin-water: depth-painted colour, a lapping foam line where it meets the
-// bank, drifting current strokes, and a glossy top that picks up the sky.
 const COLOUR = /* glsl */ `
   float wt = uWaterTime;
   vec2 wp = vFlow;
@@ -150,8 +148,7 @@ const CHART_OUT = /* glsl */ `
   outgoingLight = mix(outgoingLight, wChart, uChart);
 `;
 
-// Geometry must carry aFlow (pattern coordinates, world units) and aShore
-// (distance in from the waterline, world units).
+// Geometry must carry aFlow (pattern coordinates) and aShore (distance in from the waterline), in world units.
 export function waterMaterial({ flow = [0, 1.5], stroke = [0.5, 0.05], glint = GRASSLAND_LOOK.waterGlint } = {}) {
   const L = GRASSLAND_LOOK;
   const low = getLookTier() === 'low';
@@ -201,9 +198,7 @@ export function waterMaterial({ flow = [0, 1.5], stroke = [0.5, 0.05], glint = G
   return mat;
 }
 
-// A rows x cols sheet; place(i, j, out) writes [x, y, z, flowX, flowY, shore].
-// Rows must advance along +z (or counter-clockwise) and columns along +x (or
-// outward) for the faces to look up.
+// place(i, j, out) writes [x, y, z, flowX, flowY, shore]; rows advance along +z and columns along +x for faces to look up.
 export function sheetGeometry(rows, cols, place, { closed = false } = {}) {
   const n = rows * cols;
   const pos = new Float32Array(n * 3);

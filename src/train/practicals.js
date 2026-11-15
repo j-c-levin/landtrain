@@ -4,9 +4,6 @@ import { CHART, TRAIN_LOOK, trainFx, getLookTier, painted } from '../look.js';
 import { CAR_WINDOWS, WINDOW_LIGHT } from './shell.js';
 import { hash } from './parts.js';
 
-// Night practicals and grounding: a soft contact shadow under every car, warm
-// pools the windows throw on the ground, lamp halos, and a headlamp beam on the
-// high tier.
 export function createPracticals() {
   return {
     contactMat: trainFx.contact(),
@@ -133,8 +130,7 @@ export function buildPracticals(train, g, ci) {
     glow.renderOrder = 5;
     g.add(glow);
   }
-  // The four interior lamps are the whole point-light budget. Their reach stays
-  // tight so each one pools; the spill discs carry the light out of the windows.
+  // The four interior lamps are the whole point-light budget.
   g.traverse((object) => {
     if (object.isPointLight) P.lights.push({ light: object, intensity: object.intensity });
   });

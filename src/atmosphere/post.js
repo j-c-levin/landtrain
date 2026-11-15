@@ -2,12 +2,7 @@ import * as THREE from 'three';
 import { CHART, GRADE_LOOK } from '../look.js';
 import { ATMOS } from './shared.js';
 
-// High tier only: the scene renders to a float target. Half-resolution contact
-// shading and a quarter-resolution glow are gathered first, then one pass
-// applies a depth-keyed tilt-shift blur (sharp around the focus distance, soft
-// in front and behind, like a macro lens over a model), the sunward haze, the
-// grade, a vignette, and the tone map. Over the map the blur gives way to a
-// pen: ink wherever the depth breaks.
+// High tier only. Half-res contact shading and quarter-res glow, then one pass: tilt-shift, haze, grade, tone map; over the map, a pen.
 const VERT = /* glsl */ `
   varying vec2 vUv;
   void main() {

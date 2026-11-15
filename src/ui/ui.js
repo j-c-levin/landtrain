@@ -186,11 +186,29 @@ export class UI {
       clearTimeout(close);
       close = setTimeout(() => open(false), 350);
     };
+    let byKey = false;
     btn.addEventListener('click', () => {
       if (held) held = false;
       else onSound();
-      btn.blur();
+      if (!btn.matches(':focus-visible')) btn.blur();
     });
+    for (const el of [btn, panel]) {
+      el.addEventListener('focusin', () => {
+        if (el === panel || btn.matches(':focus-visible')) open(true);
+      });
+      el.addEventListener('focusout', (e) => {
+        if (byKey && e.relatedTarget !== btn && !panel.contains(e.relatedTarget)) later();
+      });
+    }
+    window.addEventListener('keydown', () => { byKey = true; }, true);
+    window.addEventListener('pointerdown', () => { byKey = false; }, true);
+    for (const el of [btn, panel]) {
+      el.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        document.activeElement.blur();
+        open(false);
+      });
+    }
     btn.addEventListener('pointerdown', (e) => {
       held = false;
       if (e.pointerType === 'mouse') return;
@@ -214,10 +232,12 @@ export class UI {
     });
     for (const type of ['pointerdown', 'pointerup', 'keydown']) panel.addEventListener(type, (e) => e.stopPropagation());
     this.soundVolume.addEventListener('input', () => onVolume(this.soundVolume.value / 100));
-    this.soundVolume.addEventListener('change', () => this.soundVolume.blur());
+    this.soundVolume.addEventListener('change', () => {
+      if (!byKey) this.soundVolume.blur();
+    });
     this.soundMusic.addEventListener('click', () => {
       onMusic();
-      this.soundMusic.blur();
+      if (!byKey) this.soundMusic.blur();
     });
   }
 
@@ -290,8 +310,8 @@ export class UI {
         }
       }
     }
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
+    el.style.setProperty('--x', `${left}px`);
+    el.style.setProperty('--y', `${top}px`);
     const arrow = name === 'tree' ? this.arrowTree : this.arrowTrain;
     arrow.style.transform = `translate(0, -50%) rotate(${placement.angle}rad)`;
   }

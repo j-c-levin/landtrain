@@ -16,16 +16,11 @@ const wrapAngle = (a) => {
 const _vp = new THREE.Vector3();
 const _vl = new THREE.Vector3();
 
-// Driver's-cab forward view: sat back behind the cab and off to the open
-// (near) side, looking lengthwise down the cabin and out the big front
-// window — so you see the interior and the country ahead at once. The
-// player keeps walking the cab; toward the window reads as "deeper in",
-// and stepping back out the rear doorway drops to the cutaway.
+// The cab view sits back behind the cab, off the open side, looking down the cabin and out the front window.
 const CABIN_CAM_X = 3.5; // train-local arc position of the eye (well back behind the cab)
 const CABIN_CAM_SIDE = 12.0; // offset out off the open side of the train (screen-right)
 const CABIN_EYE_UP = 1.5; // above the roof storey floor → window-centre height
-// From well off the side the gaze aims at the front of the train (cabin +
-// window), not a far-forward point — otherwise the cabin swings out of frame.
+// The gaze aims at the front of the train, not far ahead, or the cabin swings out of frame.
 const CABIN_LOOK_AHEAD = 8; // how far past the nose the gaze reaches
 const CABIN_LOOK_UP = 0.5; // look height, around the front-window sill
 const BOOK_DIST = 42;
@@ -66,10 +61,7 @@ export function createCamera() {
   return new THREE.PerspectiveCamera(FOV, window.innerWidth / window.innerHeight, 0.5, 9000);
 }
 
-// One camera, three framings of the same world. Transitions are a single
-// continuous tween of position + orientation — never a cut. The target
-// framing is recomputed live every frame of the tween, so dropping back
-// into the cutaway tracks the (already moving) train.
+// Transitions are one continuous tween whose target is recomputed every frame, so it tracks the moving train.
 export class CameraRig {
   constructor(camera, train, player) {
     this.camera = camera;
@@ -78,9 +70,7 @@ export class CameraRig {
 
     this.mode = 'inhabit'; // 'inhabit' | 'map' | 'book' | 'cabin'
     this.transition = null;
-    // a "soft" ease eases the camera between the cutaway and the cab view
-    // WITHOUT marking the rig busy — the player keeps walking, the train
-    // keeps rolling, the camera just slides into place.
+    // a soft ease moves the camera without marking the rig busy
     this.soft = null;
     // a place ({ x, z }) the cutaway leans back to take in; null lets it settle home
     this.vista = null;
@@ -101,21 +91,17 @@ export class CameraRig {
     this.motionQuery = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
     this.onCut = null;
 
-    // map framing state
     this.mapCenter = new THREE.Vector2();
     this.pan = new THREE.Vector2();
     this.mapHeight = 330;
     this.mapScale = 1;
 
-    // book-mode free orbit. autoOrbit drives the gentle cinematic drift;
-    // any manual drag/zoom switches it off so the chosen view sticks,
-    // and the O hotkey recenters + resumes it.
+    // any manual drag or zoom switches autoOrbit off; O recentres and resumes it
     this.orbit = { theta: 0.6, phi: 0.33, dist: 55 };
     this.autoOrbit = true;
     this.recentering = false;
     this.bookHeading = 0;
 
-    // smoothed follow state for the cutaway
     this.followX = player.x;
     this.followY = LEVELS.deck;
 
@@ -167,8 +153,7 @@ export class CameraRig {
   }
 
   #computeInhabit() {
-    // perpendicular to the trail at the character's position — the cutaway
-    // stays square-on to whichever car the player is in, even mid-turn
+    // perpendicular to the trail at the character, so the cutaway stays square-on mid-turn
     const w = this.tall;
     const f = this.train.frameAt(clamp(this.followX + this.lead, -22, 22));
     const sin = Math.sin(f.theta);
@@ -214,9 +199,7 @@ export class CameraRig {
   }
 
   #computeBook() {
-    // free orbit — drag to swing, scroll from inside the car out to a wide
-    // shot. Zoomed out, the orbit centres on the train; zooming in slides
-    // the focus onto the resting character.
+    // zoomed out the orbit centres on the train; zooming in slides the focus onto the resting character
     const o = this.orbit;
     const c = this.train.pos;
     const pp = this.player.group.getWorldPosition(_pp);
@@ -234,12 +217,7 @@ export class CameraRig {
     );
   }
 
-  // Perched at the back of the cab, gaze running forward out the front
-  // window. Everything is derived from the nose's LIVE, continuous position
-  // + heading — NOT the recorded trail. The trail only gains a point every
-  // ~0.3u travelled and its sampled tangent carries the tiny wiggles of the
-  // steering; with the eye thrown 12u out to the side, those wiggles get
-  // multiplied into a visible sway. Continuous state keeps it glass-smooth.
+  // Derived from the nose's LIVE position and heading: the recorded trail's wiggles would sway an eye 12u off to the side.
   #computeCabin() {
     const head = this.train.headPos;
     const h = this.train.heading;
@@ -269,8 +247,7 @@ export class CameraRig {
     else this.#computeInhabit();
   }
 
-  // Walking up into the cab settles into the forward driving view — a soft
-  // glide, not a blocking transition, so control is never taken away.
+  // A soft glide, not a blocking transition.
   enterCabin() {
     if (this.busy || this.mode !== 'inhabit') return false;
     this.#startSoft('cabin', 2.4);
@@ -285,8 +262,7 @@ export class CameraRig {
     return true;
   }
 
-  // Leaving the planner settles into the cab's forward view — route set,
-  // now watch it unfold. Walking back out drops to the cutaway (exitCabin).
+  // Leaving the planner settles into the cab's forward view.
   exitMap() {
     if (this.busy || this.mode !== 'map') return false;
     this.#startTransition('cabin', 1.9);
@@ -301,9 +277,7 @@ export class CameraRig {
 
   enterBook() {
     if (this.busy || this.mode !== 'inhabit') return false;
-    // default "travel angle": a low rear-quarter view 45° off the direction
-    // of travel — carriages rumble across half the frame, countryside rolls
-    // through the other half
+    // the default travel angle: a low rear-quarter view 45° off the direction of travel
     const h = this.train.frameAt(0).theta;
     this.orbit.theta = h + Math.PI + this.bookYaw;
     this.orbit.phi = this.bookPhi;
@@ -343,16 +317,14 @@ export class CameraRig {
     this.transition = { t: 0, dur: this.#leave(dur), target };
   }
 
-  // Flip the mode immediately (so gameplay reacts at once) and ease the
-  // camera there from wherever it is now over `dur` seconds.
+  // The mode flips at once so gameplay reacts; only the camera eases.
   #startSoft(target, dur) {
     this.soft = { t: 0, dur: this.#leave(dur) };
     this.mode = target;
   }
 
   orbitDrag(dxPixels, dyPixels) {
-    // grab-the-world feel: drag right and the scene follows your finger right
-    // (matches the map view's panMap convention)
+    // drag right and the scene follows the finger right, as panMap does
     this.orbit.theta -= dxPixels * 0.005;
     this.orbit.phi = clamp(this.orbit.phi + dyPixels * 0.005, 0.04, 1.25);
     this.autoOrbit = false; // a chosen view sticks
@@ -360,8 +332,7 @@ export class CameraRig {
   }
 
   orbitZoom(factor) {
-    // min 1.6 lets the camera push through the car wall and settle inside,
-    // right beside the reader
+    // min 1.6 lets the camera push through the car wall and settle beside the reader
     this.orbit.dist = clamp(this.orbit.dist * factor, 1.6, this.maxOrbit);
     this.autoOrbit = false;
     this.recentering = false;
@@ -378,8 +349,7 @@ export class CameraRig {
     this.followY = damp(this.followY, this.player.sitting ? LEVELS.deck : this.player.y, 4, dt);
 
     if (this.mode === 'book' && !this.transition) {
-      // keep the chosen angle relative to the direction of travel as the
-      // train sweeps through turns
+      // hold the chosen angle relative to the direction of travel through turns
       const h = this.train.frameAt(0).theta;
       this.orbit.theta += wrapAngle(h - this.bookHeading);
       this.bookHeading = h;
@@ -387,7 +357,6 @@ export class CameraRig {
       if (this.autoOrbit) {
         const o = this.orbit;
         if (this.recentering) {
-          // glide back to the default travel-angle framing first
           const dTh = wrapAngle(h + Math.PI + this.bookYaw - o.theta);
           const phi = this.bookPhi;
           o.theta += dTh * (1 - Math.exp(-2.5 * dt));
@@ -403,7 +372,6 @@ export class CameraRig {
           const dTh = wrapAngle(h + Math.PI + this.bookYaw + TALL.sway * Math.sin(this.swayPhase) - o.theta);
           o.theta += dTh * (1 - Math.exp(-1.2 * dt));
         } else {
-          // the gentle drift, slow as an afternoon
           o.theta += dt * 0.03;
         }
       }
@@ -432,12 +400,10 @@ export class CameraRig {
     this.#computeFrame(this.mode);
     this.mapBlend = this.mode === 'map' ? 1 : 0;
     if (this.soft) {
-      // ease cutaway ↔ cab without taking control away
       this.soft.t += dt / this.soft.dur;
       this.#blend(smootherstep(this.soft.t));
       if (this.soft.t >= 1) this.soft = null;
     } else if (this.mode === 'map' || this.mode === 'book') {
-      // soft glide for pan/zoom/orbit input
       const k = 1 - Math.exp(-9 * dt);
       this.camera.position.lerp(_pos, k);
       this.focus.lerp(_look, k);

@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "capture": "node scripts/capture.mjs",
     "capture:compare": "node scripts/capture-compare.mjs",
-    "capture:sheet": "node scripts/capture-sheet.mjs"
+    "capture:sheet": "node scripts/capture-sheet.mjs",
+    "soak": "node scripts/soak.mjs"
   },
   "dependencies": {
     "three": "0.170.0"

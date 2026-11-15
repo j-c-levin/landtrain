@@ -98,8 +98,7 @@ const FRAG = /* glsl */ `
 const _v = new THREE.Vector3();
 const _luma = new THREE.Color();
 
-// The owner (the train) holds the returned fields and passes itself back to
-// updateSmoke. `smoke` keeps its shape so the owner can dispose the mesh.
+// `smoke` keeps its shape so the owner (the train) can dispose the mesh.
 export function createSmoke(scene) {
   const quad = new THREE.PlaneGeometry(2, 2);
   const geo = new THREE.InstancedBufferGeometry();
@@ -178,7 +177,6 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
   const rand = fx.rand;
   const speed01 = clamp(speed / TUNING.baseSpeed, 0, 1);
   const moving = speed > 0.4;
-  const jit = (a) => (rand() - 0.5) * a;
 
   if (dt > 0) {
     fx.stack -= dt;
@@ -186,11 +184,11 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
       const p = emitterWorldPos();
       if (moving) {
         fx.stack = lerp(0.42, 0.11, speed01);
-        spawn(fx, SMOKE, p.x + jit(0.2), p.y, p.z + jit(0.2), jit(0.5), 3.0 + rand() * 1.4, jit(0.5),
+        spawn(fx, SMOKE, p.x + jit(rand, 0.2), p.y, p.z + jit(rand, 0.2), jit(rand, 0.5), 3.0 + rand() * 1.4, jit(rand, 0.5),
           3.0 + rand() * 1.2, 0.7, 2.6 + rand() * 1.2, 1);
       } else {
         fx.stack = 0.55 + rand() * 0.3;
-        spawn(fx, SMOKE, p.x + jit(0.15), p.y, p.z + jit(0.15), jit(0.2), 1.25 + rand() * 0.5, jit(0.2),
+        spawn(fx, SMOKE, p.x + jit(rand, 0.15), p.y, p.z + jit(rand, 0.15), jit(rand, 0.2), 1.25 + rand() * 0.5, jit(rand, 0.2),
           4.6 + rand() * 1.2, 0.55, 1.7 + rand() * 0.7, 1);
       }
     }
@@ -200,7 +198,7 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
     if (fx.whistle <= 0 && !moving) {
       fx.whistle = 0.5 + rand() * 0.5;
       engine.localToWorld(_v.set(-1.25, 5.74, -1.55));
-      spawn(fx, STEAM, _v.x, _v.y, _v.z, jit(0.25), 1.5 + rand() * 0.6, jit(0.25), 1.1 + rand() * 0.5, 0.14, 0.7 + rand() * 0.3, 1);
+      spawn(fx, STEAM, _v.x, _v.y, _v.z, jit(rand, 0.25), 1.5 + rand() * 0.6, jit(rand, 0.25), 1.1 + rand() * 0.5, 0.14, 0.7 + rand() * 0.3, 1);
     }
 
     if (moving) {
@@ -209,10 +207,10 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
         fx.chuff = lerp(0.9, 0.3, speed01);
         fx.side = -fx.side;
         for (let n = 0; n < 2; n++) {
-          engine.localToWorld(_v.set(5.2 + jit(0.3), 0.55, fx.side * 2.75));
+          engine.localToWorld(_v.set(5.2 + jit(rand, 0.3), 0.55, fx.side * 2.75));
           const out = (0.9 + rand() * 0.9) * fx.side;
           const ry = engine.rotation.y;
-          spawn(fx, STEAM, _v.x, _v.y, _v.z, Math.sin(ry) * out + jit(0.4), 0.5 + rand() * 0.7, Math.cos(ry) * out + jit(0.4),
+          spawn(fx, STEAM, _v.x, _v.y, _v.z, Math.sin(ry) * out + jit(rand, 0.4), 0.5 + rand() * 0.7, Math.cos(ry) * out + jit(rand, 0.4),
             0.6 + rand() * 0.4, 0.22, 0.8 + rand() * 0.4, 0.9);
         }
       }
@@ -223,8 +221,8 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
         const e = state.wheels[fx.wheel].matrixWorld.elements;
         const carry = speed * 0.3;
         const ry = engine.rotation.y;
-        spawn(fx, DUST, e[12] - Math.cos(ry) * 0.9 + jit(0.4), 0.3, e[14] + Math.sin(ry) * 0.9 + jit(0.4),
-          Math.cos(ry) * carry + jit(0.5), 0.9 + rand() * 0.8, -Math.sin(ry) * carry + jit(0.5),
+        spawn(fx, DUST, e[12] - Math.cos(ry) * 0.9 + jit(rand, 0.4), 0.3, e[14] + Math.sin(ry) * 0.9 + jit(rand, 0.4),
+          Math.cos(ry) * carry + jit(rand, 0.5), 0.9 + rand() * 0.8, -Math.sin(ry) * carry + jit(rand, 0.5),
           0.9 + rand() * 0.5, 0.3, (0.9 + rand() * 0.5) * (0.6 + 0.4 * speed01), 0.9);
       }
     }
@@ -271,4 +269,5 @@ export function updateSmoke(state, dt, speed, emitterWorldPos) {
   u.uFade.value = 1 - CHART.uChart.value;
 }
 
+const jit = (rand, a) => (rand() - 0.5) * a;
 const luma = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;

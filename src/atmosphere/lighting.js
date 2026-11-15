@@ -16,8 +16,7 @@ export function createHaze(scene) {
   return scene.fog;
 }
 
-// The haze must stay closed until the fog-of-war shroud is fully opaque, or
-// the map transition flashes undiscovered land.
+// The haze stays closed until the shroud is opaque, or the map transition flashes undiscovered land.
 export function updateHaze(fog, mapBlend) {
   const open = smootherstep((mapBlend - 0.45) / 0.55);
   fog.near = lerp(HAZE_NEAR, 1400, open);
@@ -42,8 +41,7 @@ export function createSunLight(scene) {
   return light;
 }
 
-// keyDir points from the scene toward the key light (sun by day, moon by
-// night). In the map view the box widens so rocks and trees still cast.
+// keyDir points toward the key light. In the map view the box widens so rocks and trees still cast.
 export function followShadowBox(light, trainPos, keyDir, mapBlend) {
   if (keyDir) {
     light.position.set(
@@ -66,9 +64,7 @@ export function followShadowBox(light, trainPos, keyDir, mapBlend) {
   }
 }
 
-// Warm light thrown back up off the sunlit ground onto the side of the train
-// that faces the lens. It comes from below the horizon, so the ground itself
-// (and the long shadows lying on it) never receives it.
+// The bounce comes from below the horizon, so the ground and the shadows on it never receive it.
 export function createBounceLight(scene) {
   const light = new THREE.DirectionalLight(SKY_LOOK.bounce, 0);
   scene.add(light);
@@ -100,8 +96,7 @@ export function followBounceLight(light, trainPos, heading, intensity, color, du
   fill.intensity = lerp(lerp(f[0], f[1], ATMOS.dusk), f[2], ATMOS.night) * (1 - chart);
 }
 
-// The chart is drawn, not lit: the key light and its shadows give way to an
-// even top light so everything standing on the map reads as a flat symbol.
+// The chart is drawn, not lit: the key and its shadows give way to an even top light.
 export function applyChartLight(sunLight, hemi, scene, chart) {
   const low = Math.max(ATMOS.dusk, ATMOS.night);
   sunLight.shadow.intensity = (1 - smootherstep(chart / 0.3)) * lerp(1, SKY_LOOK.moonShadow, ATMOS.night);

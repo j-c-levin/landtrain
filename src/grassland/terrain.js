@@ -27,14 +27,9 @@ function grounded(mat) {
   return mat;
 }
 
-// Flat panels (y=0) split by the river channels; the east panel gets a
-// circular hole for the moat, with an island disc under the knoll.
+// Flat panels split by the river channels; the east panel has a hole for the moat, with an island disc in it.
 export function buildGround(root) {
-  // Panel x-spans: [west .. riverA-cut], between consecutive rivers, and the
-  // big east panel from riverC+cut to the east edge. The cut widens from FOOT
-  // to FOOT + amp because the meandering valley swings ±amp about the base x
-  // and must stay inside its straight-edged strip. Derived from riverDefs so
-  // the cut positions can never drift from the centerline.
+  // The cut widens from FOOT to FOOT + amp, so the meandering valley stays inside its straight-edged strip.
   const edges = [groundWestX];
   for (const def of riverDefs) { edges.push(def.x - (FOOT + def.amp), def.x + (FOOT + def.amp)); }
   edges.push(groundEastX);
@@ -70,9 +65,7 @@ export function buildGround(root) {
     mesh.receiveShadow = true;
     root.add(mesh);
   }
-  // island disc under the knoll (flat at y=0), filling the hole's centre —
-  // dressed with its own scatter pass + a boulder ring below, so it reads as
-  // flora-covered ground, not a bare green plate
+  // the island disc under the knoll fills the hole's centre
   {
     const island = new THREE.Mesh(new THREE.CircleGeometry(ISLAND_R, 48), groundMat);
     island.rotation.x = -Math.PI / 2;
@@ -94,8 +87,7 @@ export function buildHills({ root, rand }) {
     const cz = Math.sin(a) * d;
     const s = 120 + rand() * 240;
     const squash = 0.24 + rand() * 0.2;
-    // Keep the green hills east of the prairie border: the prairie coexists in
-    // the streamed world and a hill body must not reach across onto it.
+    // A hill body must not reach west across the prairie border.
     if (cx - s < GRASSLAND.minX) continue;
     const geo = new THREE.SphereGeometry(s, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2);
     const p = geo.attributes.position;

@@ -5,8 +5,7 @@ import { cabinSides, paintedFloor } from './shell.js';
 import { interiorKit, exteriorKit } from './interior-kit.js';
 import { buildBunkInterior } from './interiors.js';
 
-// Front car: cargo vestibule at deck level, raised driver's cab perched
-// on the rooftop — its floor IS the roof storey, walked straight into.
+// The raised cab's floor IS the roof storey.
 export function buildFrontCar(train, g) {
   const M = train.materials;
   const bowShape = new THREE.Shape();

@@ -1,6 +1,4 @@
-// Phone/tablet controls, synthesized into the same virtual keys the keyboard
-// feeds. Left/right thirds walk; the middle column climbs (top) or descends
-// (bottom) at ladders; the centre is E — tap to interact, hold to tend.
+// Left and right thirds walk; the middle column climbs (top) or descends (bottom); the centre is E.
 
 export function zoneCode(x, y) {
   const w = window.innerWidth;
@@ -18,9 +16,7 @@ export function isCentreZone(x, y) {
   return x > w / 3 && x < (2 * w) / 3 && y > h / 3 && y < (2 * h) / 3;
 }
 
-// `canWalk` gates the zones to the walk modes: map taps lay waypoints and
-// book drags orbit, so zone-keys would fight them there.
-// The prompt is the E key you can press: tap it, or hold it to tend.
+// canWalk gates the zones to the walk modes, where map taps and book drags would fight them.
 function bindPromptButton(input) {
   const el = document.getElementById('prompt');
   if (!el) return;

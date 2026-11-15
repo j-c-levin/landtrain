@@ -16,8 +16,7 @@ const enamel = (params, coat = 0.55) =>
     ? new THREE.MeshPhysicalMaterial({ ...params, clearcoat: coat, clearcoatRoughness: 0.28 })
     : std(params);
 
-// The overhead map is a drawn chart: uChart takes the model over to flat washes
-// and ink, uChartNight lays the night's indigo over them.
+// uChart takes the model over to flat washes and ink; uChartNight lays the night's indigo over them.
 export const CHART = {
   uChart: { value: 0 },
   uChartNight: { value: 0 },
@@ -243,8 +242,7 @@ const FLOCK_FRAG = /* glsl */ `
   }
 `;
 
-// Static-grass flock: world-space noise blends four paint tints so the ground
-// never tiles; `shore` adds a per-vertex mud/sand blend (attribute aShore).
+// `shore` adds a per-vertex mud/sand blend from the aShore attribute.
 const FLOCK_SWELL = /* glsl */ `
   #ifdef FLOCK_SWELL
   {
@@ -257,8 +255,7 @@ const FLOCK_SWELL = /* glsl */ `
   #endif
 `;
 
-// `region`: { texture, rect, lush, parched, bare, pale } tints the flock from a region map.
-// `swell`: strength of a painted-in roll to the ground's shading.
+// region: { texture, rect, lush, parched, bare, pale }; swell: strength of a painted-in roll to the shading.
 export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = false, region = null, swell = 0, ...params }) {
   const mat = std({ color: 0xffffff, roughness: 1, ...params });
   const uniforms = {
@@ -322,45 +319,7 @@ export function softDiscTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255
   return tex;
 }
 
-// A cotton-wool cloud: overlapping puffs along a flat base.
-export function cloudTexture(rand, [inner, outer]) {
-  const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 128;
-  const ctx = c.getContext('2d');
-  for (let i = 0; i < 11; i++) {
-    const t = i / 10;
-    const arch = Math.sin(t * Math.PI);
-    const r = 20 + arch * 26 * (0.7 + rand() * 0.5);
-    const x = 44 + t * 168 + (rand() - 0.5) * 14;
-    const y = 92 - r * 0.62 - arch * rand() * 12;
-    const g = ctx.createRadialGradient(x, y - r * 0.2, r * 0.25, x, y, r);
-    g.addColorStop(0, inner);
-    g.addColorStop(0.72, inner);
-    g.addColorStop(1, outer);
-    ctx.fillStyle = g;
-    ctx.fillRect(x - r, y - r, r * 2, r * 2);
-  }
-  // shade the underside so the cloud has a lit top and a soft grey belly
-  ctx.globalCompositeOperation = 'source-atop';
-  const belly = ctx.createLinearGradient(0, 40, 0, 104);
-  belly.addColorStop(0, 'rgba(120,130,160,0)');
-  belly.addColorStop(1, 'rgba(120,130,160,0.42)');
-  ctx.fillStyle = belly;
-  ctx.fillRect(0, 0, 256, 128);
-  ctx.globalCompositeOperation = 'destination-out';
-  const base = ctx.createLinearGradient(0, 86, 0, 108);
-  base.addColorStop(0, 'rgba(0,0,0,0)');
-  base.addColorStop(1, 'rgba(0,0,0,1)');
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 86, 256, 42);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-// An HSL channel is a fixed number, [base, range] (base + rand * range), or
-// [base, range, 'mid'] (base ± range / 2). Draws rand in h, s, l order.
+// A channel is a number, [base, range] or [base, range, 'mid']; rand is drawn in h, s, l order.
 const channel = (spec, rand) =>
   typeof spec === 'number' ? spec : spec[2] ? spec[0] + (rand() - 0.5) * spec[1] : spec[0] + rand() * spec[1];
 
@@ -392,11 +351,7 @@ function skyKey(t, sky, fog, hemiSky, hemiGround, hemiI, dirCol, dirI, cloud, cl
   };
 }
 
-// t, [zenith, upper, lower, horizon], fog, hemiSky, hemiGround, hemiI,
-// keyCol, keyI, cloudTint, cloudOp, starAlpha, exposure, environment intensity,
-// sunward glow + strength, anti-solar belt + strength
-// The four sky stops are the sky away from the sun; glow paints the sunward side.
-// Both tables must share identical t keyframes.
+// Both tables must share identical t keyframes; the four sky stops are the sky away from the sun.
 export const SKY_KEYS_PRAIRIE = [
   skyKey(0.000, ['#2f7fd0', '#5fa4e2', '#aed6f0', '#e4edf0'], '#dbe5ea', '#aecbff', '#b89a62', 0.56, '#ffeac4', 3.5, '#ffffff', 1.0, 0.0, 1.0, 0.4, '#fff4e0', 0.2, '#e4edf0', 0.0),
   skyKey(0.270, ['#2f7fd0', '#5fa4e2', '#aed6f0', '#e4edf0'], '#dbe5ea', '#aecbff', '#b89a62', 0.56, '#ffeac4', 3.5, '#ffffff', 1.0, 0.0, 1.0, 0.4, '#fff4e0', 0.2, '#e4edf0', 0.0),
@@ -432,8 +387,6 @@ export const SKY_LOOK = {
   hemiSky: 0xcfe4ff,
   hemiGround: 0xb89a62,
   hemiIntensity: 0.55,
-  sunCore: ['rgba(255,246,220,1)', 'rgba(255,220,160,0)'],
-  sunHalo: ['rgba(255,210,150,0.8)', 'rgba(255,190,120,0)'],
   sunHigh: '#fff7e6',
   sunLow: '#ffd25e',
   // disc radius in radians and HDR gain, [high, on the horizon]
@@ -461,14 +414,11 @@ export const SKY_LOOK = {
   cloudShade: [0.55, 0.8],
   galaxy: 0x2a3252,
   cloudDrift: 0.0012,
-  moonCore: ['rgba(240,245,255,1)', 'rgba(214,226,255,0)'],
-  moonGlow: ['rgba(190,210,255,0.5)', 'rgba(170,195,255,0)'],
   starWarm: '#ffe2b8',
   starCool: '#cfe0ff',
   starWhite: '#ffffff',
   milkyWay: { h: [0.6, 0.06], s: 0.25, l: [0.55, 0.2] },
   milkyWayDim: 0.4,
-  cloud: ['rgba(255,253,247,1)', 'rgba(255,253,247,0)'],
   meteor: [
     [0.0, 'rgba(180,200,255,0)'],
     [0.75, 'rgba(220,230,255,0.55)'],
@@ -550,22 +500,15 @@ export const SMOKE_LOOK = {
 };
 
 export const skyMaterials = {
-  dome: (map) => new THREE.MeshBasicMaterial({ map, side: THREE.BackSide, fog: false, depthWrite: false }),
-  disc: ([inner, outer]) =>
-    new THREE.SpriteMaterial({ map: softDiscTexture(inner, outer), transparent: true, depthWrite: false, fog: false }),
   meteor: (map) =>
     new THREE.SpriteMaterial({
       map, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
     }),
-  cloud: (map) => new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, fog: false }),
 };
 
 // ------------------------------------------------------------ shared flora
 
 export const floraMaterials = {
-  tuft: () => std({ roughness: 1 }),
-  clump: () => std({ roughness: 1, flatShading: true }),
-  flower: () => std({ roughness: 0.8 }),
   fadingTrunk: (color) => std({ color, roughness: 0.9, transparent: true }),
   // leaf geometry must carry a colour attribute (drybrushed crown shading)
   fadingLeaf: () => chartWash(std({ roughness: 1, flatShading: true, transparent: true, vertexColors: true })),
@@ -584,8 +527,7 @@ export const floraMaterials = {
     }),
 };
 
-// Backscene pieces take only part of the haze, so far hills keep their paint.
-// `rise`: world height over which the haze thins from full at the ground to `haze`.
+// rise: world height over which the haze thins from full at the ground to `haze`.
 function backdrop(mat, haze = 0.5, rise = 0) {
   const thin = rise
     ? `mix(1.0, ${haze.toFixed(2)}, smoothstep(0.0, ${rise.toFixed(1)}, (modelMatrix * vec4(transformed, 1.0)).y))`
@@ -669,7 +611,6 @@ export const PRAIRIE_LOOK = {
   rockDark: 0x846a58,
   rockSun: 0xcdb596,
   ridge: 0x8f705c,
-  ridgeWarm: 0xb28a66,
   ridgeBands: [0x9a7458, 0xbf9670, 0x80604c, 0xcaa680],
   greatTree: {
     mesa: 0xb87852,
@@ -775,7 +716,6 @@ export const GRASSLAND_LOOK = {
   tussock: { h: [0.23, 0.07], s: [0.38, 0.16], l: [0.36, 0.12] },
   bush: { h: [0.27, 0.07], s: [0.33, 0.16], l: [0.23, 0.08] },
   stone: { h: [0.14, 0.08], s: [0.1, 0.08], l: [0.42, 0.14] },
-  hummock: { h: [0.28, 0.05], s: [0.34, 0.15], l: [0.32, 0.1] },
   flower: { hues: [0.0, 0.13, 0.78, 0.92], s: 0.9, l: [0.68, 0.12] },
   water: 0x377a8b,
   waterDeep: 0x23576b,
@@ -847,8 +787,6 @@ export const GRASSLAND_LOOK = {
 };
 
 // Poured-resin water: nearly opaque, deep-tinted, glossy enough to carry the sky.
-const waterBase = { roughness: 0.08, metalness: 0.0, transparent: true };
-const pullForward = { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
 
 export const grasslandMaterials = {
   ground: () => flockMaterial({ tints: GRASSLAND_LOOK.flock }),
@@ -856,21 +794,6 @@ export const grasslandMaterials = {
     flockMaterial({ tints: GRASSLAND_LOOK.flock, mud: GRASSLAND_LOOK.shoreMud, sand: GRASSLAND_LOOK.shoreSand, shore: true }),
   hill: () => backdrop(std({ color: 0xffffff, roughness: 1, flatShading: true, vertexColors: true })),
   boulder: () => std({ color: 0xffffff, roughness: 0.94, flatShading: true, vertexColors: true }),
-  riverWater: (normalMap) =>
-    std({
-      color: GRASSLAND_LOOK.water, ...waterBase, opacity: 0.9, envMapIntensity: 1.6,
-      normalMap, normalScale: new THREE.Vector2(0.35, 0.35), fog: true, ...pullForward,
-    }),
-  riverRipple: (normalMap) =>
-    std({
-      color: 0xd8f0f0, ...waterBase, opacity: 0.12, depthWrite: false,
-      normalMap, normalScale: new THREE.Vector2(0.5, 0.5), fog: true, ...pullForward,
-    }),
-  moatWater: (normalMap) =>
-    std({
-      color: GRASSLAND_LOOK.water, ...waterBase, opacity: 0.9, envMapIntensity: 1.6,
-      normalMap, normalScale: new THREE.Vector2(0.35, 0.35), ...pullForward,
-    }),
   moatGlow: () =>
     new THREE.MeshBasicMaterial({
       map: softDiscTexture(...GRASSLAND_LOOK.moatGlow),
@@ -888,15 +811,12 @@ export const grasslandMaterials = {
       map: softDiscTexture(...GRASSLAND_LOOK.causeway.glow), transparent: true, depthWrite: false,
     }),
   causewayPost: () => std({ color: GRASSLAND_LOOK.causeway.post, roughness: 0.8 }),
-  causewayRail: () => std({ color: GRASSLAND_LOOK.causeway.rail, roughness: 0.9 }),
-  causewayBeam: () => std({ color: GRASSLAND_LOOK.causeway.beam, roughness: 0.8 }),
   causewayLantern: () =>
     std({
       color: GRASSLAND_LOOK.causeway.lantern, emissive: GRASSLAND_LOOK.causeway.lanternGlow, emissiveIntensity: 1.6,
     }),
   causewayPlank: () => std({ color: 0xffffff, roughness: 0.78 }),
   causewayStone: () => std({ color: 0xffffff, roughness: 0.95, flatShading: true }),
-  causewayIron: () => std({ color: GRASSLAND_LOOK.iron, roughness: 0.6, metalness: 0.5 }),
   causewayBrass: () => std({ color: GRASSLAND_LOOK.brass, roughness: 0.38, metalness: 0.85 }),
   lightPool: (inner, opacity = 0.5) =>
     new THREE.MeshBasicMaterial({
@@ -983,6 +903,11 @@ export const TRAIN_LOOK = {
   plainReach: 2.4,
   // roof sheet has weathered past a mirror shine: [roughness, metalness]
   weatheredMetal: [0.55, 0.6],
+  // what an off-tone panel and a rain streak multiply the wall paint by
+  weatherPatch: [0.86, 0.82, 0.74],
+  weatherDust: [0.7, 0.5, 0.3],
+  // the paper luggage tags that hang over each station
+  tag: { paper: '#f7ecd0', brass: '#c98f2e', ink: '#4a3024' },
 };
 
 export function createTrainMaterials() {
@@ -1018,7 +943,7 @@ export function createTrainMaterials() {
     pages: std({ color: 0xf3e0b8, roughness: 1 }),
     instrument: std({ color: 0xf4e7c7, roughness: 0.7, emissive: 0xf7b96c, emissiveIntensity: 0.16 }),
     lampshade: std({ color: 0xe5c78c, roughness: 1, emissive: 0xffc879, emissiveIntensity: 0.32, side: THREE.DoubleSide }),
-    glass: std({ color: 0xabcac5, transparent: true, opacity: 0.14, depthWrite: false, roughness: 0.08, side: THREE.DoubleSide }),
+    glass: std({ color: 0xabcac5, transparent: true, opacity: 0.14, depthWrite: false, roughness: 0.08, side: THREE.DoubleSide, forceSinglePass: true }),
     lightPool: new THREE.MeshBasicMaterial({ color: 0xffd6a1, transparent: true, opacity: 0.12, depthWrite: false }),
     firebox: std({ color: 0x6b2f1a, emissive: 0xff6a2a, emissiveIntensity: 1.2, roughness: 0.6 }),
     ember: std({ color: 0xffb04c, emissive: 0xffb33e, emissiveIntensity: 1.7, roughness: 1 }),
@@ -1026,7 +951,7 @@ export function createTrainMaterials() {
     book: std({ color: 0x4f74aa, roughness: 0.8 }),
     sootGrime: std({ color: 0x5a4035, roughness: 0.98 }),
     paintBase: std({ color: 0xffffff, roughness: 1, vertexColors: true }),
-    pane: new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+    pane: new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, forceSinglePass: true }),
     paneGlint: new THREE.MeshBasicMaterial({ color: 0xf2fbff, transparent: true, opacity: 0.2, depthWrite: false }),
   };
 }
@@ -1089,9 +1014,6 @@ trainFx.windowGlow = () =>
 
 // ------------------------------------------------------- painted interiors
 
-// Rooms are hand-painted inside the enamel model: flat stepped shading, a
-// violet fill wherever the lamps and the sun leave a surface dim, and by night
-// every cool light swapped for cobalt so the lamps are the only warm thing.
 // Each list is [day, dusk, night].
 export const PAINT_LOOK = {
   fill: [0x6c64b0, 0xc4825c, 0x93705a],
@@ -1114,8 +1036,7 @@ const paintFills = PAINT_LOOK.fill.map((hex, i) => new THREE.Color(hex).multiply
 const paintTints = PAINT_LOOK.tint.map((hex, i) => new THREE.Color(hex).multiplyScalar(PAINT_LOOK.tintGain[i]));
 const paints = new WeakMap();
 
-// The painted twin of a train material. Lamps, glass and anything else that
-// glows or fades keeps its own material.
+// Lamps, glass and anything else that glows or fades keeps its own material.
 export function painted(source) {
   if (source.isPaintMaterial) return source;
   const glows = source.emissive && source.emissive.getHex() !== 0 && source.emissiveIntensity > 0.5;
@@ -1129,6 +1050,60 @@ export function painted(source) {
     paints.set(source, paint);
   }
   return paint;
+}
+
+// A material drawn both instanced and plain makes three re-key its program at every switch, so those draws get a twin.
+export function twinInstanced(roots) {
+  const uses = new Map();
+  for (const root of roots) {
+    root.traverse((object) => {
+      if (!object.isMesh || Array.isArray(object.material)) return;
+      const state = object.isInstancedMesh ? (object.instanceColor ? 2 : 1) : 0;
+      if (!uses.has(object.material)) uses.set(object.material, [[], [], []]);
+      uses.get(object.material)[state].push(object);
+    });
+  }
+  const twins = [];
+  for (const [source, states] of uses) {
+    let kept = false;
+    for (const users of states) {
+      if (!users.length) continue;
+      if (!kept) {
+        kept = true;
+        continue;
+      }
+      const twin = source.clone();
+      twin.onBeforeCompile = source.onBeforeCompile;
+      twin.customProgramCacheKey = source.customProgramCacheKey;
+      for (const object of users) object.material = twin;
+      twins.push({ source, twin });
+    }
+  }
+  return twins;
+}
+
+// The shadow pass shares one depth material and re-keys it whenever an instanced caster follows a plain one.
+const instancedDepth = [null, null];
+export function ownInstancedDepth(root) {
+  root.traverse((object) => {
+    if (!object.isInstancedMesh || object.customDepthMaterial) return;
+    const kind = object.instanceColor ? 1 : 0;
+    instancedDepth[kind] ||= new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+    object.customDepthMaterial = instancedDepth[kind];
+  });
+}
+
+export function syncTwins(twins) {
+  for (let i = 0; i < twins.length; i++) {
+    const { source, twin } = twins[i];
+    twin.opacity = source.opacity;
+    twin.depthWrite = source.depthWrite;
+    twin.color.copy(source.color);
+    if (source.emissive) {
+      twin.emissive.copy(source.emissive);
+      twin.emissiveIntensity = source.emissiveIntensity;
+    }
+  }
 }
 
 // Partition walls stand in the room's own shade: no sun, moon or sky key reaches them.
@@ -1166,9 +1141,10 @@ export const plantMaterials = {
 
 // -------------------------------------------------------------------- map
 
-// A drawn chart laid over the model: unexplored country is bare chart paper,
-// and the known world is a hole in the sheet with the tabletop showing through.
+// Unexplored country is bare chart paper; the known world is a hole in the sheet.
 export const MAP_LOOK = {
+  // the cartouche and compass laid over the chart
+  cartouche: { ink: '#3d2f28', rust: '#a2351f', paper: '#f4e9d0' },
   shroud: '#221a30',
   paper: 0xf0e2c0,
   fox: 0xc9a56e,
@@ -1260,11 +1236,10 @@ function beaconTexture() {
 }
 
 const overlay = (params) =>
-  new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, fog: false, ...params });
+  new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, fog: false, forceSinglePass: true, ...params });
 
 export const mapMaterials = {
-  // The canvas only carries the reveal mask in alpha; everything drawn on the
-  // chart lives in the shader so it stays crisp at any zoom.
+  // The canvas only carries the reveal mask in alpha; the chart is drawn in the shader so it stays crisp.
   shroud: (map, rect) =>
     new THREE.ShaderMaterial({
       vertexShader: SHEET_VERT,
@@ -1313,6 +1288,7 @@ export const mapMaterials = {
       depthWrite: false,
       fog: false,
       side: THREE.DoubleSide,
+      forceSinglePass: true,
       uniforms: {
         uScale: { value: 1 },
         uOpacity: { value: 0 },
@@ -1337,8 +1313,7 @@ export const mapMaterials = {
 
 // ----------------------------------------------------------------- figure
 
-// Painted like the rooms, but with a steadier wash and a little light of its
-// own, so the colour blocks never sink into a room's shadow.
+// A steadier wash and a little light of its own, so the figure never sinks into a room's shadow.
 const figurePaints = [];
 const figurePaint = (color) => {
   const mat = new PaintMaterial({ color, emissive: color, emissiveIntensity: PAINT_LOOK.figureGlow[0] });

@@ -2,9 +2,7 @@ import * as THREE from 'three';
 import { PRAIRIE, LANDMARK, clamp } from '../constants.js';
 import { mulberry } from '../prng.js';
 
-// The route's chapters, west to east: straw plains, thornveld, red pans,
-// ridge foothills, the Great Tree's oasis. Each texel of the region map holds
-// r: cover may grow, g: lushness (0.5 = plain straw), b: bare red earth, a: pale sand.
+// Region map texels: r cover may grow, g lushness (0.5 = plain straw), b bare red earth, a pale sand.
 
 export const REGION_RECT = { minX: PRAIRIE.minX - 460, maxX: PRAIRIE.maxX + 4, minZ: -1320, maxZ: 1320 };
 const STEP = 8;

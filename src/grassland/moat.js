@@ -18,8 +18,6 @@ export const MOAT_CROSSINGS = [Math.PI, Math.PI / 2, -Math.PI / 2];
 export const MOAT_GAP = 0.16;
 const DECK_W = 30;
 
-// The sunken ring channel around the tree: banks, water, glow pools, collision
-// and the radial causeways.
 export function buildMoat({ root, rand, obstacles }, bridgeGlowMat) {
   const low = getLookTier() === 'low';
   const SEG = low ? 64 : 96;

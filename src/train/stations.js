@@ -1,5 +1,4 @@
-// Stations live at train-local X positions on a given storey. One verb: E.
-// Cab and book are taps; engine / treads / plants are gentle hold-to-tend.
+// One verb: E. Cab and book are taps; engine, treads and plants are hold-to-tend.
 export const STATIONS = [
   { id: 'cab', x: 20.5, level: 'roof', radius: 3.0, label: 'take the wheel & plot the route' },
   { id: 'engine', x: -0.8, level: 'deck', radius: 3.2, label: 'tend the engine' },

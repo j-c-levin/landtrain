@@ -7,8 +7,7 @@ function warpShortOfGoal(train, journey) {
   return goal;
 }
 
-// Three centre-screen taps within one second while standing on the
-// undercarriage at the rear warps the train to just short of the current goal.
+// Three centre taps within a second, standing under the rear car, warp the train short of the goal.
 export function bindSecretWarp({ rig, player, train, ui, journey }) {
   const tapTimes = [];
   window.addEventListener('pointerup', (e) => {

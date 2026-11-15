@@ -69,8 +69,6 @@ function lanternKit(low) {
   return { stone, lamp };
 }
 
-// The island's own dressing: stone lanterns lining the three ways in, a ring
-// of standing stones, silver saplings and drifts of pale flowers.
 export function buildIsland(root) {
   const S = GRASSLAND_LOOK.silverTree;
   const rand = mulberry(77031);

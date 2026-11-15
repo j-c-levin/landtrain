@@ -1,8 +1,6 @@
 import { clamp } from '../constants.js';
 
-// Records the lead tractor point's travelled polyline. Each car samples it
-// at its own arc-length offset, so a car turns exactly where the car ahead
-// of it turned — and never just pivots on a point.
+// Each car samples the lead point's polyline at its own offset, so it turns where the car ahead turned.
 export class TrailPath {
   constructor() {
     this.pts = [];
@@ -43,10 +41,7 @@ export class TrailPath {
     return Math.atan2(-(b.z - a.z), b.x - a.x);
   }
 
-  // Sample position + heading at arc length s (clamped). The heading is
-  // interpolated shortest-arc between the bracketing vertices' tangents —
-  // a piecewise-constant tangent would make every car (and the camera)
-  // snap as its sample crosses a segment boundary.
+  // The heading is interpolated shortest-arc between vertex tangents, or cars snap at segment boundaries.
   frame(s, out = {}) {
     const pts = this.pts;
     s = clamp(s, pts[0].s, pts[pts.length - 1].s);

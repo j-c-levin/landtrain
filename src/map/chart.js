@@ -50,6 +50,10 @@ export function createChart({ renderer, canvas, train, fog }) {
       pen.render(scene, camera);
       return true;
     },
+    prewarm(scene, camera) {
+      pen ??= createChartPen(renderer);
+      pen.prewarm(scene, camera);
+    },
     dispose() {
       pen?.dispose();
       pen = null;

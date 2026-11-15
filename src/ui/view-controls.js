@@ -2,7 +2,6 @@ import { pickGround } from '../map/map-view.js';
 import { bindSceneGestures } from './gestures.js';
 import { createOnboarding } from './onboarding.js';
 
-// Pointer, wheel, button and hotkey control of the map and book views.
 export function bindViewControls({ canvas, camera, rig, train, player, ui, audio }) {
   const viewing = () => (rig.mode === 'map' || rig.mode === 'book') && !rig.busy;
   const planning = () => rig.mode === 'map' && !rig.busy;

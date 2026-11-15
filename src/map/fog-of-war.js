@@ -2,10 +2,7 @@ import * as THREE from 'three';
 import { WORLD, TUNING } from '../constants.js';
 import { MAP_LOOK, mapMaterials } from '../look.js';
 
-// Fog of war: an opaque dark canvas stretched over the whole world on a
-// plane at y=60 (between the overhead camera and the ground). Travel
-// punches soft radial holes with destination-out compositing — revealed
-// ground is permanently known.
+// An opaque canvas over the whole world; travel punches soft holes with destination-out, permanently.
 const MARGIN = 600;
 const CELL = 20;
 
@@ -32,9 +29,7 @@ export class FogOfWar {
 
     this.material = mapMaterials.shroud(this.texture, new THREE.Vector4(WORLD.minX, WORLD.minZ, 1 / w, 1 / h));
 
-    // y=75 clears the tallest undiscovered ridge rocks (~55) so nothing
-    // pokes up through the shroud; only the Great Tree (the destination,
-    // deliberately visible) rises past it.
+    // y=75 clears the tallest undiscovered ridge rocks (~55); only the Great Tree rises past it.
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(w + MARGIN * 2, h + MARGIN * 2), this.material);
     this.mesh.rotation.x = -Math.PI / 2;
     this.mesh.position.set((WORLD.minX + WORLD.maxX) / 2, 75, (WORLD.minZ + WORLD.maxZ) / 2);
@@ -108,10 +103,7 @@ export class FogOfWar {
     this.texture.needsUpdate = true;
   }
 
-  // Reveal a forward-fanning cone plus the lateral side circle. (dirX, dirZ)
-  // is the (not necessarily normalized) heading; if it's ~zero we fall back to
-  // a plain circle. The cone is narrow at the train and widest at the far end:
-  // overlapping soft stamps grow from nearR to endR over `steps` along heading.
+  // (dirX, dirZ) need not be normalised; a zero heading falls back to a plain circle.
   revealCone(wx, wz, dirX, dirZ, sideRadius, forwardLen, endR, nearR, steps) {
     this.#stamp(wx, wz, sideRadius); // lateral/near vision, unchanged feel
     const len = Math.hypot(dirX, dirZ);
@@ -129,10 +121,7 @@ export class FogOfWar {
     this.texture.needsUpdate = true;
   }
 
-  // blend: 0 = inhabit view (hidden), 1 = fully in map view. The shroud
-  // reaches full opacity within the first third of the camera's climb —
-  // before the scene's distance fog opens — so undiscovered terrain is
-  // never glimpsed mid-transition.
+  // The shroud is opaque within the first third of the climb, before the scene's haze opens.
   setBlend(blend) {
     this.material.uniforms.uOpacity.value = Math.min(1, blend / 0.35) * TUNING.fogOpacity;
     const t = Math.min(1, Math.max(0, (blend - 0.35) / 0.65));

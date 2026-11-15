@@ -3,7 +3,7 @@ import {
   CAR_CENTERS, CAB_FROM_X, TRAIN_HALF, WORLD, TUNING,
   effMult, treadMult, clamp, lerp, damp,
 } from '../constants.js';
-import { TRAIN_LOOK, createTrainMaterials } from '../look.js';
+import { TRAIN_LOOK, createTrainMaterials, twinInstanced, syncTwins, ownInstancedDepth } from '../look.js';
 import { blockedAt } from '../collision.js';
 import { createRouteDisplay, updateRouteDisplay } from '../map/route-display.js';
 import { createSmoke, updateSmoke } from '../atmosphere/smoke.js';
@@ -32,7 +32,6 @@ export class Train {
     this.geometry = createTrainGeometry();
     this.practicals = createPracticals();
 
-    // --- state ---------------------------------------------------------
     this.heading = 0;
     this.speed = 0;
     this.paused = false;
@@ -66,6 +65,7 @@ export class Train {
     this.swingers = [];
     this._frame = { x: 0, z: 0, theta: 0 };
     this._ahead = { x: 0, z: 0, theta: 0 };
+    this._at = { x: 0, z: 0, theta: 0 };
 
     this.cars = [];
     for (let i = 0; i < CAR_CENTERS.length; i++) {
@@ -81,6 +81,8 @@ export class Train {
       buildCarFittings(this, g, ci);
       buildPracticals(this, g, ci);
     }
+    this.twins = twinInstanced(this.cars.map((car) => car.group));
+    for (const car of this.cars) ownInstancedDepth(car.group);
     this.carVisuals = this.cars.flatMap(({ group }) => group.children);
     Object.assign(this, createRouteDisplay(scene));
     Object.assign(this, createSmoke(scene));
@@ -90,9 +92,7 @@ export class Train {
     this.#placeRods();
   }
 
-  // Drop the whole train at a fresh spawn (new biome) facing `heading`,
-  // exactly as a newly-constructed train would sit. Reseeds the trail, clears
-  // the route, and resets gauges to fresh-journey values.
+  // Leaves the train exactly as a newly constructed one would sit.
   reset({ x, z, heading }) {
     this.heading = heading;
     this.speed = 0;
@@ -157,7 +157,6 @@ export class Train {
     return mat;
   }
 
-  // ----------------------------------------------------------- route edits
   addWaypoint(x, z) {
     x = clamp(x, WORLD.minX + 40, WORLD.maxX - 40);
     z = clamp(z, WORLD.minZ + 40, WORLD.maxZ - 40);
@@ -185,13 +184,11 @@ export class Train {
     return out.set(Math.cos(this.heading), 0, -Math.sin(this.heading));
   }
 
-  // World-space frame (position on the ground + heading) for a point at
-  // train-local X. The player and camera both ride the trail through this.
+  // World-space position and heading for a point at train-local X; the result is reused, so read it at once.
   frameAt(localX) {
-    return this.path.frame(this.path.head - (TRAIN_HALF - localX));
+    return this.path.frame(this.path.head - (TRAIN_HALF - localX), this._at);
   }
 
-  // --------------------------------------------------------------- update
   update(dt, time, obstacles) {
     const p = this.headPos;
 
@@ -215,8 +212,7 @@ export class Train {
       const align = clamp(1.3 - Math.abs(diff), 0.45, 1);
       const step = this.speed * dt * align;
 
-      // curvature-limited steering: turn amount is tied to distance
-      // travelled, so the recorded trail is everywhere a gentle arc
+      // turn is tied to distance travelled, so the recorded trail is everywhere a gentle arc
       const maxTurn = step * TUNING.curvature;
       this.heading += clamp(diff, -maxTurn, maxTurn);
 
@@ -250,7 +246,6 @@ export class Train {
 
     this.#placeCars();
 
-    // -- visuals --
     const spin = (this.speed / 0.92) * dt;
     for (const w of this.wheels) w.rotation.z -= spin;
     this.#placeRods();
@@ -298,10 +293,7 @@ export class Train {
     updateSmoke(this, dt, this.speed, this.stackWorld);
   }
 
-  // Each car rides the trail at its own offset. The unevenness is keyed to
-  // distance s, so each car hits the same bumps as it passes over them and
-  // everything stills when the train rests. Short wavelengths (1.7–7.6u)
-  // read as ground rumble, not a boat's swell; one faint long roll remains.
+  // The unevenness is keyed to distance s, so each car hits the same bumps and all stills at rest.
   #placeCars() {
     for (let i = 0; i < this.cars.length; i++) {
       const car = this.cars[i];
@@ -331,10 +323,9 @@ export class Train {
     }
   }
 
-  // See-through walls: the zone the player occupies fades out; in book
-  // mode everything goes opaque so the train reads as a solid home.
+  // The zone the player occupies fades out; book mode seals the whole train.
   setFocus(zone, allOpaque, dt) {
-    for (const key of Object.keys(this.zoneMats)) {
+    for (const key in this.zoneMats) {
       const mat = this.zoneMats[key];
       const target = allOpaque ? 1 : key === zone ? 0.03 : 1;
       mat.opacity = damp(mat.opacity, target, 7, dt);
@@ -356,9 +347,9 @@ export class Train {
 
   setNight(night, dusk = 0) {
     setPracticalsNight(this, night, dusk);
+    syncTwins(this.twins);
   }
 
-  // ------------------------------------------------- map overlay rendering
   updateRouteDisplay(mapBlend, time) {
     const away = mapBlend > 0.92;
     if (away !== this.tuckedAway) {

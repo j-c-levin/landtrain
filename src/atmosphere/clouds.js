@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 
-// One seeded panorama wrapped round the dome, 28 degrees tall and square in
-// angle. R: cumulus cover, G: how lit each puff is (top bright, belly dull),
-// B: high wisps. The dome shader steps and tints it.
+// R: cumulus cover, G: how lit each puff is, B: high wisps. 28 degrees tall, wrapped round the dome.
 export function cloudPanorama(rand, scale = 1) {
   const W = 4096 * scale;
   const H = 320 * scale;

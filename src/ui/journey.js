@@ -1,18 +1,14 @@
 import { createGrassland } from '../grassland/grassland.js';
 import { LEAGUE, leaguesToGo } from '../constants.js';
 
-// The progression: 'prairie' (driving to the first tree) → 'streaming' (the
-// grassland builds behind the arrival card) → 'grassland' → 'done'. Each goal
-// arrival fires exactly once.
+// 'prairie' → 'streaming' (the grassland builds behind the arrival card) → 'grassland' → 'done'.
 export function createJourney({ scene, world, train, fog, ui, audio }) {
   let grassland = null;
   let obstacles = world.obstacles;
   let goalPos = world.landmarkPos;
   let stage = 'prairie';
 
-  // Two rAFs so the browser has painted the arrival card before the main
-  // thread blocks on a biome's worth of geometry; the card locks its own
-  // dismiss for 600ms, well past this.
+  // Two rAFs so the arrival card is painted before the main thread blocks on a biome's worth of geometry.
   function streamGrassland() {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {

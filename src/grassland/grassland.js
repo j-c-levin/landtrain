@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GRASSLAND, clamp } from '../constants.js';
-import { CHART, GRASSLAND_LOOK, grasslandMaterials } from '../look.js';
+import { CHART, GRASSLAND_LOOK, grasslandMaterials, ownInstancedDepth } from '../look.js';
 import { createGroundCover, coverMask } from '../groundcover.js';
 import { mulberry } from '../prng.js';
 import { disposeSubtree } from '../dispose.js';
@@ -17,9 +17,7 @@ import { NIGHT, nightTame, nearCullSprite } from './fade.js';
 
 const CLOSE_UP_CEILING = 150;
 
-// The eastern region of the seamless world. It shares ONE sky, sun and haze
-// with the prairie: it creates no directional light and never touches scene.fog.
-// The builders below draw from one seeded stream — their ORDER is the world.
+// Shares ONE sky, sun and haze with the prairie. The builders draw from one seeded stream: their ORDER is the world.
 export function createGrassland(scene) {
   const rand = mulberry(20260616);
   const obstacles = [];
@@ -67,6 +65,8 @@ export function createGrassland(scene) {
   const key = scene.children.find((o) => o.isDirectionalLight && o.castShadow);
   const petals = buildPetals(root, scene);
 
+  ownInstancedDepth(root);
+
   const closeUps = [];
   root.traverse((o) => { if (o.userData.closeUp) closeUps.push(o); });
 
@@ -101,7 +101,7 @@ export function createGrassland(scene) {
       for (const o of closeUps) o.visible = near;
 
       for (const t of trees) {
-        const d = Math.hypot(t.group.position.x - cameraPos.x, t.group.position.z - cameraPos.z);
+        const d = Math.sqrt((t.group.position.x - cameraPos.x) ** 2 + (t.group.position.z - cameraPos.z) ** 2);
         const o = clamp((d - 12) / 16, 0.08, 1);
         for (const m of t.mats) m.opacity = o;
       }

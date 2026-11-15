@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import { SKY_LOOK } from '../look.js';
 
-// A studio sky for reflections: cool zenith, warm horizon, ground bounce and
-// one soft box standing in for the sun. It is what lets enamel shine and brass
-// read as metal; SkyCycle scales its intensity through the day.
+// A studio sky for reflections; SkyCycle scales its intensity through the day.
 export function createEnvironment(renderer, scene) {
   const geo = new THREE.SphereGeometry(10, 48, 24);
   const pos = geo.attributes.position;

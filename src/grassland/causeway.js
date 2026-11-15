@@ -8,11 +8,7 @@ const dummy = new THREE.Object3D();
 const tint = new THREE.Color();
 const hsl = {};
 
-// A low timber causeway on piles: cross-planked deck with a worn running way,
-// kerbs strapped in iron, post-and-rail fences, stone abutments and thresholds
-// at each bank and brass lanterns at the corners and mid-span. `u` runs along
-// the crossing, `v` across the path; nothing taller than the kerb stands
-// inside vWidth.
+// u runs along the crossing, v across the path; nothing taller than the kerb stands inside vWidth.
 export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCenter, vWidth, shore, planks = 9 }) {
   const L = GRASSLAND_LOOK.causeway;
   const group = new THREE.Group();
@@ -112,8 +108,6 @@ export function buildCauseway(root, rand, glowMat, { axis, uCenter, uSpan, vCent
     }
   };
 
-  // stonework: a flagged threshold where the deck lands, wing walls stepping
-  // down each bank, and a plinth under every corner lantern
   const stone = () => jitterHSL(new THREE.Color(), local, GRASSLAND_LOOK.stonework);
   for (const end of [-1, 1]) {
     const uEnd = uCenter + end * (uSpan / 2);

@@ -1,4 +1,5 @@
 import { GRASSLAND, LEAGUE, leaguesToGo } from '../constants.js';
+import { MAP_LOOK } from '../look.js';
 
 const BEARINGS = ['east', 'north-east', 'north', 'north-west', 'west', 'south-west', 'south', 'south-east'];
 const BAR_LEAGUES = [8, 4, 2, 1, 0.5, 0.25, 0.125];
@@ -24,43 +25,42 @@ export function scaleBar(worldPerPixel) {
   return BAR_LEAGUES.length - 1;
 }
 
-const INK = '#3d2f28';
-const RUST = '#a2351f';
-const PAPER = '#f4e9d0';
+const { ink: INK, rust: RUST, paper: PAPER } = MAP_LOOK.cartouche;
+const ink = (share) => `color-mix(in srgb, ${INK} ${share}%, transparent)`;
 
 const CSS = `
 #chart-furniture { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.6s ease; color: ${INK}; }
 #chart-furniture.on { opacity: 1; }
 .chart-cartouche {
-  position: absolute; top: 20px; left: 22px; width: 232px; padding: 11px 15px 12px;
-  background: rgba(244, 233, 208, 0.94);
-  border: 1.5px solid rgba(61, 47, 40, 0.85);
-  outline: 1px solid rgba(61, 47, 40, 0.5); outline-offset: -5px;
+  position: absolute; top: max(20px, env(safe-area-inset-top, 0px)); left: max(22px, env(safe-area-inset-left, 0px)); width: 232px; padding: 11px 15px 12px;
+  background: color-mix(in srgb, ${PAPER} 94%, transparent);
+  border: 1.5px solid ${ink(85)};
+  outline: 1px solid ${ink(50)}; outline-offset: -5px;
   border-radius: 3px;
-  box-shadow: 2px 3px 0 rgba(61, 47, 40, 0.18);
+  box-shadow: 2px 3px 0 ${ink(18)};
 }
 .chart-title { font-style: italic; font-weight: 600; font-size: 21px; letter-spacing: 0.02em; line-height: 1.1; text-align: center; }
 .chart-sub { font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase; text-align: center; opacity: 0.7; margin-top: 3px; }
-.chart-rule { height: 5px; margin: 8px 6px 7px; border-top: 1px solid ${INK}; border-bottom: 1px solid rgba(61, 47, 40, 0.45); }
+.chart-rule { height: 5px; margin: 8px 6px 7px; border-top: 1px solid ${INK}; border-bottom: 1px solid ${ink(45)}; }
 .chart-goal { font-size: 13px; text-align: center; color: ${RUST}; font-weight: 600; letter-spacing: 0.01em; }
 .chart-key { display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 4px 8px; margin: 9px 2px 2px; font-size: 12px; font-style: italic; }
 .chart-key svg { width: 30px; height: 14px; display: block; }
 .chart-scale { display: flex; align-items: center; gap: 8px; margin: 10px 2px 0; font-size: 11px; letter-spacing: 0.06em; white-space: nowrap; }
 .chart-bar { height: 7px; border: 1px solid ${INK}; background: linear-gradient(90deg, ${INK} 0 25%, transparent 25% 50%, ${INK} 50% 75%, transparent 75%); }
 .chart-more { display: none; text-align: center; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.6; margin-top: 6px; }
-.chart-rose { position: absolute; left: 22px; bottom: 22px; width: 112px; height: 112px; }
+.chart-rose { position: absolute; left: max(22px, env(safe-area-inset-left, 0px)); bottom: max(22px, env(safe-area-inset-bottom, 0px)); width: 112px; height: 112px; }
 @media (pointer: coarse) {
-  .chart-cartouche { top: 14px; left: 12px; width: 190px; padding: 8px 9px 9px; }
+  .chart-cartouche { top: max(14px, env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); width: 190px; padding: 8px 9px 9px; }
   .chart-title { font-size: 17px; }
   .chart-sub { display: none; }
   .chart-rule { margin: 5px 4px 5px; }
   .chart-goal { font-size: 11.5px; white-space: nowrap; }
   .chart-key { font-size: 11px; margin-top: 6px; gap: 2px 7px; }
   .chart-scale { margin-top: 7px; }
-  .chart-rose { width: 76px; height: 76px; left: 12px; bottom: 112px; }
+  .chart-rose { width: 76px; height: 76px; left: max(12px, env(safe-area-inset-left, 0px)); bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (pointer: coarse) and (max-width: 600px) {
-  .chart-cartouche { top: 116px; width: 168px; }
+  .chart-cartouche { top: calc(116px + env(safe-area-inset-top, 0px)); width: 168px; }
   .chart-goal { font-size: 10.5px; }
 }
 @media (max-height: 520px), (pointer: coarse) and (max-width: 600px) {
@@ -71,7 +71,7 @@ const CSS = `
   #chart-furniture.open .chart-cartouche { width: 190px; }
 }
 @media (max-height: 520px) {
-  .chart-rose { bottom: 14px; }
+  .chart-rose { bottom: max(14px, env(safe-area-inset-bottom, 0px)); }
 }
 `;
 

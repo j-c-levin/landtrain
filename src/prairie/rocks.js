@@ -12,8 +12,7 @@ const _d = new THREE.Color();
 const BUTTE = [[0, 1], [0.2, 0.8], [0.4, 0.64], [0.45, 0.55], [0.93, 0.5], [1, 0.45]];
 export const TERRACE = [[0, 1], [0.34, 0.955], [0.4, 0.8], [0.8, 0.76], [0.86, 0.6], [1, 0.58]];
 
-// A stepped butte: talus skirt, ledge, fluted cliff, cap. Rows are painted
-// foot-to-cap; the strata material draws the fine banding.
+// Rows are painted foot-to-cap; the strata material draws the fine banding.
 export function butteGeometry(rand, radius, height, {
   radial = 20, profile = BUTTE, bands = PRAIRIE_LOOK.mesaBands, foot = PRAIRIE_LOOK.flock[3], cap = PRAIRIE_LOOK.mesaCap,
   stretch = 1, flute = 0.1,
@@ -251,7 +250,9 @@ export function ridge(rand, x1, z1, x2, z2, root, obstacles) {
   const parts = [];
   const at = (t, off) => [x1 + dx * t + uz * off, z1 + dz * t - ux * off];
 
-  const blocks = Math.round((len / 24) * (low ? 0.7 : 2));
+  // Every tier draws the full set, so the outcrops below (and their obstacles) land in the same place on all of them.
+  const blocks = Math.round((len / 24) * 2);
+  const keptBlocks = low ? Math.round((len / 24) * 0.7) : blocks;
   for (let i = 0; i < blocks; i++) {
     const t = 0.03 + local() * 0.94;
     const out = local();
@@ -261,10 +262,12 @@ export function ridge(rand, x1, z1, x2, z2, root, obstacles) {
     g.rotateY(local() * Math.PI);
     const [x, z] = at(t, off);
     g.translate(x, s * 0.14 + Math.max(0, 1 - Math.abs(off) / 30) * 5, z);
-    parts.push(g);
+    if (i < keptBlocks) parts.push(g);
+    else g.dispose();
   }
 
-  const shrubs = Math.round((len / 24) * (low ? 0.4 : 1.1));
+  const shrubs = Math.round((len / 24) * 1.1);
+  const keptShrubs = low ? Math.round((len / 24) * 0.4) : shrubs;
   for (let i = 0; i < shrubs; i++) {
     const t = 0.04 + local() * 0.92;
     const off = (local() > 0.5 ? 1 : -1) * (21 + local() * 15);
@@ -273,7 +276,8 @@ export function ridge(rand, x1, z1, x2, z2, root, obstacles) {
     g.rotateY(local() * Math.PI);
     const [x, z] = at(t, off);
     g.translate(x, s * 0.3 + Math.max(0, 1 - Math.abs(off) / 30) * 4, z);
-    parts.push(g);
+    if (i < keptShrubs) parts.push(g);
+    else g.dispose();
   }
 
   for (const t of [0.18 + local() * 0.12, 0.45 + local() * 0.15, 0.72 + local() * 0.08]) {

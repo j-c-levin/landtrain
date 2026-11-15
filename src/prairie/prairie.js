@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PRAIRIE, SPLIT_X, LANDMARK, ARRIVE_RADIUS, TRAIN_HALF, clamp } from '../constants.js';
-import { PRAIRIE_LOOK, prairieMaterials } from '../look.js';
+import { PRAIRIE_LOOK, prairieMaterials, ownInstancedDepth } from '../look.js';
 import { mulberry } from '../prng.js';
 import { disposeSubtree } from '../dispose.js';
 import { createGroundCover } from '../groundcover.js';
@@ -22,8 +22,7 @@ export function createPrairie(scene) {
   const root = new THREE.Group();
   scene.add(root);
 
-  // The western chunk (x < SPLIT_X) is unloaded by disposeBefore() once the
-  // train passes the mountains; the eastern chunk stays as a backtrack barrier.
+  // The western chunk is unloaded by disposeBefore(); the eastern chunk stays as a backtrack barrier.
   const chunkBefore = new THREE.Group();
   const chunkAfter = new THREE.Group();
   root.add(chunkBefore, chunkAfter);
@@ -34,10 +33,7 @@ export function createPrairie(scene) {
     { x: LANDMARK.x, z: LANDMARK.z, r: MESA_RADIUS * 0.94 },
   ]);
 
-  // --- ground ----------------------------------------------------------
-  // Sits a hair below y=0 and stops AT the seam (PRAIRIE.maxX): the grassland
-  // owns all ground east of it, and an overrunning opaque plane would hide the
-  // grassland's sunken river channels.
+  // Stops AT the seam: an overrunning opaque plane would hide the grassland's sunken river channels.
   const GROUND_Y = -0.05;
   const groundMargin = 1300;
   const groundDepth = PRAIRIE.maxZ - PRAIRIE.minZ + 2600;
@@ -62,7 +58,7 @@ export function createPrairie(scene) {
   apron.position.set(PRAIRIE.maxX + groundMargin / 2 - 1, -10, 0);
   chunkAfter.add(apron);
 
-  // --- ground cover: wraps around the camera, so it lives outside the chunks
+  // ground cover wraps around the camera, so it lives outside the chunks
   const cover = createGroundCover({
     look: PRAIRIE_LOOK, seed: 5150612, clipX: [PRAIRIE.minX - 400, PRAIRIE.maxX], mask: region,
     regions: {
@@ -73,7 +69,7 @@ export function createPrairie(scene) {
   });
   root.add(cover.group);
 
-  // --- copses (individual, so they can fade near the camera) -------------
+  // copses are individual so they can fade near the camera
   const trees = [];
   const plant = (tree) => {
     chunkFor(tree.group.position.x).add(tree.group);
@@ -95,7 +91,6 @@ export function createPrairie(scene) {
     plant(tree);
   }
 
-  // --- backscene mesas ---------------------------------------------------
   const mesaMat = prairieMaterials.hill();
   const mesaMatEast = prairieMaterials.hill();
   for (let i = 0; i < 30; i++) {
@@ -124,17 +119,16 @@ export function createPrairie(scene) {
   buildDunes(chunkFor);
   buildRanges(chunkAfter);
 
-  // --- obstacle layout: scattered rocks, then the two ridge walls ---------
   for (const [x, z, r] of ROCKS) bigRockCluster(rand, x, z, r, chunkBefore, obstacles);
 
-  // Ridge A blocks the south + centre (pass to the north),
-  // Ridge B then blocks the north + centre (pass back south): a gentle S.
+  // Ridge A blocks the south and centre, ridge B the north and centre: a gentle S.
   ridge(rand, 1900, -760, 1900, 130, chunkAfter, obstacles);
   ridge(rand, 2130, 760, 2130, -50, chunkAfter, obstacles);
 
   plantGroves(obstacles, plant);
 
   const landmark = buildLandmark(chunkAfter);
+  ownInstancedDepth(root);
 
   function dispose() {
     cover.dispose();
@@ -171,7 +165,7 @@ export function createPrairie(scene) {
       if (camera) cover.update(time, camera, trainPos, heading);
       landmark.userData.tick(time, cameraPos, lamps);
       for (const t of trees) {
-        const d = Math.hypot(t.group.position.x - cameraPos.x, t.group.position.z - cameraPos.z);
+        const d = Math.sqrt((t.group.position.x - cameraPos.x) ** 2 + (t.group.position.z - cameraPos.z) ** 2);
         const o = clamp((d - 14) / 16, 0, 1);
         t.group.visible = o > 0.02;
         for (const m of t.mats) m.opacity = o;

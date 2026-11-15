@@ -101,8 +101,7 @@ export function profiledBox(length, height, depth, chamfer, mat, x, y, z, parent
   return mesh;
 }
 
-// Roof sheets darken toward the eaves, vary sheet to sheet, and carry soot round a chimney [x, z, reach].
-// mat and nearMat must take vertex colours.
+// mat and nearMat must take vertex colours. soot: [x, z, reach] of a chimney.
 export function curvedRoof(length, width, rise, mat, nearMat, x, crest, parent, { coverCenter = true, soot = null, patina = false } = {}) {
   const shape = new THREE.Shape();
   const half = width / 2;

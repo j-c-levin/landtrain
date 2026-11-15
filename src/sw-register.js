@@ -1,22 +1,20 @@
-// Registers the built service worker (dist/sw.js) in production only, and
-// shows a persistent banner when a new version has finished installing and
-// is waiting to take over. Never runs under `npm run dev`.
+// Production only: never runs under `npm run dev`.
 export function registerServiceWorker() {
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
 
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then((registration) => {
+    if (!registration) return;
     registration.addEventListener('updatefound', () => {
       const installing = registration.installing;
       if (!installing) return;
       installing.addEventListener('statechange', () => {
-        // 'installed' with an existing controller means this is an update,
-        // not the very first install — the new worker is now waiting.
+        // 'installed' with an existing controller means an update is waiting, not a first install.
         if (installing.state === 'installed' && navigator.serviceWorker.controller) {
           showUpdateBanner(installing);
         }
       });
     });
-  });
+  }).catch(() => {});
 
   let reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {

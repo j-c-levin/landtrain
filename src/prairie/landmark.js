@@ -484,9 +484,7 @@ function flock(rand) {
   return birds;
 }
 
-// The Great Tree: the mother of the plain's thorn trees on her terraced mound,
-// lantern-hung, lived in, strung with pennants. Hazed lightly so she grows out
-// of the horizon as the train closes in.
+// Hazed lightly, so the tree grows out of the horizon as the train closes in.
 export function buildLandmark(root) {
   const tier = getLookTier();
   const detail = DETAIL[tier] || DETAIL.medium;

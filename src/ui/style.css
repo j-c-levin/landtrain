@@ -64,7 +64,8 @@ button {
   touch-action: manipulation;
 }
 
-button:focus-visible {
+button:focus-visible,
+input:focus-visible {
   outline: 2px solid var(--brass);
   outline-offset: 3px;
 }
@@ -693,22 +694,26 @@ body.book-mode #toast.visible ~ #reading-line {
   font-size: 13px;
   letter-spacing: 0.04em;
   opacity: 0;
+  visibility: hidden;
   transform: translateY(-6px);
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
 }
 
 #sound-panel.open {
   opacity: 1;
+  visibility: visible;
   transform: none;
   pointer-events: auto;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 #sound-volume {
   -webkit-appearance: none;
   appearance: none;
   width: 132px;
-  height: 28px;
+  height: 44px;
+  margin: -8px 0;
   background: transparent;
   cursor: pointer;
   touch-action: none;
@@ -745,6 +750,7 @@ body.book-mode #toast.visible ~ #reading-line {
 }
 
 #sound-music {
+  position: relative;
   min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
@@ -754,6 +760,12 @@ body.book-mode #toast.visible ~ #reading-line {
   border: 1px solid color-mix(in srgb, var(--cream) 28%, transparent);
   cursor: pointer;
   touch-action: manipulation;
+}
+
+#sound-music::after {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
 }
 
 #sound-music[aria-pressed='true'] {
@@ -903,6 +915,7 @@ body.touch #coach.walk .coach-right,
   background: radial-gradient(ellipse at 50% 45%, rgba(24, 15, 24, 0.34), rgba(24, 15, 24, 0.62));
   transition: opacity 0.7s ease;
   opacity: 1;
+  visibility: visible;
 }
 
 /* the ending stands beside its view rather than over it */
@@ -926,7 +939,9 @@ body.touch #coach.walk .coach-right,
 
 #card.hidden {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  transition: opacity 0.7s ease, visibility 0s linear 0.7s;
 }
 
 #card-inner {
@@ -1094,6 +1109,8 @@ body.touch #coach.walk .coach-right,
 
 .edge-marker {
   position: absolute;
+  left: clamp(34px + env(safe-area-inset-left, 0px), var(--x), 100% - 34px - env(safe-area-inset-right, 0px));
+  top: clamp(78px + var(--top), var(--y), 100% - 34px - env(safe-area-inset-bottom, 0px));
   width: 44px;
   height: 44px;
   margin: -22px 0 0 -22px;
@@ -1145,14 +1162,17 @@ body.touch #coach.walk .coach-right,
   font-size: 15px;
   text-align: left;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.45s ease, transform 0.45s ease;
+  transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s linear 0.45s;
 }
 
 #update-banner.visible {
   opacity: 1;
+  visibility: visible;
   transform: translateX(-50%) translateY(0);
   pointer-events: auto;
+  transition: opacity 0.45s ease, transform 0.45s ease;
 }
 
 #update-banner-refresh {

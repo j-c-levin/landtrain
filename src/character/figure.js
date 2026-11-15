@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TUNING, damp } from '../constants.js';
+import { TUNING, damp, clamp, lerp as mix } from '../constants.js';
 import { createFigureMaterials } from '../look.js';
 
 const K = [
@@ -117,8 +117,6 @@ function solveLeg(x, y) {
   leg.knee = inner - Math.PI;
   leg.hip = Math.atan2(x, -y) + Math.acos((THIGH * THIGH + d * d - SHIN * SHIN) / (2 * THIGH * d));
 }
-const mix = (a, b, t) => a + (b - a) * t;
-const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const HOLD = { sit: ['rise', 0.2], lie: ['recline', 0.42] };
 // 1 at the top of a reach, easing down through the grip, then a quick reach back up
 function climbStroke(q) {

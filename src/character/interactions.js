@@ -2,11 +2,7 @@ import { TUNING, CAB_FROM_X, clamp } from '../constants.js';
 import { STATIONS, REST_SPOTS } from '../train/stations.js';
 import { Affordances } from './affordances.js';
 
-// Stepping up into the cab swings the camera to the forward driving view on
-// its own — no button. Hysteresis keeps it from flapping at the threshold:
-// you cross ENTER walking in, and must fall back past the lower EXIT (just
-// outside the rear doorway, well ahead of the camera eye) to drop back to
-// the travelling cutaway.
+// Hysteresis: cross ENTER walking in, fall back past the lower EXIT to drop to the cutaway.
 const CABIN_ENTER_X = CAB_FROM_X + 0.9; // ~13.5: just inside the cab doorway
 const CABIN_EXIT_X = CAB_FROM_X - 0.6; // ~12.0: back out onto the rooftop walk
 
@@ -114,8 +110,6 @@ export class Interactions {
       return;
     }
 
-    // --- inhabit mode ---
-    // walking up into the cab swings the camera into the forward driving view
     if (player.level === 'roof' && !player.climbing && player.x >= CABIN_ENTER_X && rig.enterCabin()) {
       this.audio.chime('rise');
       return;

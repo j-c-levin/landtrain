@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { CAR_CENTERS, LEVELS, damp } from '../constants.js';
 import { STATIONS } from '../train/stations.js';
+import { TRAIN_LOOK } from '../look.js';
 
 const W = 0.4;
 const H = 0.6;
-const INK = '#4a3024';
+const { paper: PAPER, brass: BRASS, ink: INK } = TRAIN_LOOK.tag;
 const carOf = (x) => (x > 8.3 ? 0 : x < -8.3 ? 2 : 1);
 
 // [x, height of the tag's top above its storey, z]
@@ -111,12 +112,12 @@ function tagTexture(id) {
   c.quadraticCurveTo(8, 138, 8, 128);
   c.lineTo(8, 46);
   c.closePath();
-  c.fillStyle = '#f7ecd0';
+  c.fillStyle = PAPER;
   c.fill();
   c.lineWidth = 7;
-  c.strokeStyle = '#c98f2e';
+  c.strokeStyle = BRASS;
   c.stroke();
-  c.fillStyle = '#c98f2e';
+  c.fillStyle = BRASS;
   c.beginPath();
   c.arc(48, 40, 8, 0, 7);
   c.fill();
@@ -143,7 +144,7 @@ export class Affordances {
     const geometry = new THREE.PlaneGeometry(W, H).translate(0, -H / 2, 0);
     this.tags = STATIONS.map((station) => {
       const map = tagTexture(station.id);
-      const material = new THREE.MeshBasicMaterial({ map, color: map ? 0xffffff : 0xf7ecd0, alphaTest: 0.5, side: THREE.DoubleSide });
+      const material = new THREE.MeshBasicMaterial({ map, alphaTest: 0.5, side: THREE.DoubleSide });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.scale.setScalar(0.001);
       mesh.visible = false;

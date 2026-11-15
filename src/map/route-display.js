@@ -4,8 +4,7 @@ import { CHART, MAP_LOOK, mapMaterials } from '../look.js';
 import { TUNING } from '../constants.js';
 import { blockedAt } from '../collision.js';
 
-// MUST equal the y of the plane map clicks raycast against (map-view.js), or
-// the tilted map camera projects the markers off the cursor as parallax.
+// MUST equal the y of the plane map clicks raycast against (map-view.js), or the marks parallax off the cursor.
 export const ROUTE_Y = 0;
 
 const MAX_POINTS = 64;
@@ -175,8 +174,7 @@ const wob = (n) => {
   return s - Math.floor(s);
 };
 
-// Returns the overlay's fields; the owner (the train) holds them and passes
-// itself back to updateRouteDisplay.
+// The owner (the train) holds the returned fields and passes itself back to updateRouteDisplay.
 export function createRouteDisplay(scene) {
   const routeGroup = new THREE.Group();
   scene.add(routeGroup);
@@ -184,6 +182,7 @@ export function createRouteDisplay(scene) {
   const lineGeo = new THREE.BufferGeometry();
   const linePositions = new Float32Array(MAX_POINTS * 3);
   lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+  lineGeo.setAttribute('lineDistance', new THREE.BufferAttribute(new Float32Array(MAX_POINTS), 1));
   const routeLine = new THREE.Line(lineGeo, mapMaterials.routeLine());
   routeLine.renderOrder = 59;
   routeLine.frustumCulled = false;
@@ -460,7 +459,13 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
   }
   d.routeLine.geometry.setDrawRange(0, count);
   d.routeLine.geometry.attributes.position.needsUpdate = true;
-  d.routeLine.computeLineDistances();
+  const run = d.routeLine.geometry.attributes.lineDistance;
+  for (let i = 1; i < count; i++) {
+    const dx = d.linePositions[i * 3] - d.linePositions[i * 3 - 3];
+    const dz = d.linePositions[i * 3 + 2] - d.linePositions[i * 3 - 1];
+    run.array[i] = run.array[i - 1] + Math.sqrt(dx * dx + dz * dz);
+  }
+  run.needsUpdate = true;
   d.routeLine.material.opacity = 0.3 * mapBlend;
   d.routeCasing.geometry.setDrawRange(0, casingCount * 6);
   d.routeCasing.geometry.attributes.position.needsUpdate = true;

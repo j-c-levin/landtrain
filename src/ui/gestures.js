@@ -1,8 +1,6 @@
 const TAP_SLOP = 6;
 
-// One finger (or the mouse) drags; two fingers pinch. Pointers are tracked
-// per-id so a second finger can't double-feed the drag. A press that never
-// travelled past TAP_SLOP ends as a tap.
+// Pointers are tracked per id so a second finger cannot double-feed the drag.
 export function bindSceneGestures(canvas, { canStart, onDrag, onPinch, onTap }) {
   const pointers = new Map();
   let dragMoved = 0;

@@ -1,21 +1,17 @@
-// Shared spatial + tuning constants. Train-local space: +X is the nose
-// (cab end), +Z is the open "doll's house" side the camera looks through.
+// Train-local space: +X is the nose (cab end), +Z is the open side the camera looks through.
 
 export const CAR_LEN = 14;
-export const CAR_GAP = 2.6;
 export const CAR_CENTERS = [16.6, 0, -16.6]; // cab, engine, living
 export const TRAIN_HALF = 24.6; // walkable extent each way from centre
 
-// Feet heights for the three walkable storeys. The raised cab's floor IS
-// the roof storey — you walk the rooftop straight into it.
+// The raised cab's floor IS the roof storey.
 export const LEVELS = {
   under: 0.06,
   deck: 1.78,
   roof: 5.05,
 };
 
-// Ladder columns (train-local X) and which storeys each connects.
-// The front ladder stops at deck — the cab sits above it.
+// The front ladder stops at deck: the cab sits above it.
 export const LADDERS = [
   { x: -24.0, levels: ['under', 'deck', 'roof'] },
   { x: -8.3, levels: ['under', 'deck', 'roof'] },
@@ -45,8 +41,7 @@ export const GRASSLAND = {
   maxZ: 780,
 };
 
-// Full continuous world — the union of both regions. Fog, the overhead map,
-// the waypoint clamp, and the sky all key off WORLD and must cover everything.
+// Fog, the map, the waypoint clamp and the sky all key off WORLD, so it must cover both regions.
 export const WORLD = {
   minX: -250,
   maxX: 5650,
@@ -54,18 +49,14 @@ export const WORLD = {
   maxZ: 780,
 };
 
-// Chunk boundary, just WEST of the first mountain ridge (x≈1900). Everything
-// west of it is the unloadable western prairie.
+// Just west of the first ridge (x≈1900); everything west of it is unloaded.
 export const SPLIT_X = 1820;
 
-// The sky palette crossfades from prairie to grassland over this x-band
-// (starts at the prairie tree, completes shortly into the grassland).
+// The sky palette crossfades from prairie to grassland over this x-band.
 export const BIOME_FADE = { startX: 2450, endX: 3000 };
 
 export const LANDMARK = { x: 2450, z: 0 };
-// Generous on purpose: the train is ~50u long and routing pads obstacles, so a
-// tight radius forced you to all but clip the trunk. This counts as "arrived"
-// once the tree fills the view (a touch past the reveal cone's 150u reach).
+// Generous on purpose: routing pads obstacles, so a tight radius forced the train to clip the trunk.
 export const ARRIVE_RADIUS = 160;
 
 export const LEAGUE = 100;
@@ -82,9 +73,7 @@ export function leaguesToGo(dist, near = ARRIVE_RADIUS) {
 export const TUNING = {
   baseSpeed: 7.0, // u/s at perfect upkeep
   accel: 2.2,
-  // Heading change per unit DISTANCE, not per second: the trail can never
-  // bend tighter than R = 1/curvature ≈ 12.5u, so cars sweep real arcs and
-  // never whip around a kink recorded during a slow pivot.
+  // Heading change per unit DISTANCE, so the trail never bends tighter than R = 1/curvature ≈ 12.5u.
   curvature: 0.08,
   waypointRadius: 14,
   lookahead: 30, // bump detection distance ahead of the nose

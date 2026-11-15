@@ -9,7 +9,6 @@ export const smooth = (t) => {
 const geo = (a, b, t) => a * (b / a) ** t;
 export const midiHz = (m) => 440 * 2 ** ((m - 69) / 12);
 
-// ------------------------------------------------------------- settings
 export const STORAGE_KEY = 'landtrain.audio.v1';
 export const DEFAULT_SETTINGS = Object.freeze({ volume: 0.8, muted: false, music: true });
 export const MASTER_PEAK = 0.9;
@@ -33,7 +32,6 @@ export function masterLevel(settings) {
   return settings.muted ? 0 : MASTER_PEAK * clamp01(settings.volume) ** 1.7;
 }
 
-// ------------------------------------------------------------- listener
 // Where the ear is: how enclosed, how close to the boiler, how exposed.
 export function listen(s, out) {
   out.chart = clamp01(s.mapBlend || 0);
@@ -59,7 +57,6 @@ export function listen(s, out) {
   return out;
 }
 
-// ------------------------------------------------------------------ mix
 // Every continuous level and cutoff, from the world state and the listener.
 export function mixFor(s, L, out) {
   const v = clamp01(s.speed01);
@@ -101,10 +98,7 @@ export function mixFor(s, L, out) {
   return out;
 }
 
-// --------------------------------------------------------------- rhythm
-// Beats fall where `pos` crosses a multiple of `period`. Writes
-// [secondsFromNow, beatIndex, ...] for the beats inside the horizon that are
-// not yet scheduled and returns the index of the last beat accounted for.
+// Writes [secondsFromNow, beatIndex, ...] for unscheduled beats inside the horizon; returns the last beat accounted for.
 export function beatsDue(pos, rate, horizon, period, last, out) {
   out.length = 0;
   if (!(rate > 1e-4)) return Math.max(last, Math.floor(pos / period));
@@ -120,7 +114,6 @@ export const TREAD_PERIOD = 3.4;
 export const TREAD_PAIR = 0.62;
 export const CHUFF_ACCENTS = [1, 0.62, 0.8, 0.58];
 
-// --------------------------------------------------------------- events
 export function createTracker() {
   return {
     primed: false, moving: false, stillFor: 99, movedFor: 0, sinceWhistle: 99, sinceSigh: 99,
@@ -170,7 +163,6 @@ export function trackEvents(tr, s, dt, out) {
   return out;
 }
 
-// ---------------------------------------------------------------- fauna
 const note = (at, dur, f0, f1, level = 1) => ({ at, dur, f0, f1, level });
 
 export function faunaPhrase(rand, kind) {
@@ -231,7 +223,6 @@ export function pickBird(rand, biome) {
   return rand() < biome ? 'warbler' : 'lark';
 }
 
-// ---------------------------------------------------------------- music
 export const PENTA = [0, 2, 4, 7, 9];
 export const KEY_ROOT = { prairie: 50, grassland: 53 };
 export const scaleSemis = (index) => 12 * Math.floor(index / 5) + PENTA[((index % 5) + 5) % 5];
@@ -256,8 +247,7 @@ export function nextChord(rand, current, night = 0) {
   return options[0][0];
 }
 
-// A short wandering figure on the pentatonic, an octave or so above the pad,
-// that comes to rest on a chord tone.
+// A short pentatonic figure above the pad that comes to rest on a chord tone.
 export function pluckPhrase(rand, chord, night = 0) {
   const count = night > 0.5 ? 2 + Math.floor(rand() * 3) : 3 + Math.floor(rand() * 4);
   const gapLo = mix(0.42, 0.9, night);
@@ -288,8 +278,7 @@ export function pluckPhrase(rand, chord, night = 0) {
   return { notes, dur: t };
 }
 
-// Chimes as [seconds, scale index] in the octave above the key root, so every
-// interface sound lands inside whatever the bed is playing.
+// [seconds, scale index] in the octave above the key root, so every chime lands inside the bed.
 export const CHIMES = {
   soft: { notes: [[0, 5]], level: 0.07, decay: 0.7 },
   waypoint: { notes: [[0, 7]], level: 0.05, decay: 0.22 },

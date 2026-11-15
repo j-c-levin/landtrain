@@ -26,7 +26,6 @@ function paint(geo, fn) {
   return geo;
 }
 
-export const KNOLL_TOP = 15.6;
 const KNOLL_R = [0, 9, 20, 30, 39, 47, 54, 60, 66, 72];
 const KNOLL_Y = [15.8, 15.6, 14.9, 13.4, 11, 8, 5, 2.6, 0.9, -0.2];
 
@@ -86,9 +85,7 @@ const BLOSSOM = [
   [-44, 76, 4, 6], [24, 72, -40, 6], [-22, 74, 44, 6], [44, 76, 20, 5.5],
 ];
 
-// The silver tree: a turfed knoll, a pale flared trunk, a broad layered crown
-// trailing blossom strands and lanterns. fog:false throughout, so it stands on
-// the horizon long before the island comes into view.
+// fog:false throughout, so the tree stands on the horizon long before the island comes into view.
 export function buildGrassLandmark(root) {
   const S = GRASSLAND_LOOK.silverTree;
   const rand = mulberry(60616);

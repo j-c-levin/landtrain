@@ -1,8 +1,6 @@
 import { clamp } from './constants.js';
 
-// Distance from a point to a segment, plus the clamped parameter t (0..1) of
-// the closest point along (x1,z1)->(x2,z2). The t lets callers test bridge
-// gaps without recomputing the projection.
+// Returns the clamped parameter t of the closest point too, so callers can test bridge gaps.
 export function segDist(px, pz, x1, z1, x2, z2) {
   const dx = x2 - x1;
   const dz = z2 - z1;
@@ -37,8 +35,7 @@ export function blockedAt(obstacles, x, z, pad) {
     } else {
       const { dist, t } = segDist(x, z, o.x1, o.z1, o.x2, o.z2);
       if (dist < o.w + pad) {
-        // A `gaps: [{t0, t1}]` window marks a bridge — the closest point on
-        // the seg falling inside any gap means this seg does not block here.
+        // a gap window on the seg marks a bridge: no block there
         if (o.gaps && o.gaps.some((g) => t >= g.t0 && t <= g.t1)) continue;
         return true;
       }

@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 
-// Carved-plaster rock: a subdivided blob knocked about by a seeded lattice so
-// it catches raking light in facets, with a flattened cap and a buried base.
-// `paint(height01, upness)` returns a THREE.Color per vertex when given.
+// paint(height01, upness) returns a THREE.Color per vertex when given.
 export function crag(rand, radius, squash, paint = null) {
   const geo = new THREE.IcosahedronGeometry(radius, 1);
   const p = geo.attributes.position;

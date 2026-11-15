@@ -9,19 +9,7 @@ import { buildCauseway } from './causeway.js';
 import { dressBanks } from './banks.js';
 import { nightTame } from './fade.js';
 
-// Approximate a meandering river with a chain of `nSegs` straight collision
-// segs. Endpoints sample `centerXAt` at nSegs+1 evenly-spaced z values (shared
-// joints, so no pinholes; gentle bends mean seg width covers the kinks).
-//
-// A river carries GLOBAL bridge gaps `def.gaps: [{t0,t1}]` measured over the
-// full z-run (t=0 at zMin, t=1 at zMin+zSpan). Each seg only spans a slice of
-// that run, so we remap every global gap into the seg's own local t-space,
-// working in z: the global window [t0,t1] is the z-band
-// [zMin + t0*zSpan, zMin + t1*zSpan]; intersect it with the seg's z-range and
-// convert the overlap to that seg's local t fractions. (Because z varies
-// linearly along a seg, z↔local-t is exact along the seg; mapping the gap's
-// z-window is the intended approximation — the closest point's z on a gently
-// tilted seg is ~its query z.) Segs the window misses get no gaps.
+// Segs share joints, so no pinholes. Global bridge gaps (t over the full z-run) are remapped into each seg's local t by z.
 export function chainRiverSegs(def, zMin, zSpan, centerXAt, nSegs = 12) {
   const zNode = (k) => zMin + (k / nSegs) * zSpan;
   const segs = [];
@@ -42,8 +30,7 @@ export function chainRiverSegs(def, zMin, zSpan, centerXAt, nSegs = 12) {
   return segs;
 }
 
-// Bank columns as distances from the centre line; the outermost pair is pinned
-// to the straight edge of the flat ground panels.
+// Distances from the centre line; the outermost pair is pinned to the straight edge of the ground panels.
 const BED_D = [0, 9, RIVER_W, 21, 24, 26.5, RIVER_SHORE, 30.5, 32, FOOT];
 const WATER_D = [0, 12, 20, 24, 26.5, RIVER_SHORE, RIVER_SHORE + 1.4];
 const mirrored = (d) => [...d.slice(1).reverse().map((v) => -v), ...d];
