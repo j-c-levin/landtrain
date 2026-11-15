@@ -1,8 +1,16 @@
 import * as THREE from 'three';
 import { renderScale } from '../quality.js';
 
-export function createRenderer(canvas, policy) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: policy.antialias });
+let pixelRatioOverride = null;
+
+export function setPixelRatioOverride(value) {
+  pixelRatioOverride = value > 0 ? value : null;
+}
+
+const scaleFor = (policy, w, h) => pixelRatioOverride ?? renderScale(policy, window.devicePixelRatio, w, h);
+
+export function createRenderer(canvas, policy, antialias = policy.antialias) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias });
   renderer.shadowMap.enabled = true;
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.0;
@@ -21,7 +29,7 @@ export function applyRenderQuality(renderer, scene, policy) {
     }
   });
   const canvas = renderer.domElement;
-  renderer.setPixelRatio(renderScale(policy, window.devicePixelRatio, canvas.clientWidth, canvas.clientHeight));
+  renderer.setPixelRatio(scaleFor(policy, canvas.clientWidth, canvas.clientHeight));
 }
 
 // Reconciled every frame, not on 'resize': survives fullscreen, zoom and display changes.
@@ -29,7 +37,7 @@ export function syncRendererSize(renderer, canvas, policy) {
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   if (w === 0 || h === 0) return null;
-  const dpr = renderScale(policy, window.devicePixelRatio, w, h);
+  const dpr = scaleFor(policy, w, h);
   const bw = Math.floor(w * dpr);
   const bh = Math.floor(h * dpr);
   if (canvas.width === bw && canvas.height === bh) return null;

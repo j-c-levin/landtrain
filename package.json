@@ -10,7 +10,8 @@
     "capture": "node scripts/capture.mjs",
     "capture:compare": "node scripts/capture-compare.mjs",
     "capture:sheet": "node scripts/capture-sheet.mjs",
-    "soak": "node scripts/soak.mjs"
+    "soak": "node scripts/soak.mjs",
+    "bench": "node scripts/perf-bench.mjs"
   },
   "dependencies": {
     "three": "0.170.0"

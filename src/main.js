@@ -5,6 +5,7 @@ import { CHART, setChart, setLookTier, setPaintLight, setPlainGrade } from './lo
 import { setCoverViewport } from './groundcover.js';
 import { registerServiceWorker } from './sw-register.js';
 import { installDebugHandle, bindSecretWarp } from './debug.js';
+import { createPerf } from './perf.js';
 import { createRenderer, applyRenderQuality, syncRendererSize } from './atmosphere/renderer.js';
 import {
   createHaze, updateHaze, createSunLight, followShadowBox, createBounceLight, followBounceLight, applyChartLight,
@@ -33,7 +34,7 @@ const input = createInput();
 
 const canvas = document.getElementById('scene');
 const params = new URLSearchParams(location.search);
-const forcedQuality = params.get('quality');
+const forcedQuality = params.get('tier') ?? params.get('quality');
 let qualityTier = selectInitialQuality({
   forcedTier: forcedQuality,
   deviceMemory: navigator.deviceMemory,
@@ -47,7 +48,7 @@ let qualityPolicy = QUALITY_TIERS[qualityTier];
 let journey = null;
 const qualityMonitor = createQualityMonitor(qualityTier);
 setLookTier(qualityTier);
-const renderer = createRenderer(canvas, qualityPolicy);
+const renderer = createRenderer(canvas, qualityPolicy, qualityPolicy.antialias && params.get('aa') !== '0');
 
 const scene = new THREE.Scene();
 const camera = createCamera();
@@ -89,6 +90,12 @@ function applyQualityTier(tier) {
 applyQualityTier(qualityTier);
 
 journey = createJourney({ scene, world, train, fog, ui, audio });
+const perf = createPerf({
+  params,
+  handles: { renderer, scene, sunLight, bounceLight, sky, train, player, world, shroud: fog, journey },
+  tier: () => ({ tier: qualityTier, forced: !!QUALITY_TIERS[forcedQuality] }),
+});
+if (perf) window.__perf = perf;
 audio.attach({ train, player, rig, sky, tier: () => qualityTier });
 
 const state = {
@@ -128,13 +135,14 @@ let chartWarmedFor;
 
 function tick(frameTime) {
   animationFrame = requestAnimationFrame(tick);
+  perf?.begin();
   syncSize();
   if (previousFrameTime && !QUALITY_TIERS[forcedQuality]) {
     const nextTier = qualityMonitor.sample(frameTime - previousFrameTime);
     if (nextTier) applyQualityTier(nextTier);
   }
   previousFrameTime = frameTime;
-  const rawDt = Math.min(clock.getDelta(), 0.05);
+  const rawDt = perf?.fixedDt ?? Math.min(clock.getDelta(), 0.05);
   const dt = rawDt * timeScale;
   elapsed += dt;
   slowUpdateElapsed += rawDt;
@@ -223,6 +231,7 @@ function tick(frameTime) {
       chart.prewarm(scene, camera);
     }
   }
+  perf?.end(frameTime);
 }
 
 animationFrame = requestAnimationFrame(tick);

@@ -50,3 +50,26 @@ droop — they never die.
   travelled path (`src/map/fog-of-war.js`).
 - Append `?ts=4` to the URL to speed up time for tuning/testing.
 - `window.__game` exposes live state in the console.
+
+## Performance
+
+- `?perf=1` shows a corner panel: fps, frame ms (average and worst over the
+  last second), JS ms per frame, tier, device pixel ratio and the ratio
+  actually rendered, drawing-buffer size, draw calls and triangles (main +
+  shadow pass), shader programs and lights.
+- `?tier=low|medium|high` forces a quality tier and switches off the
+  adaptive downgrade (`?quality=` is the older spelling).
+- With `?perf=1`, three more switches narrow a problem down on the device
+  itself: `?pr=1.5` overrides the render pixel ratio, `?aa=0` drops MSAA,
+  and `?off=a,b` hides things. Names: `shadows`, `interiorShadows`,
+  `trainShadows`, `bounce`, `fill`, `points`, `hemi`, `env`, `interiors`,
+  `train`, `figure`, `cover`, `scenery`, `ground`, `water`, `smoke`, `sky`,
+  `shroud`, `transparent`, `overlays`, `tonemap`, `shading`.
+  Example: `?perf=1&tier=low&off=shadows,points`.
+- `npm run bench` renders six fixed scenes in headless Chrome on SwiftShader
+  (CPU rasteriser) at 390x844 @3x and reports median frame ms, calls,
+  triangles, lights and pixels: `npm run bench -- --tier low --compare
+  perf/baseline-low.json`. `--ablate` re-measures each scene with one thing
+  off at a time; `--diff a.json b.json` compares two saved runs. SwiftShader
+  shades vertices on the CPU, so it overstates geometry cost next to a
+  phone GPU: read the `fixed` and `ms/Mpx` columns separately.
