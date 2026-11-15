@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LEVELS, TRAIN_HALF, clamp, lerp, smootherstep, damp } from '../constants.js';
+import { LEVELS, TRAIN_HALF, WORLD, clamp, lerp, smootherstep, damp } from '../constants.js';
 
 const _pos = new THREE.Vector3();
 const _look = new THREE.Vector3();
@@ -39,10 +39,10 @@ const TALL = {
   inhabitUp: 2.5,
   inhabitLook: 1.0,
   lead: 0.9,
-  cabinX: 6.5,
-  cabinSide: 7.5,
-  cabinUp: 2.7,
-  cabinAhead: -3,
+  cabinX: 3.0,
+  cabinSide: 10.5,
+  cabinUp: 1.9,
+  cabinAhead: -5.0,
   cabinLookUp: 1.7,
   bookYaw: 0.34,
   bookPhi: 0.44,
@@ -192,7 +192,20 @@ export class CameraRig {
     }
   }
 
+  // the chart may slide until a sliver of desk shows, never until the desk fills the view
+  #clampPan() {
+    const halfZ = this.mapHeight * this.mapScale * Math.tan((FOV * Math.PI) / 360) * 0.72;
+    const halfX = halfZ * this.aspect;
+    const loX = Math.min(WORLD.minX + halfX, this.mapCenter.x);
+    const hiX = Math.max(WORLD.maxX - halfX, this.mapCenter.x);
+    const loZ = Math.min(WORLD.minZ + halfZ, this.mapCenter.y);
+    const hiZ = Math.max(WORLD.maxZ - halfZ, this.mapCenter.y);
+    this.pan.x = clamp(this.mapCenter.x + this.pan.x, loX, hiX) - this.mapCenter.x;
+    this.pan.y = clamp(this.mapCenter.y + this.pan.y, loZ, hiZ) - this.mapCenter.y;
+  }
+
   #computeMap() {
+    this.#clampPan();
     const cx = this.mapCenter.x + this.pan.x;
     const cz = this.mapCenter.y + this.pan.y;
     const h = this.mapHeight * this.mapScale;

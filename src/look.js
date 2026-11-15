@@ -452,6 +452,8 @@ export const SKY_LOOK = {
   moonSea: 0xaab2cc,
   // height of the moonlight's direction (shorter shadows) and how much of that shadow survives
   moonKeyHeight: 1.0,
+  // extra moonlight and skylight at night on tiers without the finishing pass
+  plainNightLift: 0.7,
   moonShadow: 0.3,
   // how much wider the shadow penumbra gets under a low sun or the moon
   lowSunSoften: 1.0,
@@ -507,9 +509,9 @@ export const GRADE_LOOK = {
   contrast: 0.14,
   shadowTint: [0.035, 0.11, 0.04],
   // the same tint where there is no finishing pass, laid into the ground shaders
-  plainShadow: [0.035, 0.085, 0.042],
+  plainShadow: [0.035, 0.085, 0.085],
   // night edge darkening where there is no finishing pass, as a page overlay
-  plainNightfall: 0.64,
+  plainNightfall: 0.42,
   shadowDay: 0x3050c0,
   shadowNight: 0x3040d0,
   shadowDusk: 0x5a3ce0,
@@ -566,7 +568,7 @@ export const floraMaterials = {
   flower: () => std({ roughness: 0.8 }),
   fadingTrunk: (color) => std({ color, roughness: 0.9, transparent: true }),
   // leaf geometry must carry a colour attribute (drybrushed crown shading)
-  fadingLeaf: () => std({ roughness: 1, flatShading: true, transparent: true, vertexColors: true }),
+  fadingLeaf: () => chartWash(std({ roughness: 1, flatShading: true, transparent: true, vertexColors: true })),
   // ground-cover instances: vertex colour carries the root-to-tip gradient
   cover: (params = {}) => std({ roughness: 1, vertexColors: true, ...params }),
   meadowPatch: (color, opacity) =>
@@ -594,6 +596,35 @@ function backdrop(mat, haze = 0.5, rise = 0) {
     );
   };
   mat.customProgramCacheKey = () => `backdrop-${haze}-${rise}`;
+  return mat;
+}
+
+// On the chart a crown is one flat wash for the pen to outline, not a lit model.
+function chartWash(mat) {
+  const inner = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    inner?.call(mat, shader, renderer);
+    Object.assign(shader.uniforms, CHART);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uChart;
+        uniform float uChartNight;
+        uniform float uChartDusk;
+        uniform vec3 uChartPaper;
+        uniform vec3 uChartPaperNight;
+        uniform vec3 uChartIndigo;`)
+      .replace('#include <opaque_fragment>', `{
+          float cTone = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+          vec3 cWash = mix(vec3(cTone), diffuseColor.rgb, 0.85);
+          cWash = mix(cWash, uChartPaper * (0.42 + 0.7 * cTone), 0.3);
+          cWash *= mix(vec3(1.0), vec3(1.0, 0.86, 0.68), uChartDusk);
+          cWash = mix(cWash, mix(cWash * uChartPaperNight * 0.84, uChartIndigo * (0.5 + 0.95 * cTone), 0.4), uChartNight);
+          outgoingLight = mix(outgoingLight, cWash, uChart);
+        }
+        #include <opaque_fragment>`);
+  };
+  const key = mat.customProgramCacheKey;
+  mat.customProgramCacheKey = () => `${key ? key.call(mat) : ''}chart-wash`;
   return mat;
 }
 
@@ -701,7 +732,7 @@ export const prairieMaterials = {
       },
       swell: region ? 0.15 : 0,
     }),
-  hill: () => strata(backdrop(std({ color: 0xffffff, roughness: 1, flatShading: true, vertexColors: true }), 0.5, 50), 0.12),
+  hill: () => strata(backdrop(std({ color: 0xffffff, roughness: 1, flatShading: true, vertexColors: true }), 0.4, 50), 0.12),
   dune: () => backdrop(std({ color: 0xffffff, roughness: 1, vertexColors: true }), 0.8),
   range: (amount, pitch) =>
     strata(backdrop(std({ color: 0xffffff, roughness: 1, vertexColors: true, flatShading: true, side: THREE.DoubleSide }), amount), pitch, 0.2),
@@ -713,10 +744,10 @@ export const prairieMaterials = {
   mesa: () => strata(backdrop(std({ color: 0xffffff, roughness: 0.95, flatShading: true, vertexColors: true }), TREE_HAZE, TREE_RISE), 0.36, 0.34),
   trunk: () => backdrop(std({ color: 0xffffff, roughness: 0.9, vertexColors: true }), TREE_HAZE, TREE_RISE),
   leaf: () =>
-    backdrop(std({
+    chartWash(backdrop(std({
       color: 0xffffff, roughness: 0.85, vertexColors: true,
       emissive: PRAIRIE_LOOK.greatTree.leafGlow, emissiveIntensity: 0.3, flatShading: true,
-    }), TREE_HAZE, TREE_RISE),
+    }), TREE_HAZE, TREE_RISE)),
   dressing: () => backdrop(std({ color: 0xffffff, roughness: 0.9, vertexColors: true, flatShading: true, side: THREE.DoubleSide }), TREE_HAZE, TREE_RISE),
   lantern: () =>
     backdrop(std({
@@ -735,38 +766,38 @@ export const prairieMaterials = {
 // -------------------------------------------------------------- grassland
 
 export const GRASSLAND_LOOK = {
-  ground: 0x7ca24a,
+  ground: 0x809b51,
   // spring flock, light meadow flock, deep moss, clover-dark
-  flock: [0x7fa648, 0x9cbd5c, 0x5f8a3e, 0x6d9a52],
+  flock: [0x839e50, 0x9fb564, 0x648444, 0x739458],
   shoreMud: 0x6a5a3c,
   shoreSand: 0xcdbb8a,
-  tuft: { h: [0.24, 0.07], s: [0.5, 0.18], l: [0.4, 0.14] },
-  tussock: { h: [0.23, 0.07], s: [0.44, 0.16], l: [0.36, 0.12] },
-  bush: { h: [0.27, 0.07], s: [0.38, 0.16], l: [0.23, 0.08] },
+  tuft: { h: [0.24, 0.07], s: [0.43, 0.18], l: [0.4, 0.14] },
+  tussock: { h: [0.23, 0.07], s: [0.38, 0.16], l: [0.36, 0.12] },
+  bush: { h: [0.27, 0.07], s: [0.33, 0.16], l: [0.23, 0.08] },
   stone: { h: [0.14, 0.08], s: [0.1, 0.08], l: [0.42, 0.14] },
-  hummock: { h: [0.28, 0.05], s: [0.4, 0.15], l: [0.32, 0.1] },
+  hummock: { h: [0.28, 0.05], s: [0.34, 0.15], l: [0.32, 0.1] },
   flower: { hues: [0.0, 0.13, 0.78, 0.92], s: 0.9, l: [0.68, 0.12] },
-  water: 0x2f7f93,
-  waterDeep: 0x1c5a72,
-  waterShallow: 0x7cc4b0,
+  water: 0x377a8b,
+  waterDeep: 0x23576b,
+  waterShallow: 0x82bead,
   waterFoam: 0xf6f2e2,
   waterGlint: 0xd4f0ee,
   waterMoatGlint: 0xdce8ff,
-  waterBank: 0x3d6b48,
+  waterBank: 0x416747,
   waterChart: 0x6f97a6,
-  reed: { h: [0.22, 0.07, 'mid'], s: [0.46, 0.18, 'mid'], l: [0.4, 0.14, 'mid'] },
+  reed: { h: [0.22, 0.07, 'mid'], s: [0.40, 0.18, 'mid'], l: [0.4, 0.14, 'mid'] },
   bankStone: { h: [0.12, 0.08, 'mid'], s: [0.08, 0.08, 'mid'], l: [0.6, 0.22, 'mid'] },
   bankFlower: [0xffd84a, 0xfff2c8, 0xb48cf0, 0xff9fb8],
   islandFlower: [0xdfeaff, 0xb9cdfa, 0xf4f6ff, 0xc9b8f4],
   lilyBloom: [0xfff6f0, 0xffc4d6],
-  cattailStalk: { h: [0.26, 0.06, 'mid'], s: [0.45, 0.2, 'mid'], l: [0.35, 0.16, 'mid'] },
+  cattailStalk: { h: [0.26, 0.06, 'mid'], s: [0.39, 0.2, 'mid'], l: [0.35, 0.16, 'mid'] },
   cattailHead: 0x8a6a42,
-  lilyPad: { h: [0.3, 0.08, 'mid'], s: [0.5, 0.2, 'mid'], l: [0.36, 0.14, 'mid'] },
+  lilyPad: { h: [0.3, 0.08, 'mid'], s: [0.43, 0.2, 'mid'], l: [0.36, 0.14, 'mid'] },
   willowTrunk: 0x5e4830,
-  willowLeaf: { h: [0.25, 0.06], s: [0.42, 0.16], l: [0.36, 0.1] },
-  hill: 0x7aa052,
-  hillBands: [0x7aa052, 0x8fb463, 0x5f8a44, 0x9cbf70],
-  moss: 0x6f9a48,
+  willowLeaf: { h: [0.25, 0.06], s: [0.36, 0.16], l: [0.36, 0.1] },
+  hill: 0x7f9a58,
+  hillBands: [0x7f9a58, 0x93ae69, 0x65844a, 0xa0b976],
+  moss: 0x74934f,
   boulder: 0x8a8f78,
   boulderDark: 0x6c735c,
   causeway: {
@@ -788,8 +819,8 @@ export const GRASSLAND_LOOK = {
   pathEarth: 0x9a8258,
   lanternMoss: 0x7d9a5c,
   silverTree: {
-    knoll: 0x6a9a4e,
-    knollFoot: 0x5a8442,
+    knoll: 0x709454,
+    knollFoot: 0x5f7f47,
     trunk: 0x6a5340,
     leaf: 0xdde2f0,
     leafGlow: 0x9fb6d8,
@@ -949,7 +980,9 @@ export const TRAIN_LOOK = {
   contact: ['rgba(34,24,18,0.62)', 'rgba(34,24,18,0)'],
   lampHalo: ['rgba(255,214,150,0.75)', 'rgba(255,190,110,0)', 'rgba(255,200,124,0.1)'],
   windowGlow: ['rgba(255,176,96,0.5)', 'rgba(255,150,70,0)'],
-  plainReach: 1.8,
+  plainReach: 2.4,
+  // roof sheet has weathered past a mirror shine: [roughness, metalness]
+  weatheredMetal: [0.55, 0.6],
 };
 
 export function createTrainMaterials() {
@@ -1061,7 +1094,7 @@ trainFx.windowGlow = () =>
 // every cool light swapped for cobalt so the lamps are the only warm thing.
 // Each list is [day, dusk, night].
 export const PAINT_LOOK = {
-  fill: [0x6c64b0, 0xc4825c, 0xa06642],
+  fill: [0x6c64b0, 0xc4825c, 0x93705a],
   fillGain: [0.78, 1.35, 0.7],
   lift: [0.9, 0.8, 0.7],
   ambient: [0.5, 0.4, 0.4],
@@ -1073,6 +1106,8 @@ export const PAINT_LOOK = {
   rim: [0.05, 0.1, 0.16],
   saturation: 1.06,
   figureGlow: [0.03, 0.08, 0.2],
+  // the brightest a lit painted surface may get: [day, dusk, night]
+  cap: [1.5, 1.0, 0.92],
 };
 
 const paintFills = PAINT_LOOK.fill.map((hex, i) => new THREE.Color(hex).multiplyScalar(PAINT_LOOK.fillGain[i]));
@@ -1113,7 +1148,7 @@ export function setPaintLight(night, dusk) {
   const L = PAINT_LOOK;
   PAINT.uPaintTint.value.copy(paintTints[0]).lerp(paintTints[1], dusk).lerp(paintTints[2], night);
   PAINT.uPaintLift.value.set(tween(L.lift, dusk, night), L.saturation, tween(L.ambient, dusk, night), tween(L.warm, dusk, night));
-  PAINT.uPaintMood.value.set(tween(L.mood, dusk, night), tween(L.band, dusk, night), tween(L.rim, dusk, night), 0);
+  PAINT.uPaintMood.value.set(tween(L.mood, dusk, night), tween(L.band, dusk, night), tween(L.rim, dusk, night), tween(L.cap, dusk, night));
   const glow = tween(L.figureGlow, dusk, night);
   for (let i = 0; i < figurePaints.length; i++) figurePaints[i].emissiveIntensity = glow;
 }
@@ -1148,7 +1183,11 @@ export const MAP_LOOK = {
   beyond: 0x6a5a4c,
   desk: 0x5a4636,
   lampRadius: 115,
-  beaconGlow: [1.0, 0.72, 0.3],
+  // plan washes for the cab, engine and living cars, and the raised roof down each
+  carWash: [0xc77a4c, 0x8c958c, 0x5f9e96],
+  carShade: [0xd89464, 0x737d76, 0x79b3a9],
+  brass: 0xd6a548,
+  deskGrain: 0x3e2d22,
 };
 
 function letteringTexture() {
@@ -1182,7 +1221,7 @@ function letteringTexture() {
   return tex;
 }
 
-// Destination mark: a ringed bullseye in a soft glow, drawn without a canvas.
+// Destination mark: a ringed bullseye, drawn without a canvas.
 function beaconTexture() {
   const S = 96;
   const data = new Uint8Array(S * S * 4);
@@ -1193,23 +1232,22 @@ function beaconTexture() {
   const ink = new THREE.Color(MAP_LOOK.markInk).convertLinearToSRGB();
   const red = new THREE.Color(MAP_LOOK.route).convertLinearToSRGB();
   const cream = new THREE.Color(MAP_LOOK.casing).convertLinearToSRGB();
-  const glow = MAP_LOOK.beaconGlow;
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       const r = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2) / (S / 2);
-      const disc = 1 - ss(0.5, 0.53, r);
-      const rim = ss(0.42, 0.44, r) * disc;
-      const ring = ss(0.24, 0.26, r) * (1 - ss(0.33, 0.35, r));
-      const dot = 1 - ss(0.1, 0.12, r);
+      const disc = 1 - ss(0.94, 1, r);
+      const rim = ss(0.78, 0.82, r) * disc;
+      const ring = ss(0.44, 0.48, r) * (1 - ss(0.62, 0.66, r));
+      const dot = 1 - ss(0.18, 0.22, r);
       const mark = Math.max(ring, dot);
       const o = (y * S + x) * 4;
       for (let c = 0; c < 3; c++) {
         const k = 'rgb'[c];
         let v = cream[k] + (ink[k] - cream[k]) * rim;
         v += (red[k] - v) * mark;
-        data[o + c] = Math.round(255 * (glow[c] + (v - glow[c]) * disc));
+        data[o + c] = Math.round(255 * v);
       }
-      data[o + 3] = Math.round(255 * Math.max(disc, 0.6 * (1 - ss(0.5, 1, r)) ** 2));
+      data[o + 3] = Math.round(255 * (1 - ss(0.94, 1, r)));
     }
   }
   const tex = new THREE.DataTexture(data, S, S, THREE.RGBAFormat);
@@ -1251,6 +1289,7 @@ export const mapMaterials = {
         uLamp: CHART.uChartLamp,
         uDusk: CHART.uChartDusk,
         uDesk: { value: new THREE.Color(MAP_LOOK.desk) },
+        uDeskGrain: { value: new THREE.Color(MAP_LOOK.deskGrain) },
         uKeep: { value: new THREE.Vector4(-1, -1, -1, -1) },
       },
     }),

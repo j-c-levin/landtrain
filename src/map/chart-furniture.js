@@ -1,6 +1,4 @@
-import { GRASSLAND, ARRIVE_RADIUS } from '../constants.js';
-
-export const LEAGUE = 100;
+import { GRASSLAND, LEAGUE, leaguesToGo } from '../constants.js';
 
 const BEARINGS = ['east', 'north-east', 'north', 'north-west', 'west', 'south-west', 'south', 'south-east'];
 const BAR_LEAGUES = [8, 4, 2, 1, 0.5, 0.25, 0.125];
@@ -14,10 +12,8 @@ export function bearingName(dx, dz) {
 }
 
 export function goalLine(dx, dz, name = 'Great Tree') {
-  const dist = Math.hypot(dx, dz);
-  if (dist < ARRIVE_RADIUS) return `at the ${name}`;
-  const leagues = Math.round(dist / LEAGUE);
-  return `${name} · ${leagues} league${leagues === 1 ? '' : 's'} ${bearingName(dx, dz)}`;
+  const togo = leaguesToGo(Math.hypot(dx, dz));
+  return togo ? `${name} · ${togo} ${bearingName(dx, dz)}` : `at the ${name}`;
 }
 
 // Index into BAR_LEAGUES of the longest bar that fits.
@@ -61,7 +57,7 @@ const CSS = `
   .chart-goal { font-size: 11.5px; white-space: nowrap; }
   .chart-key { font-size: 11px; margin-top: 6px; gap: 2px 7px; }
   .chart-scale { margin-top: 7px; }
-  .chart-rose { width: 76px; height: 76px; left: 12px; bottom: 92px; }
+  .chart-rose { width: 76px; height: 76px; left: 12px; bottom: 112px; }
 }
 @media (pointer: coarse) and (max-width: 600px) {
   .chart-cartouche { top: 116px; width: 168px; }
@@ -189,8 +185,7 @@ export function createChartFurniture() {
       }
       const dx = goal.x - pos.x;
       const dz = goal.z - pos.z;
-      const dist = Math.hypot(dx, dz);
-      const key = Math.round(dist / LEAGUE) * 8 + Math.round(Math.atan2(-dz, dx) / (Math.PI / 4)) + (dist < ARRIVE_RADIUS ? 1e4 : 0);
+      const key = Math.round(Math.hypot(dx, dz) / (LEAGUE / 10)) * 8 + Math.round(Math.atan2(-dz, dx) / (Math.PI / 4));
       if (key !== goalKey) {
         goalKey = key;
         goalEl.textContent = goalLine(dx, dz, goalName);

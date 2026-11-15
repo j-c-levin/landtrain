@@ -1,4 +1,5 @@
 import { createGrassland } from '../grassland/grassland.js';
+import { LEAGUE, leaguesToGo } from '../constants.js';
 
 // The progression: 'prairie' (driving to the first tree) → 'streaming' (the
 // grassland builds behind the arrival card) → 'grassland' → 'done'. Each goal
@@ -24,11 +25,10 @@ export function createJourney({ scene, world, train, fog, ui, audio }) {
     );
   }
 
-  const LEAGUE = 400;
   let legStart = 0;
   let legGoal = null;
   let hudTick = 0;
-  let shownTenths = -1;
+  let shownKey = -1;
   let shownName = '';
   let distText = '';
 
@@ -43,11 +43,11 @@ export function createJourney({ scene, world, train, fog, ui, audio }) {
     const near = world.arriveRadius;
     const name = stage === 'grassland' || stage === 'done' ? 'the Silver Tree' : 'the Great Tree';
     const there = d < near || stage === 'done' || stage === 'streaming';
-    const tenths = there ? 0 : Math.max(1, Math.round(((d - near) / LEAGUE) * 10));
-    if (tenths !== shownTenths || name !== shownName) {
-      shownTenths = tenths;
+    const key = there ? 0 : Math.round(d / (LEAGUE / 10)) + 1;
+    if (key !== shownKey || name !== shownName) {
+      shownKey = key;
       shownName = name;
-      distText = there ? `at ${name}` : `${(tenths / 10).toFixed(1)} leagues to ${name}`;
+      distText = there ? `at ${name}` : `${leaguesToGo(d, near)} to ${name}`;
     }
     const status = train.blocked
       ? 'the way is blocked'

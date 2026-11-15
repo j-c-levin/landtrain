@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { LANDMARK } from '../constants.js';
-import { PRAIRIE_LOOK, prairieMaterials, jitterHSL, getLookTier } from '../look.js';
+import { CHART, PRAIRIE_LOOK, prairieMaterials, jitterHSL, getLookTier } from '../look.js';
 import { mulberry } from '../prng.js';
 import { terraceGeometry, TERRACE } from './rocks.js';
 
@@ -255,6 +255,7 @@ function westFace(mesa) {
 function dressing(rand, mesa, ring, detail, lights) {
   const look = PRAIRIE_LOOK.greatTree;
   const parts = [];
+  const flags = [];
 
   // a stair cut up the west face, each tread set on the terrace's own profile
   const face = westFace(mesa);
@@ -359,9 +360,9 @@ function dressing(rand, mesa, ring, detail, lights) {
         look.pennants[(k + i) % look.pennants.length],
       ]);
     }
-    parts.push(triangles(tris));
+    flags.push(triangles(tris));
   }
-  return merged(parts);
+  return { fixed: merged(parts), flags: merged(flags) };
 }
 
 function lanterns(rand, curves, detail, lights) {
@@ -524,8 +525,11 @@ export function buildLandmark(root) {
   const hung = lanterns(rand, wood.curves, detail, lights);
   const lit = windows(lights);
   near.add(new THREE.Mesh(hung.bodies, lanternMat), new THREE.Mesh(lit.panes, lanternMat));
-  const trim = merged([dressing(rand, mesaGeo, ring, detail, lights), hung.fittings, lit.frames]);
+  const dressed = dressing(rand, mesaGeo, ring, detail, lights);
+  const trim = merged([dressed.fixed, hung.fittings, lit.frames]);
   near.add(new THREE.Mesh(trim, dressMat));
+  const bunting = new THREE.Mesh(dressed.flags, dressMat);
+  near.add(bunting);
   near.add(new THREE.Mesh(turf(rand, detail.shrubs, ring), leafMat));
 
   const farRand = mulberry(82);
@@ -556,7 +560,9 @@ export function buildLandmark(root) {
     lanternMat.emissiveIntensity = 1.5 + 1.6 * glowing;
     // a beacon from afar, a faint bloom up close
     const away = Math.hypot(eye.x - LANDMARK.x, eye.z - LANDMARK.z);
-    halo.material.opacity = (0.3 + 0.4 * glowing) * Math.min(1, Math.max(0.2, (away - 180) / 700));
+    halo.material.opacity = (0.3 + 0.4 * glowing) * Math.min(1, Math.max(0.2, (away - 180) / 700)) * (1 - CHART.uChart.value);
+    // strung lines are not a thing a chart shows, and the pen would ink them as spokes
+    bunting.visible = CHART.uChart.value < 0.5;
   };
   group.userData.tick(0, { x: 0, z: 0 });
 

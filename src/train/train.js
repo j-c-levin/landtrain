@@ -150,6 +150,7 @@ export class Train {
     if (!mat) {
       mat = source.clone();
       mat.vertexColors = true;
+      if (mat.metalness > 0.5) [mat.roughness, mat.metalness] = TRAIN_LOOK.weatheredMetal;
       this.weatheredMats.set(source, mat);
       this.materials[`weathered${this.weatheredMats.size}`] = mat;
     }

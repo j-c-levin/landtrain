@@ -121,13 +121,18 @@ export const DOME_FRAG = /* glsl */ `
       if (band > 0.0) {
         vec2 cuv = cloudUv(d, e);
         vec3 c = texture2D(uCloud, cuv).rgb;
-        float body = smoothstep(0.35, 0.65, c.r);
+        float body = mix(smoothstep(0.35, 0.65, c.r), smoothstep(0.2, 0.85, c.r) * 0.72, uNight);
         float l = c.g / max(c.r, 0.02);
         float tone = 0.5 * smoothstep(0.27, 0.32, l) + 0.5 * smoothstep(0.66, 0.71, l);
         vec3 lit = uCloudLit + uGlow * uGlowI * 0.4 * pow(toward, 2.0);
         vec3 cc = mix(uCloudShade, lit, tone);
         cc += uSunCol * uSunVis * 0.2 * pow(sdp, 24.0) + uMoonCol * moonLight * (0.05 + 0.16 * tone);
-        cc = mix(cc, mix(air * 1.3 + 0.006, uCloudRim, smoothstep(0.88, 0.92, l) * 0.4), uNight);
+        // by night a cloud is a soft veil: moonlit on top, thinning to nothing across the moon's face
+        vec3 veil = mix(air * 1.12 + 0.004, air * 1.45 + uCloudRim * 0.06, tone);
+        veil = mix(veil, uCloudRim, smoothstep(0.84, 0.94, l) * 0.3);
+        veil += uMoonCol * moonLight * (0.08 + 0.26 * tone);
+        cc = mix(cc, veil, uNight);
+        body *= 1.0 - 0.85 * min(1.0, moonLight * 1.6) * uNight;
         float far = 1.0 - smoothstep(4.0, 14.0, e);
         cc = mix(cc, air, far * 0.4);
         col = mix(col, cc, body * band * uCloudOp);

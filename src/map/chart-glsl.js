@@ -59,6 +59,7 @@ export const SHEET_FRAG = /* glsl */ `
   uniform vec3 uLamp;
   uniform float uDusk;
   uniform vec3 uDesk;
+  uniform vec3 uDeskGrain;
   uniform vec4 uKeep;
   varying vec2 vWorld;
   ${SHEET_GLSL}
@@ -147,7 +148,16 @@ export const SHEET_FRAG = /* glsl */ `
     col = mix(col, uInk, max(neat, bar) * 0.85 * step(11.0, b));
     // past the rule the sheet ends and the desk begins
     float off = 1.0 - smoothstep(9.5, 10.5, b);
-    col = mix(col, uDesk * (0.9 + 0.2 * fibre) * (1.0 - 0.35 * smoothstep(-14.0, 10.0, b)), off);
+    // a boarded tabletop: long grain, a seam between boards, the sheet's shadow lying on it
+    vec2 bw = vec2(vWorld.x, vWorld.y + 26.0);
+    float board = floor(bw.y / 64.0);
+    float grain = inkNoise(vec2(bw.x * 0.012 + board * 7.3, bw.y * 0.55)) * 0.6 + inkNoise(vec2(bw.x * 0.05, bw.y * 1.9 + board * 3.1)) * 0.4;
+    float figure = inkNoise(vec2(bw.x * 0.004 + board * 2.7, bw.y * 0.09));
+    vec3 desk = mix(uDeskGrain, uDesk, smoothstep(0.2, 0.75, grain * 0.7 + figure * 0.45)) * (0.9 + 0.22 * inkHash(vec2(board, 3.0)));
+    desk *= 1.0 - 0.5 * stroke(abs(fract(bw.y / 64.0) - 0.5) * 64.0 - 31.2, px, 0.5);
+    vec2 lie = min(vWorld - vec2(7.0, 9.0) - uRect.xy, uRect.xy + 1.0 / uRect.zw - vWorld + vec2(7.0, 9.0));
+    desk *= 1.0 - 0.6 * smoothstep(-22.0, 12.0, min(lie.x, lie.y));
+    col = mix(col, desk, off);
     col = mix(col, vec3(1.0, 0.98, 0.92), stroke(abs(b - 10.8), px, 0.6) * 0.6);
 
     // shore: waterlining, with hatching packed against the coast

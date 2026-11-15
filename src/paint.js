@@ -95,14 +95,14 @@ let ramp = null;
 // uPaintFill: colour added to whatever the lamps and sun leave dim.
 // uPaintLift: x fill threshold, y saturation, z ambient taken, w bleach of lamplight toward uPaintWarm
 // uPaintTint: what cool light (sky, moon) turns into as the room goes over to its lamps
-// uPaintMood: x how far cool light is swapped for uPaintTint, y value step under the ceiling
+// uPaintMood: x how far cool light is swapped for uPaintTint, y value step under the ceiling, z rim, w brightest lit paint
 export const PAINT = {
   uPaintBrush: { value: null },
   uPaintFill: { value: new THREE.Color(0.2, 0.2, 0.32) },
   uPaintWarm: { value: new THREE.Color(1.0, 0.8, 0.56) },
   uPaintTint: { value: new THREE.Color(0.3, 0.36, 0.8) },
   uPaintLift: { value: new THREE.Vector4(0.9, 1.12, 1, 0) },
-  uPaintMood: { value: new THREE.Vector4(0, 0.3, 0, 0) },
+  uPaintMood: { value: new THREE.Vector4(0, 0.3, 0, 1) },
 };
 
 const VERT_HEAD = /* glsl */ `
@@ -171,13 +171,16 @@ vec3 pLit = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse * uPai
   #ifdef PAINT_SHADE
     pFill = mix(dot(pFill, pW) * vec3(2.3, 1.9, 1.5), pFill, uPaintMood.x * uPaintMood.x);
   #endif
-  pLit += diffuseColor.rgb * pFill * (0.35 + 0.65 * pDim);
+  pLit += mix(vec3(dot(diffuseColor.rgb, pW)), diffuseColor.rgb, 0.7) * pFill * (0.35 + 0.65 * pDim);
   #ifdef PAINT_RIM
     float pRim = smoothstep(0.5, 0.78, 1.0 - saturate(dot(normal, normalize(vViewPosition))));
     pLit += (0.3 + 0.7 * diffuseColor.rgb) * uPaintWarm * pRim * uPaintMood.z;
   #endif
   float pGrey = dot(pLit, pW);
   pLit = max(vec3(0.0), mix(vec3(pGrey), pLit, uPaintLift.y));
+  // a lamp at arm's length may brighten paint but not bleach it: the brightest channel is held, the hue kept
+  float pPeak = max(pLit.r, max(pLit.g, pLit.b));
+  pLit *= pPeak > uPaintMood.w ? (uPaintMood.w + (pPeak - uPaintMood.w) * 0.12) / pPeak : 1.0;
 }
 vec3 outgoingLight = pLit + totalEmissiveRadiance;
 `;

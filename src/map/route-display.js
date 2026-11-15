@@ -26,6 +26,7 @@ const GHOST_DASHES = 96;
 const MAX_BLOCKS = 6;
 const BLOCK_LEGS = 16;
 const RING_OUTER = 13.6;
+const BEACON = 23;
 
 // Flat bands painted centre-out: each [inner, outer, colour] overdraws the last.
 function bandGeometry(bands, segments) {
@@ -41,6 +42,61 @@ function bandGeometry(bands, segments) {
   const merged = mergeGeometries(parts);
   for (const geo of parts) geo.dispose();
   return merged;
+}
+
+// A car as the draughtsman would ink it in plan: cased, outlined, a flat wash and a few roof marks.
+function carIconGeometry(length, wash, marks) {
+  const { casing, markInk } = MAP_LOOK;
+  const color = new THREE.Color();
+  const parts = [];
+  const paint = (geo, hex, x, z) => {
+    geo.rotateX(-Math.PI / 2).translate(x, 0, z);
+    color.set(hex);
+    const col = new Float32Array(geo.attributes.position.count * 3);
+    for (let i = 0; i < col.length; i += 3) color.toArray(col, i);
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    parts.push(geo);
+  };
+  const rect = (w, d, hex, x = 0, z = 0) => paint(new THREE.PlaneGeometry(w, d), hex, x, z);
+  const disc = (r, hex, x = 0, z = 0) => paint(new THREE.CircleGeometry(r, 20), hex, x, z);
+  rect(length + 1.5, 7.3, casing);
+  rect(length + 0.7, 6.5, markInk);
+  rect(length - 0.1, 5.7, wash);
+  marks({ rect, disc, length });
+  const merged = mergeGeometries(parts);
+  for (const geo of parts) geo.dispose();
+  return merged;
+}
+
+function carIcons() {
+  const { casing, markInk, carWash, carShade, brass } = MAP_LOOK;
+  const ribs = ({ rect, length }, from, to, step) => {
+    for (let x = from; x <= to; x += step) rect(0.22, 5.7, markInk, x);
+    rect(length - 0.1, 0.22, markInk, 0, -1.5);
+    rect(length - 0.1, 0.22, markInk, 0, 1.5);
+  };
+  return [
+    carIconGeometry(14.6, carWash[0], (k) => {
+      k.rect(9.4, 2.78, carShade[0], -1.6);
+      ribs(k, -6, 3, 3);
+      k.rect(3.6, 3.6, markInk, 4.9);
+      k.rect(3.0, 3.0, casing, 4.9);
+      k.disc(0.75, markInk, 4.9);
+    }),
+    carIconGeometry(14, carWash[1], (k) => {
+      k.rect(13.9, 2.78, carShade[1]);
+      ribs(k, -4, 2, 2);
+      k.disc(1.55, markInk, 4.4);
+      k.disc(1.15, brass, 4.4);
+      k.disc(0.55, markInk, 4.4);
+      k.disc(0.95, markInk, -5.4);
+      k.disc(0.6, brass, -5.4);
+    }),
+    carIconGeometry(14, carWash[2], (k) => {
+      k.rect(13.9, 2.78, carShade[2]);
+      ribs(k, -4.65, 4.7, 4.65);
+    }),
+  ];
 }
 
 function quadStrip(count, material, order) {
@@ -149,9 +205,18 @@ export function createRouteDisplay(scene) {
   trainRing.renderOrder = 60;
   routeGroup.add(trainRing);
 
+  const iconMat = mapMaterials.trainRing();
+  const carMarks = carIcons().map((geo) => {
+    const mark = new THREE.Mesh(geo, iconMat);
+    mark.renderOrder = 59;
+    mark.frustumCulled = false;
+    routeGroup.add(mark);
+    return mark;
+  });
+
   const beacon = new THREE.Sprite(mapMaterials.beacon());
   beacon.renderOrder = 61;
-  beacon.scale.setScalar(64);
+  beacon.scale.setScalar(BEACON);
   routeGroup.add(beacon);
 
   const trail = offsetStrip(TRAIL_MAX, mapMaterials.trailInk(), 56);
@@ -187,7 +252,7 @@ export function createRouteDisplay(scene) {
   }
 
   return {
-    routeGroup, linePositions, routeLine, routeCasing, routeDashes, routeBeyond, dotGeo, dotMat, dots: [], trainRing, beacon,
+    routeGroup, linePositions, routeLine, routeCasing, routeDashes, routeBeyond, dotGeo, dotMat, dots: [], trainRing, beacon, carMarks,
     beaconPos: new THREE.Vector3(2450, 80, 0),
     routeMarks: {
       trail, heading, ghostLeg, ghostDot, blocks,
@@ -431,6 +496,12 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
   // the symbols drawn round the model wait for the chart, so the climb does not carry a grey ring up with it
   const late = Math.min(1, Math.max(0, (mapBlend - 0.6) / 0.35));
   d.trainRing.material.opacity = late * 0.95;
+  for (let i = 0; i < d.carMarks.length; i++) {
+    const car = d.cars[i].group;
+    d.carMarks[i].position.set(car.position.x, ROUTE_Y, car.position.z);
+    d.carMarks[i].rotation.y = car.rotation.y;
+  }
+  d.carMarks[0].material.opacity = late;
 
   const fx = Math.cos(d.heading);
   const fz = -Math.sin(d.heading);
@@ -474,6 +545,6 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
   }
 
   d.beacon.position.copy(d.beaconPos);
-  d.beacon.scale.setScalar(64 * Math.sqrt(k) * (1 + Math.sin(time * 1.7) * 0.08));
+  d.beacon.scale.setScalar(BEACON * k * (1 + Math.sin(time * 1.7) * 0.08));
   d.beacon.material.opacity = mapBlend;
 }

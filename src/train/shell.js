@@ -110,7 +110,7 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
     for (let px = center - length / 2 + 0.45; px < end; px += 0.65) boards.push([px, base + 0.43, sz + side * 0.105, 0.018, 0.55, 0.015]);
     instancedDetails(boards, train.geometry.detail, material(M.wood), g);
     if (!trim) continue;
-    instancedDetails([[center, base + 0.68, sz + side * 0.105, length - 0.2, 0.05, 0.014]], train.geometry.detail, material(trim.stripe), g);
+    instancedDetails([[center, base + 0.68, sz + side * 0.105, length - 0.2, 0.09, 0.014]], train.geometry.detail, material(trim.stripe), g);
     if (getLookTier() !== 'high') continue;
     const studs = [];
     for (let px = center - length / 2 + 0.3; px < end; px += 0.6) {

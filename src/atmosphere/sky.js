@@ -44,6 +44,7 @@ const GALAXY_U = new THREE.Vector3(0.8, 0.55, 0.24).normalize();
 
 export class SkyCycle {
   constructor(scene, renderer, sunLight) {
+    this.plain = false;
     this.renderer = renderer;
     this.scene = scene;
     this.sunLight = sunLight;
@@ -280,7 +281,9 @@ export class SkyCycle {
     sceneFog.color.copy(k.fog);
     this.hemi.color.copy(k.hemiSky);
     this.hemi.groundColor.copy(k.hemiGround);
-    this.hemi.intensity = k.hemiI;
+    // with no finishing pass to lift it, the night's own light carries the moonlit ground
+    const plainLift = this.plain ? 1 + SKY_LOOK.plainNightLift * k.stars : 1;
+    this.hemi.intensity = k.hemiI * plainLift;
     this.sunLight.color.copy(k.dirCol);
     this.renderer.toneMappingExposure = k.exp;
     this.scene.environmentIntensity = k.env;
@@ -319,7 +322,7 @@ export class SkyCycle {
 
     // the key dips to nothing as sun hands over to moon, so the swap never pops
     const keyFade = sunUp ? clamp((alt + 0.02) / 0.1, 0, 1) : clamp((malt + 0.02) / 0.1, 0, 1);
-    this.sunLight.intensity = k.dirI * keyFade;
+    this.sunLight.intensity = k.dirI * keyFade * plainLift;
 
     ATMOS.keyDir.copy(this.keyDir);
     ATMOS.sunDir.copy(this.sunDir);

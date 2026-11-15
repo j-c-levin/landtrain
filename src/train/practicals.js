@@ -48,7 +48,7 @@ const HALOS = [
 const ROOM_POOLS = [
   [[-2.7, 3.6, -2.1, 1.7, 1.25, 0.75, 0], [-2.7, 1.86, -0.7, 2.3, 1.4, 0.7, 1], [5.9, 3.1, -2.1, 1.5, 1.1, 0.7, 0], [3.2, 1.86, -0.4, 2.6, 1.5, 0.45, 1]],
   [[-3.3, 3.55, -2.1, 2.1, 1.35, 0.85, 0], [-3.8, 1.86, -0.6, 2.5, 1.5, 0.75, 1], [0.5, 1.86, 0.7, 3.2, 1.6, 0.9, 1]],
-  [[-1.65, 3.3, -2.1, 1.8, 1.4, 0.75, 0], [-1.7, 1.86, -0.6, 2.4, 1.5, 0.7, 1], [4.2, 1.86, -0.5, 2.2, 1.3, 0.3, 1]],
+  [[-1.65, 3.3, -2.1, 1.8, 1.4, 0.5, 0], [-1.7, 1.86, -0.6, 2.4, 1.5, 0.55, 1], [4.2, 1.86, -0.5, 2.2, 1.3, 0.3, 1]],
 ];
 
 export function buildPracticals(train, g, ci) {
@@ -160,7 +160,7 @@ export function setPracticalsNight(train, night, dusk = 0) {
   for (const { light, intensity } of P.lights) {
     if (light !== train.fireLight) light.intensity = intensity * (1.2 + 1.3 * lamp);
   }
-  painted(train.materials.lampshade).emissiveIntensity = 0.32 + 0.3 * lamp;
+  painted(train.materials.lampshade).emissiveIntensity = 0.32 + 0.16 * lamp;
   if (P.beam) P.beam.intensity = 260 * night;
   train.materials.glow.emissiveIntensity = 1.5 + 0.7 * lamp;
   const sage = train.materials.sage;

@@ -68,6 +68,17 @@ export const LANDMARK = { x: 2450, z: 0 };
 // once the tree fills the view (a touch past the reveal cone's 150u reach).
 export const ARRIVE_RADIUS = 160;
 
+export const LEAGUE = 100;
+
+// The one figure the plaque and the chart both print: leagues to the arrival ring, '' once inside it.
+export function leaguesToGo(dist, near = ARRIVE_RADIUS) {
+  if (dist < near) return '';
+  const l = (dist - near) / LEAGUE;
+  if (l >= 9.95) return `${Math.round(l)} leagues`;
+  const tenths = Math.max(1, Math.round(l * 10));
+  return tenths === 10 ? '1 league' : `${(tenths / 10).toFixed(1)} leagues`;
+}
+
 export const TUNING = {
   baseSpeed: 7.0, // u/s at perfect upkeep
   accel: 2.2,

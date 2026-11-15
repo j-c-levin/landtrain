@@ -182,7 +182,7 @@ function tick(frameTime) {
     ui.setOrbitActive(rig.autoOrbit);
     ui.setNightfall(post ? 0 : sky.nightness * (1 - CHART.uChart.value));
     // Edge markers are a map-view aid only.
-    if (state.started && rig.mapEngaged) {
+    if (state.started && rig.mapEngaged && rig.mapBlend > 0.9) {
       const W = canvas.clientWidth;
       const H = canvas.clientHeight;
       const goal = journey.goalPos;
@@ -195,6 +195,7 @@ function tick(frameTime) {
   }
   world.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y, Math.max(sky.nightness, sky.duskness));
   if (journey.grassland) journey.grassland.update(dt, elapsed, train.pos, camera.position, camera, train.cars[1].group.rotation.y);
+  sky.plain = !post;
   sky.update(dt, elapsed, camera, train.pos, scene.fog);
   setChart(rig.mapBlend, sky.nightness, sky.duskness);
   applyChartLight(sunLight, sky.hemi, scene, CHART.uChart.value);
