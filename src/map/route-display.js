@@ -20,6 +20,8 @@ const CRUMB = 7;
 const HOLD = 4;
 // clear of the cab's nose: lines are drawn up to the train, never across it
 const NOSE = 27;
+// half the train's width with room for the line's casing
+const BEAM = 6;
 const GHOST_DASHES = 96;
 const MAX_BLOCKS = 6;
 const BLOCK_LEGS = 16;
@@ -338,9 +340,12 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
       const len = Math.hypot(x - px, z - pz) || 1;
       const ux = (x - px) / len;
       const uz = (z - pz) / len;
-      // a leg leaving off the bow starts beside the train; one dead ahead starts past the arrowhead
-      const bow = Math.min(1, Math.max(0, (ux * Math.cos(d.heading) - uz * Math.sin(d.heading) - 0.6) / 0.3));
-      const lead = i === 1 ? Math.min(NOSE + 4 + (15 * k - 4) * bow, len) : 0;
+      // a leg leaving off the bow starts at the ring; one along the train starts past its end, or the arrowhead
+      const along = ux * Math.cos(d.heading) - uz * Math.sin(d.heading);
+      const bow = Math.min(1, Math.max(0, (along - 0.9) / 0.08));
+      const clear = Math.min(BEAM / Math.sqrt(Math.max(1e-6, 1 - along * along)), (NOSE + 4) / Math.max(1e-3, Math.abs(along)));
+      const lead = i === 1 ? Math.min(Math.max(clear, (RING_OUTER + 0.4) * k) + (15 * k - 4) * bow, len) : 0;
+      let joined = i !== 1;
       if (i === 1) {
         d.linePositions[0] = px + ux * lead;
         d.linePositions[2] = pz + uz * lead;
@@ -357,8 +362,12 @@ export function updateRouteDisplay(d, pos, route, mapBlend, time) {
       for (let n = Math.floor((len - lead) / period); n >= 0; n--) {
         const j = wob(n * 7 + i * 13);
         const end = len - (GAP / 2 + (wob(n * 3 + i) - 0.5) * 1.4) * k - n * period;
-        const start = Math.max(end - DASH * k * (0.9 + 0.2 * j), lead);
+        let start = Math.max(end - DASH * k * (0.9 + 0.2 * j), lead);
         if (end - start < 2.5 * k) continue;
+        if (!joined) {
+          joined = true;
+          start = lead;
+        }
         if (beyond || (start + end) / 2 > stop) {
           if (fadedCount < MAX_DASHES / 2) {
             writeQuad(faded, fadedCount++, px + ux * (start + k), pz + uz * (start + k), px + ux * (end - k), pz + uz * (end - k), -uz, ux, 0.55 * k);

@@ -91,16 +91,16 @@ export function buildFrontCar(train, g) {
     0.81, -0.17 + i * 0.18, 0.18).rotation.x = Math.PI / 2;
   dash.finish(M.paintBase);
 
-  train.cabWheel = k.pivot('cab-wheel', 3.11, 6.22, -1.02);
+  train.cabWheel = k.pivot('cab-wheel', 2.42, 6.18, -1.13);
   train.cabWheel.rotation.y = Math.PI / 2;
-  train.cabWheel.add(ring(0.49, 0.055, M.woodDark, 0, 0, 0, true));
-  train.cabWheel.add(ring(0.45, 0.018, M.brass, 0, 0, 0.024, true));
+  train.cabWheel.add(ring(0.42, 0.045, M.woodDark, 0, 0, 0, true));
+  train.cabWheel.add(ring(0.385, 0.016, M.brass, 0, 0, 0.022, true));
   for (let i = 0; i < 3; i++) {
-    const spoke = block(0.88, 0.045, 0.04, M.brass, 0, 0, 0, true);
+    const spoke = block(0.76, 0.04, 0.036, M.brass, 0, 0, 0, true);
     spoke.rotation.z = i * Math.PI / 3;
     train.cabWheel.add(spoke);
   }
-  pipe([[3.18, 6.22, -1.02], [3.6, 5.87, -1.02]], 0.075, M.iron);
+  pipe([[2.45, 6.18, -1.13], [3.3, 5.9, -1.13]], 0.06, M.iron);
   train.cabLevers = [];
   for (let i = 0; i < 2; i++) {
     const x = 4.1 + i * 0.42;

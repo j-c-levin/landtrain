@@ -84,7 +84,7 @@ const _side = new THREE.Vector3();
 
 const _cool = new THREE.Color(SKY_LOOK.bounceDusk);
 
-export function followBounceLight(light, trainPos, heading, intensity, color, dusk = 0) {
+export function followBounceLight(light, trainPos, heading, intensity, color, dusk = 0, chart = 0) {
   _side.set(Math.sin(heading) * 0.9 + Math.cos(heading) * 0.2, -0.32, Math.cos(heading) * 0.9 - Math.sin(heading) * 0.2);
   light.position.copy(trainPos).addScaledVector(_side, 80);
   light.target.position.copy(trainPos);
@@ -97,7 +97,7 @@ export function followBounceLight(light, trainPos, heading, intensity, color, du
   fill.target.position.copy(trainPos);
   fill.target.updateMatrixWorld();
   const f = SKY_LOOK.roomFillI;
-  fill.intensity = lerp(lerp(f[0], f[1], ATMOS.dusk), f[2], ATMOS.night);
+  fill.intensity = lerp(lerp(f[0], f[1], ATMOS.dusk), f[2], ATMOS.night) * (1 - chart);
 }
 
 // The chart is drawn, not lit: the key light and its shadows give way to an

@@ -52,8 +52,12 @@ export function bindViewControls({ canvas, camera, rig, train, player, ui, audio
         audio.chime('soft');
       }
     },
-    onSound: () => ui.setMuted(audio.toggleMute()),
+    onSound: () => audio.toggleMute(),
+    onVolume: (volume) => audio.setVolume(volume),
+    onMusic: () => audio.setMusic(!audio.settings.music),
   });
+  audio.onSettings = (settings) => ui.setSound(settings);
+  ui.setSound(audio.settings);
 
   canvas.addEventListener(
     'wheel',
@@ -71,7 +75,7 @@ export function bindViewControls({ canvas, camera, rig, train, player, ui, audio
 
   return {
     updateHotkeys(input) {
-      if (input.pressed('KeyM')) ui.setMuted(audio.toggleMute());
+      if (input.pressed('KeyM')) audio.toggleMute();
       if (planning()) {
         if (input.pressed('KeyZ') || input.pressed('Backspace')) train.undoWaypoint();
         if (input.pressed('KeyC')) train.clearRoute();

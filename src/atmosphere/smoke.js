@@ -84,8 +84,9 @@ const FRAG = /* glsl */ `
     vec3 albedo = mix(uSoot, uAsh, smoothstep(0.0, 0.45, age));
     if (kind > 1.5) albedo = uGround;
     else if (kind > 0.5) albedo = uSteam;
-    vec3 c = albedo * mix(mix(uShade, uLit, kind > 1.5 ? 0.45 : 0.2), uLit * 1.15, tone);
-    if (kind > 1.5) a *= 1.0 - age * age;
+    vec3 c = albedo * mix(mix(uShade, uLit, kind > 1.5 ? 0.45 : 0.38), uLit * 1.15, tone);
+    if (kind > 1.5) a *= 0.8 * (1.0 - age * age);
+    else if (kind < 0.5) a *= 1.0 - 0.6 * smoothstep(0.3, 1.0, age);
     if (kind < 0.5) c += uEmber * (1.0 - smoothstep(0.0, 0.08, age)) * (0.35 + 0.65 * (1.0 - tone));
     gl_FragColor = vec4(c, a);
     #include <tonemapping_fragment>

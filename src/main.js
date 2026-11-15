@@ -197,7 +197,7 @@ function tick(frameTime) {
   setChart(rig.mapBlend, sky.nightness, sky.duskness);
   applyChartLight(sunLight, sky.hemi, scene, CHART.uChart.value);
   followShadowBox(sunLight, train.pos, sky.keyDir, rig.mapBlend);
-  followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity * (1 - CHART.uChart.value), sunLight.color, sky.duskness);
+  followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity * (1 - CHART.uChart.value), sunLight.color, sky.duskness, CHART.uChart.value);
   setPaintLight(sky.nightness, sky.duskness);
   train.setNight(sky.nightness, sky.duskness);
   fog.setNight(sky.nightness);

@@ -101,7 +101,7 @@ export function cabinSides(train, g, zone, center, length, base, eave, wall, win
     if (side < 0) {
       const lining = panels.map(([x, y, , w, h]) => [x, y, sz + 0.108, w, h, 0.02]);
       lining.push([center, eave - 0.2, sz + 0.14, length, 0.1, 0.06]);
-      instancedDetails(lining, train.geometry.detail, painted(wall), g).receiveShadow = true;
+      instancedDetails(lining, train.geometry.detail, painted(trim?.lining ?? wall), g).receiveShadow = true;
     }
     frames.push([center, base + 0.16, sz + side * 0.12, length, 0.18, 0.2]);
     frames.push([center, eave, sz, length + 0.12, 0.16, 0.24]);
@@ -138,7 +138,7 @@ export function buildCarShell(train, g, ci) {
 
   const chassis = [[0, 1.27, -1.65, CAR_LEN + 1.6, 0.34, 0.3], [0, 1.27, 1.65, CAR_LEN + 1.6, 0.34, 0.3]];
   for (const x of [-5.4, -3.2, 0, 3.2, 5.4]) chassis.push([x, 1.22, 0, 0.24, 0.28, 4.8]);
-  instancedDetails(chassis, train.geometry.detail, M.iron, g, true);
+  instancedDetails(chassis, train.geometry.detail, M.frameIron, g, true);
   profiledBox(CAR_LEN + 0.2, 0.28, 4.9, 0.1, M.wood, 0, 1.64, 0, g);
   const decking = [];
   for (let x = -6.6; x < 7; x += 0.6) decking.push([x, 1.782, 0, 0.025, 0.008, 4.65]);
@@ -146,7 +146,7 @@ export function buildCarShell(train, g, ci) {
 
   const eave = ci === 2 ? 4.75 : 4.67;
   const wall = [M.cream, M.engineHull, M.sage][ci];
-  const trim = [{ stripe: M.hull, studs: M.brass }, { stripe: M.brass, studs: M.brass }, { stripe: M.cream, studs: M.brass }][ci];
+  const trim = [{ stripe: M.hull, studs: M.brass }, { stripe: M.brass, studs: M.brass }, { stripe: M.cream, studs: M.brass, lining: M.readingLining }][ci];
   cabinSides(train, g, zone, isCab ? 0.625 : 0, isCab ? 15.05 : 13.8, 1.78, eave, wall, CAR_WINDOWS[ci], 2.36, trim,
     ci === 1 ? [0.8, 0.9, 1.08, 0.14] : undefined);
   const front = isCab ? 8.15 : 6.9;
@@ -206,7 +206,7 @@ function buildUnderframe(train, g, ci) {
       gear.push([side * 2.4, 0.835, z, 1.89, 0.07, 0.07, 0, 0, side * 0.307]);
     }
   }
-  train.tuck(instancedDetails(gear, train.geometry.detail, M.iron, g));
+  train.tuck(instancedDetails(gear, train.geometry.detail, M.frameIron, g));
   if (getLookTier() === 'low') return;
   const k = exteriorKit(g, 'underframe');
   const { block, round } = k;
@@ -244,7 +244,7 @@ function buildExteriorDetails(train, g, ci) {
     runningGear.push([0, 1.63, z, 13.9, 0.2, 0.16]);
   }
   buildUnderframe(train, g, ci);
-  instancedDetails(runningGear, train.geometry.detail, M.iron, g, true);
+  instancedDetails(runningGear, train.geometry.detail, M.frameIron, g, true);
   instancedDetails(springs, train.geometry.detail, M.engine, g);
 
   for (const gapX of ci === 0 ? [-8.55] : ci === 2 ? [8.55] : []) {

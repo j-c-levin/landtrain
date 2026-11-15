@@ -97,7 +97,12 @@ export const HUD_HTML = `
     <button id="btn-clear" type="button">${ICON.clear}<span>clear</span></button>
     <button id="btn-orbit" type="button" aria-pressed="true">${ICON.orbit}<span>orbit</span></button>
     <button id="btn-exit" type="button">${ICON.exit}<span>exit</span></button>
-    <button id="btn-sound" type="button" aria-label="sound" aria-pressed="true" title="sound (M)">${ICON.sound}</button>
+    <button id="btn-sound" type="button" aria-label="sound" aria-pressed="true">${ICON.sound}</button>
+  </div>
+
+  <div id="sound-panel" role="group" aria-label="sound settings">
+    <input id="sound-volume" type="range" min="0" max="100" step="1" aria-label="volume">
+    <button id="sound-music" type="button" aria-pressed="true">music</button>
   </div>
 
   <svg id="map-rose" viewBox="-52 -52 104 104" aria-hidden="true">

@@ -159,7 +159,6 @@ export function setPracticalsNight(train, night, dusk = 0) {
     if (light !== train.fireLight) light.intensity = intensity * (1.2 + 1.3 * lamp);
   }
   painted(train.materials.lampshade).emissiveIntensity = 0.32 + 0.3 * lamp;
-  for (const puff of train.smoke) puff.sprite.material.color.setRGB(1 - 0.8 * night, 1 - 0.76 * night, 1 - 0.64 * night);
   if (P.beam) P.beam.intensity = 260 * night;
   train.materials.glow.emissiveIntensity = 1.5 + 0.7 * lamp;
   const sage = train.materials.sage;

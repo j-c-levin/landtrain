@@ -334,19 +334,22 @@ if (!only) {
     context: __audio.ctx.state, sampleRate: __audio.ctx.sampleRate, lite: __audio.scape.lite,
     speed: __game.train.speed, updateMsPerFrame: __cost.ms / __cost.calls, frames: __cost.calls,
     renderLoad: __cost.load.slice(-5),
-    control: !!document.querySelector('#mute-hint .snd-btn'),
+    control: !!document.querySelector('#btn-sound'),
   }));
-  await game.click('#mute-hint .snd-btn');
+  await game.click('#btn-sound');
+  live.oneTapMutes = await game.evaluate(() => __audio.settings.muted);
+  await game.click('#btn-sound');
+  await game.hover('#btn-sound');
   await game.waitForTimeout(400);
   await game.screenshot({ path: join(outDir, 'control-open.png') });
-  await game.locator('#mute-hint input').fill('35');
-  await game.click('#mute-hint .snd-toggle');
+  await game.locator('#sound-volume').fill('35');
+  await game.click('#sound-music');
   await game.mouse.click(300, 200);
   await game.keyboard.press('KeyM');
   await game.waitForTimeout(900);
   live.muted = await game.evaluate(() => ({
     context: __audio.ctx.state, stored: localStorage.getItem('landtrain.audio.v1'),
-    hintMuted: document.getElementById('mute-hint').classList.contains('muted'),
+    hintMuted: document.getElementById('btn-sound').classList.contains('muted'),
   }));
   await game.screenshot({ path: join(outDir, 'control-muted.png') });
   await game.reload();
@@ -355,7 +358,7 @@ if (!only) {
   await game.waitForTimeout(600);
   live.afterReload = await game.evaluate(() => ({
     settings: __audio.settings, context: __audio.ctx?.state,
-    hintMuted: document.getElementById('mute-hint').classList.contains('muted'),
+    hintMuted: document.getElementById('btn-sound').classList.contains('muted'),
   }));
   await game.keyboard.press('KeyM');
   await game.waitForFunction(() => __audio.ctx?.state === 'running', null, { timeout: 5000 }).catch(() => {});

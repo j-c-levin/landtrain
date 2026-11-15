@@ -35,6 +35,9 @@ export class UI {
     this.btnUndo = document.getElementById('btn-undo');
     this.btnClear = document.getElementById('btn-clear');
     this.btnSound = document.getElementById('btn-sound');
+    this.soundPanel = document.getElementById('sound-panel');
+    this.soundVolume = document.getElementById('sound-volume');
+    this.soundMusic = document.getElementById('sound-music');
     this.markerTree = document.getElementById('marker-tree');
     this.markerTrain = document.getElementById('marker-train');
     this.arrowTree = this.markerTree.querySelector('.edge-arrow');
@@ -132,21 +135,78 @@ export class UI {
     c.toggle('walk-mode', mode === 'inhabit');
   }
 
-  setMuted(muted) {
+  setSound({ muted, volume, music }) {
     this.btnSound.classList.toggle('muted', muted);
     this.btnSound.setAttribute('aria-pressed', String(!muted));
+    this.soundVolume.value = String(Math.round((muted ? 0 : volume) * 100));
+    this.soundMusic.setAttribute('aria-pressed', String(music));
   }
 
   setReadingLine(text) {
     this.readingLine.textContent = text;
   }
 
-  bindViewButtons({ onOrbit, onUndo, onClear, onExit, onSound }) {
+  bindViewButtons({ onOrbit, onUndo, onClear, onExit, onSound, onVolume, onMusic }) {
     this.btnOrbit.addEventListener('click', onOrbit);
     this.btnUndo.addEventListener('click', onUndo);
     this.btnClear.addEventListener('click', onClear);
     this.btnExit.addEventListener('click', onExit);
-    this.btnSound.addEventListener('click', onSound);
+    this.#bindSound(onSound, onVolume, onMusic);
+  }
+
+  // One tap or click mutes; the volume and music panel opens on hover, or on a long press by touch.
+  #bindSound(onSound, onVolume, onMusic) {
+    const btn = this.btnSound;
+    const panel = this.soundPanel;
+    let held = false;
+    let press = 0;
+    let close = 0;
+    const open = (on) => {
+      clearTimeout(close);
+      if (on) {
+        const r = btn.getBoundingClientRect();
+        panel.style.top = `${r.bottom + 8}px`;
+        panel.style.right = `${window.innerWidth - r.right}px`;
+      }
+      panel.classList.toggle('open', on);
+    };
+    const later = () => {
+      clearTimeout(close);
+      close = setTimeout(() => open(false), 350);
+    };
+    btn.addEventListener('click', () => {
+      if (held) held = false;
+      else onSound();
+      btn.blur();
+    });
+    btn.addEventListener('pointerdown', (e) => {
+      held = false;
+      if (e.pointerType === 'mouse') return;
+      press = setTimeout(() => {
+        held = true;
+        open(true);
+      }, 450);
+    });
+    for (const type of ['pointerup', 'pointercancel', 'pointerleave']) btn.addEventListener(type, () => clearTimeout(press));
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    for (const el of [btn, panel]) {
+      el.addEventListener('pointerenter', (e) => {
+        if (e.pointerType === 'mouse') open(true);
+      });
+      el.addEventListener('pointerleave', (e) => {
+        if (e.pointerType === 'mouse') later();
+      });
+    }
+    window.addEventListener('pointerdown', (e) => {
+      if (e.target !== btn && !btn.contains(e.target) && !panel.contains(e.target)) open(false);
+    });
+    for (const type of ['pointerdown', 'pointerup', 'keydown']) panel.addEventListener(type, (e) => e.stopPropagation());
+    this.soundVolume.addEventListener('input', () => onVolume(this.soundVolume.value / 100));
+    this.soundVolume.addEventListener('change', () => this.soundVolume.blur());
+    this.soundMusic.addEventListener('click', () => {
+      onMusic();
+      this.soundMusic.blur();
+    });
   }
 
   setOrbitActive(on) {

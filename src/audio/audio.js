@@ -2,7 +2,6 @@ import { TUNING, GRASSLAND } from '../constants.js';
 import { riverDefs, riverCenterX, GRASS_LANDMARK, ISLAND_R, MOAT_R, FOOT } from '../grassland/layout.js';
 import { Soundscape } from './soundscape.js';
 import { STORAGE_KEY, parseSettings, masterLevel, smooth } from './model.js';
-import { mountSoundControl } from './control.js';
 
 const WATER_REACH = 170;
 
@@ -45,7 +44,7 @@ export class AudioFX {
       mode: 'inhabit', mapBlend: 0, level: 'deck', x: 12, moving: false, climbing: false, walkPhase: 0,
       tend: null, pour: 0, music: this.settings.music,
     };
-    this.control = typeof document === 'undefined' ? null : mountSoundControl(this);
+    this.onSettings = null;
     if (typeof window !== 'undefined') window.__audio = this;
   }
 
@@ -96,12 +95,17 @@ export class AudioFX {
 
   suspendForVisibility() {
     this.hidden = true;
-    this.#syncRunState();
+    if (!this.#live) return this.#syncRunState();
+    clearTimeout(this.sleepTimer);
+    this.scape.setMaster(0, this.ctx.currentTime, 0.05);
+    this.sleepTimer = setTimeout(() => this.#syncRunState(), 260);
   }
 
   resumeFromVisibility() {
     this.hidden = false;
+    clearTimeout(this.sleepTimer);
     this.#syncRunState();
+    if (this.scape && !this.settings.muted) this.scape.setMaster(masterLevel(this.settings), this.ctx.currentTime + 0.05, 0.4);
   }
 
   #applySettings() {
@@ -111,7 +115,7 @@ export class AudioFX {
       // private mode: the choice simply lasts for this visit
     }
     this.state.music = this.settings.music;
-    this.control?.sync(this.settings);
+    this.onSettings?.(this.settings);
     if (!this.scape) return;
     clearTimeout(this.sleepTimer);
     if (this.settings.muted) {

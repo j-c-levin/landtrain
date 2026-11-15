@@ -313,11 +313,12 @@ test('route line, waypoint dots and train ring retain ground-plane Y and overlay
   for (let i = 1; i < expected.length; i++) {
     assert.deepEqual([positions.getX(i), positions.getY(i), positions.getZ(i)], expected[i].map(Math.fround));
   }
-  // the line is drawn up to the train, never across it: it starts on the first leg, clear of the nose
+  // the line is drawn up to the train, never across it: it starts on the first leg, off the hull's side or past its nose
   const lead = Math.hypot(positions.getX(0) - train.pos.x, positions.getZ(0) - train.pos.z);
   const leg = Math.hypot(180 - train.pos.x, 70 - train.pos.z);
   assert.equal(positions.getY(0), 0);
-  assert.ok(lead > 24 && lead < leg);
+  const abeam = Math.abs((positions.getX(0) - train.pos.x) * Math.sin(0.4) + (positions.getZ(0) - train.pos.z) * Math.cos(0.4));
+  assert.ok((abeam > 5 || lead > 24) && lead < leg);
   assert.ok(Math.abs(lead + Math.hypot(180 - positions.getX(0), 70 - positions.getZ(0)) - leg) < 1e-3);
   assert.equal(train.routeLine.renderOrder, 59);
   assert.equal(train.trainRing.renderOrder, 60);

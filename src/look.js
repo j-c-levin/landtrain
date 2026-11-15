@@ -473,7 +473,7 @@ export const SKY_LOOK = {
   bounceI: [0.55, 1.45, 0.25],
   // level light from the lens into the cutaway rooms, which ignore the bounce: [day, low sun, night]
   roomFill: 0xffdcb0,
-  roomFillI: [1.0, 0.55, 0.14],
+  roomFillI: [1.4, 1.1, 0.3],
   // night clouds: body tint over the sky, and the moonlit top edge
   cloudNightRim: 0x8fa4d8,
   // at dusk the bounce cools toward the sky behind the lens, so shaded paint keeps its hue
@@ -506,7 +506,7 @@ export const GRADE_LOOK = {
 };
 
 export const SMOKE_LOOK = {
-  soot: 0xb2ada6,
+  soot: 0xd0cbc4,
   ash: 0xf0ece4,
   steam: 0xfaf8f2,
   // how far the light on a puff is pulled to grey, so dusk smoke is not purple
@@ -898,6 +898,7 @@ export const TRAIN_LOOK = {
   iron: 0x26312f,
   brass: 0xd9a441,
   sage: 0x7f9c74,
+  readingLining: 0xe2c086,
   soil: 0x765238,
   soilWet: 0x332d24,
   leafThirsty: 0x659050,
@@ -926,11 +927,13 @@ export function createTrainMaterials() {
     engineHull: enamel({ color: C.engineHull, roughness: 0.62 }, 0.3),
     cream: enamel({ color: C.cream, roughness: 0.55 }),
     innerWall: std({ color: C.innerWall, roughness: 0.95 }),
+    readingLining: std({ color: C.readingLining, roughness: 0.95 }),
     endWall: std({ color: C.endWall, roughness: 0.95 }),
     sootWall: std({ color: C.sootWall, roughness: 0.95 }),
     wood: std({ color: C.wood, roughness: 0.72 }),
     woodDark: std({ color: C.woodDark, roughness: 0.7 }),
     iron: std({ color: C.iron, roughness: 0.48, metalness: 0.55 }),
+    frameIron: std({ color: C.iron, roughness: 0.9, metalness: 0.1 }),
     brass: std({ color: C.brass, roughness: 0.24, metalness: 1.0 }),
     gearBrass: std({ color: 0xb8872f, roughness: 0.62, metalness: 0.7 }),
     glow: std({ color: 0xffd9a0, emissive: 0xffb35c, emissiveIntensity: 1.6, roughness: 0.5 }),
@@ -1026,7 +1029,7 @@ trainFx.windowGlow = () =>
 // Each list is [day, dusk, night].
 export const PAINT_LOOK = {
   fill: [0x6c64b0, 0xc4825c, 0xa06642],
-  fillGain: [0.62, 0.95, 0.52],
+  fillGain: [0.78, 1.35, 0.7],
   lift: [0.9, 0.8, 0.7],
   ambient: [0.5, 0.4, 0.4],
   warm: [0.2, 0.55, 0.6],

@@ -390,7 +390,7 @@ export class Figure {
       tgt[I.kneeR] += Math.sin(live * 1.1) * 0.2;
       tgt[I.kneeL] += Math.sin(live * 1.1 + 2.2) * 0.14;
     } else if (shown === 'wheel') {
-      const steer = Math.sin(live * 0.9) * 0.3 + Math.sin(live * 0.37) * 0.12;
+      const steer = Math.sin(live * 0.9) * 0.09 + Math.sin(live * 0.37) * 0.05;
       tgt[I.armL] += steer;
       tgt[I.armR] -= steer;
       tgt[I.elbowL] -= steer * 0.7;
