@@ -6,7 +6,7 @@ import {
 import { TRAIN_LOOK, createTrainMaterials } from '../look.js';
 import { blockedAt } from '../collision.js';
 import { createRouteDisplay, updateRouteDisplay } from '../map/route-display.js';
-import { createSmoke, updateSmoke } from './smoke.js';
+import { createSmoke, updateSmoke } from '../atmosphere/smoke.js';
 import { TrailPath } from './trail.js';
 import { createTrainGeometry } from './parts.js';
 import { buildCarShell, buildCarFittings } from './shell.js';

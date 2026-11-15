@@ -463,7 +463,6 @@ export const SKY_LOOK = {
     [1.0, 'rgba(255,255,255,0)'],
   ],
   fireflyGlsl: '1.0, 0.85, 0.45',
-  smoke: ['rgba(248,242,232,0.8)', 'rgba(248,242,232,0)'],
   // studio environment the enamel and brass reflect: [r, g, b] linear
   envZenith: [0.62, 0.78, 1.0],
   envHorizon: [1.0, 0.95, 0.86],
@@ -529,7 +528,6 @@ export const skyMaterials = {
       map, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
     }),
   cloud: (map) => new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, fog: false }),
-  smoke: (map) => new THREE.SpriteMaterial({ map, transparent: true, opacity: 0, depthWrite: false }),
 };
 
 // ------------------------------------------------------------ shared flora
@@ -913,7 +911,6 @@ export const TRAIN_LOOK = {
   wheelRusted: [0.4, 0.24, 0.15],
   // night practicals: warm pools the windows and lamps throw on the ground
   spill: ['rgba(255,186,104,0.6)', 'rgba(255,160,80,0)', 'rgba(255,172,92,0.16)'],
-  smoke: { lit: '250,245,236', belly: '188,188,202' },
   roomLight: { car0: 0xffc48c, car1: 0xff8c44, car2: 0xffb060, cab: 0xffcf98 },
   spillLight: 0xffb870,
   contact: ['rgba(34,24,18,0.62)', 'rgba(34,24,18,0)'],
