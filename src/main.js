@@ -88,6 +88,7 @@ function applyQualityTier(tier) {
 applyQualityTier(qualityTier);
 
 journey = createJourney({ scene, world, train, fog, ui, audio });
+audio.attach({ train, player, rig, sky, tier: () => qualityTier });
 
 const state = {
   started: false,

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Land Train — sound lab</title>
+    <style>
+      body { margin: 0; padding: 24px; background: #241d2e; color: #f7ead2; font: 15px/1.5 Georgia, serif; }
+      h1 { font-weight: 400; font-size: 22px; }
+      p { opacity: 0.7; max-width: 60ch; }
+      #clips { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+      button, select { font: inherit; color: inherit; background: rgba(247, 234, 210, 0.08);
+        border: 1px solid rgba(247, 234, 210, 0.25); border-radius: 999px; padding: 9px 18px; cursor: pointer; }
+      button.playing { background: rgba(216, 160, 76, 0.35); }
+    </style>
+  </head>
+  <body>
+    <h1>Sound lab</h1>
+    <p>Each button renders a scripted moment of play offline, then plays it. Dev only — not part of the build.</p>
+    <label>layer <select id="solo"><option value="">all</option><option>train</option><option>world</option>
+      <option>near</option><option>ui</option><option>music</option></select></label>
+    <button id="stop" type="button">stop</button>
+    <div id="clips"></div>
+    <script type="module">
+      import { SCENARIOS, renderClip } from './render.js';
+      window.__audioLab = { SCENARIOS, renderClip };
+      let ctx = null;
+      let playing = null;
+      const stop = () => {
+        playing?.src.stop();
+        playing?.button.classList.remove('playing');
+        playing = null;
+      };
+      document.getElementById('stop').onclick = stop;
+      for (const name of Object.keys(SCENARIOS)) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = name;
+        button.onclick = async () => {
+          ctx ??= new AudioContext();
+          stop();
+          const buffer = await renderClip(name, { solo: document.getElementById('solo').value || null, sampleRate: ctx.sampleRate });
+          const src = ctx.createBufferSource();
+          src.buffer = buffer;
+          src.connect(ctx.destination);
+          src.start();
+          playing = { src, button };
+          button.classList.add('playing');
+          src.onended = () => button.classList.remove('playing');
+        };
+        document.getElementById('clips').appendChild(button);
+      }
+    </script>
+  </body>
+</html>
