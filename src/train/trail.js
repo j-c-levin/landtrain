@@ -47,7 +47,7 @@ export class TrailPath {
   // interpolated shortest-arc between the bracketing vertices' tangents —
   // a piecewise-constant tangent would make every car (and the camera)
   // snap as its sample crosses a segment boundary.
-  frame(s) {
+  frame(s, out = {}) {
     const pts = this.pts;
     s = clamp(s, pts[0].s, pts[pts.length - 1].s);
     let i = pts.length - 1;
@@ -60,10 +60,9 @@ export class TrailPath {
     let dTh = thB - thA;
     while (dTh > Math.PI) dTh -= Math.PI * 2;
     while (dTh < -Math.PI) dTh += Math.PI * 2;
-    return {
-      x: a.x + (b.x - a.x) * t,
-      z: a.z + (b.z - a.z) * t,
-      theta: thA + dTh * t,
-    };
+    out.x = a.x + (b.x - a.x) * t;
+    out.z = a.z + (b.z - a.z) * t;
+    out.theta = thA + dTh * t;
+    return out;
   }
 }

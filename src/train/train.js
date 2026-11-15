@@ -6,7 +6,7 @@ import {
 import { TRAIN_LOOK, createTrainMaterials } from '../look.js';
 import { blockedAt } from '../collision.js';
 import { createRouteDisplay, updateRouteDisplay } from '../map/route-display.js';
-import { createSmoke, updateSmoke } from '../atmosphere/smoke.js';
+import { createSmoke, updateSmoke } from './smoke.js';
 import { TrailPath } from './trail.js';
 import { createTrainGeometry } from './parts.js';
 import { buildCarShell, buildCarFittings } from './shell.js';
@@ -51,10 +51,21 @@ export class Train {
     this.path = new TrailPath();
     this.path.seed(this.headPos.x, this.headPos.z, this.heading, 100);
     this._pos = new THREE.Vector3();
+    this._dir = new THREE.Vector3();
 
     this.wheels = [];
     this.zoneMats = {}; // see-through walls, one fading material per zone
     this.fadeMats = [];
+    this.tucked = [];
+    this.tuckedAway = false;
+    this.glassMats = [];
+    this.glassGlow = 0;
+    this.weatheredMats = new Map();
+    this.rods = [];
+    this.spinners = [];
+    this.swingers = [];
+    this._frame = { x: 0, z: 0, theta: 0 };
+    this._ahead = { x: 0, z: 0, theta: 0 };
 
     this.cars = [];
     for (let i = 0; i < CAR_CENTERS.length; i++) {
@@ -76,6 +87,7 @@ export class Train {
     this._stack = new THREE.Vector3();
     this.stackWorld = () => this.cars[1].group.localToWorld(this._stack.copy(this.stackLocal));
     this.#placeCars();
+    this.#placeRods();
   }
 
   // Drop the whole train at a fresh spawn (new biome) facing `heading`,
@@ -114,6 +126,33 @@ export class Train {
     mat.transparent = true;
     mat.opacity = 1;
     this.fadeMats.push({ zone, source, mat });
+    return mat;
+  }
+
+  // Glazing per zone: lit panes glow from outside, and clear for whoever is looking out through them.
+  zoneGlass(zone, far, glint = false) {
+    let entry = this.glassMats.find((e) => e.zone === zone && e.far === far && e.glint === glint);
+    if (!entry) {
+      entry = { zone, far, glint, mat: (glint ? this.materials.paneGlint : this.materials.pane).clone(), fade: 1, glow: new THREE.Color(TRAIN_LOOK.roomLight[zone]) };
+      this.glassMats.push(entry);
+    }
+    return entry.mat;
+  }
+
+  // Rooms and under-floor gear cannot be seen from the chart's overhead view, so they sit it out.
+  tuck(root) {
+    root.traverse((object) => { if (object.isMesh) this.tucked.push(object); });
+  }
+
+  // The vertex-coloured twin of a train material, for weathered sheet and panel work.
+  weathered(source) {
+    let mat = this.weatheredMats.get(source);
+    if (!mat) {
+      mat = source.clone();
+      mat.vertexColors = true;
+      this.weatheredMats.set(source, mat);
+      this.materials[`weathered${this.weatheredMats.size}`] = mat;
+    }
     return mat;
   }
 
@@ -180,7 +219,7 @@ export class Train {
       const maxTurn = step * TUNING.curvature;
       this.heading += clamp(diff, -maxTurn, maxTurn);
 
-      const dir = this.forwardDir();
+      const dir = this.forwardDir(this._dir);
       p.x += dir.x * step;
       p.z += dir.z * step;
       this.path.advance(p.x, p.z, step);
@@ -213,8 +252,15 @@ export class Train {
     // -- visuals --
     const spin = (this.speed / 0.92) * dt;
     for (const w of this.wheels) w.rotation.z -= spin;
+    this.#placeRods();
     const motion = this.motionQuery?.matches ? 0 : 1;
     const speed01 = clamp(this.speed / TUNING.baseSpeed, 0, 1);
+    for (const s of this.spinners) s.object.rotation.y += dt * (s.idle * motion + this.speed * s.rate);
+    for (const s of this.swingers) {
+      const swing = speed01 * motion * s.reach;
+      s.object.rotation.x = Math.sin(time * s.rate + s.phase) * swing;
+      s.object.rotation.z = Math.sin(time * s.rate * 0.73 + s.phase * 2) * swing * 0.7;
+    }
     this.headingNeedle.rotation.z = -this.heading;
     this.speedNeedle.rotation.z = damp(this.speedNeedle.rotation.z, 2.3 - speed01 * 4.6, 5, dt);
     this.cabWheel.rotation.z = Math.sin(this.heading) * 0.7;
@@ -240,7 +286,7 @@ export class Train {
     if (this.fireboxMat) {
       this.fireboxMat.emissiveIntensity = (0.15 + eff01 * 0.65) * flicker;
     }
-    this.fireLight.intensity = (3.5 + eff01 * 6.5) * (1 + 0.9 * Math.max(this.practicals.lamp, 0)) * flicker;
+    this.fireLight.intensity = (3.5 + eff01 * 6.5) * (1 + 1.1 * Math.max(this.practicals.lamp, 0)) * flicker;
 
     const plant01 = (this.plants - TUNING.plantFloor) / (100 - TUNING.plantFloor);
     if (this.plantPots) for (const pl of this.plantPots) pl.setHappiness(plant01, time, motion);
@@ -259,18 +305,29 @@ export class Train {
     for (let i = 0; i < this.cars.length; i++) {
       const car = this.cars[i];
       const s = this.path.head - car.offset;
-      const f = this.path.frame(s);
+      const f = this.path.frame(s, this._frame);
+      const bend = this.path.frame(s + 5, this._ahead).theta - f.theta;
+      const lean = clamp(Math.atan2(Math.sin(bend), Math.cos(bend)) * this.speed * 0.016, -0.03, 0.03);
       const p = i * 2.39;
       const roll =
         (Math.sin(s * 1.9 + p) * 0.45 + Math.sin(s * 0.83 + p * 2.7) * 0.35 + Math.sin(s * 3.7 + p * 1.3) * 0.2) * 0.0075 +
-        Math.sin(s * 0.21 + p) * 0.003;
+        Math.sin(s * 0.21 + p) * 0.003 + lean;
       const pitch = (Math.sin(s * 2.6 + p * 1.9) * 0.6 + Math.sin(s * 1.21 + p) * 0.4) * 0.0055;
       const bob = (Math.sin(s * 2.3 + p) + Math.sin(s * 4.1 + p * 2.2) * 0.5) * 0.016;
       car.group.position.set(f.x, bob, f.z);
       car.group.rotation.set(roll, f.theta, pitch);
     }
-    const mid = this.path.frame(this.path.head - CAR_OFFSETS[1]);
+    const mid = this.path.frame(this.path.head - CAR_OFFSETS[1], this._frame);
     this._pos.set(mid.x, 0, mid.z);
+  }
+
+  // Coupling rods ride their crank pins; the far side is quartered a quarter-turn ahead.
+  #placeRods() {
+    const a = this.wheels[0].rotation.z;
+    for (let i = 0; i < this.rods.length; i++) {
+      const rod = this.rods[i];
+      rod.position.set(Math.cos(a + rod.userData.phase) * 0.4, Math.sin(a + rod.userData.phase) * 0.4, 0);
+    }
   }
 
   // See-through walls: the zone the player occupies fades out; in book
@@ -287,6 +344,12 @@ export class Train {
       mat.opacity = damp(mat.opacity, target, 7, dt);
       mat.depthWrite = mat.opacity > 0.5;
     }
+    for (let i = 0; i < this.glassMats.length; i++) {
+      const entry = this.glassMats[i];
+      entry.fade = damp(entry.fade, allOpaque || entry.zone !== zone ? 1 : 0, 7, dt);
+      if (entry.glint) entry.mat.opacity = this.materials.paneGlint.opacity * entry.fade * Math.max(0, 1 - 2.2 * this.glassGlow);
+      else entry.mat.color.copy(entry.glow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.1 : 0.2));
+    }
     setPracticalsFocus(this);
   }
 
@@ -296,6 +359,11 @@ export class Train {
 
   // ------------------------------------------------- map overlay rendering
   updateRouteDisplay(mapBlend, time) {
+    const away = mapBlend > 0.92;
+    if (away !== this.tuckedAway) {
+      this.tuckedAway = away;
+      for (let i = 0; i < this.tucked.length; i++) this.tucked[i].visible = !away;
+    }
     updateRouteDisplay(this, this._pos, this.route, mapBlend, time);
   }
 
