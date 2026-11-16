@@ -21,6 +21,7 @@ const USAGE = `Usage: npm run bench -- [options]
   --url <url>              bench an already-running server
   --shots <dir>            save a screenshot of every scene (and every ablation)
   --gpu                    use the real GPU instead of SwiftShader (frame times stop being comparable)
+  --pr <n>                 measure at this render pixel ratio instead of the tier's (e.g. 6 to load a fast GPU)
   --query a=b&c=d          extra query parameters for the page`;
 
 function parseArgs(argv) {
@@ -91,6 +92,7 @@ const ABLATIONS = [
 ];
 
 const SETTLE_DT = 0.1;
+const basePr = Number(args.pr) || null;
 const LOW_RES = 0.5;
 const SETUP_PIXEL_RATIO = 0.3;
 
@@ -196,6 +198,8 @@ async function ensureGrassland(page) {
   await resetStage(page, { train: { x: 2450 - 60 + 24.6, z: 0, heading: 0 }, station: STATIONS.engine, time: 'day' });
   await until(page, () => !!__game.grassland);
   await step(page, 10, SETTLE_DT);
+  // the arrival card arms its dismissal 600ms after it appears
+  await page.waitForTimeout(800);
   await page.keyboard.press('Space');
   await until(page, () => document.getElementById('card').classList.contains('hidden'));
 }
@@ -253,7 +257,7 @@ const quantile = (values, q) => {
 const round = (n, d = 2) => Number(n.toFixed(d));
 
 // Frozen frames (dt 0) at the real pixel ratio: every block renders the identical picture.
-async function measure(page, { frames, blocks, pr = null, off = [] }) {
+async function measure(page, { frames, blocks, pr = basePr, off = [] }) {
   await page.evaluate(({ pr, off }) => { __perf.setPixelRatio(pr); __perf.off(off); __perf.sync = true; }, { pr, off });
   await step(page, 5, 0);
   const perBlock = [];
@@ -358,7 +362,7 @@ async function main() {
     return;
   }
   const tier = typeof args.tier === 'string' ? args.tier : 'low';
-  if (!['low', 'medium', 'high'].includes(tier)) throw new Error(`unknown tier "${tier}"`);
+  if (!['low', 'medium', 'high'].includes(tier)) throw new Error(`unknown tier "${tier}"\n${USAGE}`);
   const frames = Number(args.frames) || 12;
   const blocks = Number(args.blocks) || 3;
   const outFile = resolve(typeof args.out === 'string' ? args.out : join(root, 'perf', `bench-${tier}.json`));
@@ -389,7 +393,7 @@ async function main() {
   const result = {
     meta: {
       generatedAt: new Date().toISOString(), commit, tier, built: !!args.built, browser: browser.version(),
-      viewport: `${VIEWPORT.width}x${VIEWPORT.height}@${VIEWPORT.deviceScaleFactor}`, frames, blocks, query: args.query || '',
+      viewport: `${VIEWPORT.width}x${VIEWPORT.height}@${VIEWPORT.deviceScaleFactor}`, frames, blocks, pixelRatio: basePr ?? 'tier', query: args.query || '',
     },
     scenes: {},
   };
@@ -440,7 +444,7 @@ async function main() {
       if (!ablations.length) continue;
       const variants = {};
       for (const a of ablations) {
-        const m = await measure(page, { frames, blocks: 1, pr: a.pr ?? null, off: a.off ?? [] });
+        const m = await measure(page, { frames, blocks: 1, pr: a.pr ?? basePr, off: a.off ?? [] });
         if (!a.pr) m.lowResMs = (await measure(page, { frames, blocks: 1, pr: base.pixelRatio * LOW_RES, off: a.off })).frameMs;
         variants[a.name] = m;
         if (shots) await page.screenshot({ path: join(shots, `${scene.name}--${a.name.replace(/[^a-z0-9.]+/gi, '-')}.png`), scale: 'css' });
@@ -476,7 +480,6 @@ async function main() {
 
 main().catch((error) => {
   console.error(error.message || error);
-  console.error(USAGE);
   stopServer();
   process.exit(1);
 });

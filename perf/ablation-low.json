@@ -1,0 +1,3099 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-15T19:57:19.286Z",
+    "commit": "2fa32c3+dirty",
+    "tier": "low",
+    "built": false,
+    "browser": "157.0.8103.51",
+    "viewport": "390x844@3",
+    "frames": 12,
+    "blocks": 3,
+    "query": "",
+    "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "antialias": true,
+    "seconds": 2549
+  },
+  "scenes": {
+    "travel-day": {
+      "frameMs": 283.5,
+      "p90Ms": 300,
+      "jsMs": 2.4,
+      "syncMs": 284.1,
+      "blockMs": [
+        283.5,
+        280.3,
+        284.9
+      ],
+      "spreadPct": 1.6,
+      "calls": 454,
+      "shadowCalls": 232,
+      "triangles": 188387,
+      "shadowTriangles": 92674,
+      "points": 0,
+      "programs": 99,
+      "geometries": 251,
+      "textures": 21,
+      "width": 644,
+      "height": 1395,
+      "pixelRatio": 1.653551508738841,
+      "pixels": 898380,
+      "lights": {
+        "dir": 3,
+        "point": 4,
+        "spot": 0,
+        "hemi": 1
+      },
+      "lowResMs": 177.1,
+      "perMpxMs": 157.9,
+      "fixedMs": 141.7,
+      "speed": 6.09,
+      "night": 0
+    },
+    "travel-night": {
+      "frameMs": 316.2,
+      "p90Ms": 327.6,
+      "jsMs": 2.5,
+      "syncMs": 314.4,
+      "blockMs": [
+        315.1,
+        316.6,
+        315
+      ],
+      "spreadPct": 0.5,
+      "calls": 518,
+      "shadowCalls": 232,
+      "triangles": 191112,
+      "shadowTriangles": 92674,
+      "points": 2370,
+      "programs": 288,
+      "geometries": 265,
+      "textures": 21,
+      "width": 644,
+      "height": 1395,
+      "pixelRatio": 1.653551508738841,
+      "pixels": 898380,
+      "lights": {
+        "dir": 3,
+        "point": 4,
+        "spot": 0,
+        "hemi": 1
+      },
+      "lowResMs": 185.5,
+      "perMpxMs": 193.9,
+      "fixedMs": 142,
+      "speed": 6.09,
+      "night": 1
+    },
+    "carriage-dusk": {
+      "frameMs": 273.2,
+      "p90Ms": 283.8,
+      "jsMs": 1.7,
+      "syncMs": 271.8,
+      "blockMs": [
+        267.9,
+        274.7,
+        274.7
+      ],
+      "spreadPct": 2.5,
+      "calls": 207,
+      "shadowCalls": 233,
+      "triangles": 121937,
+      "shadowTriangles": 92654,
+      "points": 2370,
+      "programs": 311,
+      "geometries": 267,
+      "textures": 21,
+      "width": 644,
+      "height": 1395,
+      "pixelRatio": 1.653551508738841,
+      "pixels": 898380,
+      "lights": {
+        "dir": 3,
+        "point": 4,
+        "spot": 0,
+        "hemi": 1
+      },
+      "lowResMs": 146,
+      "perMpxMs": 188.7,
+      "fixedMs": 103.6,
+      "speed": 0,
+      "night": 0.05
+    },
+    "engine-day": {
+      "frameMs": 289.5,
+      "p90Ms": 300.1,
+      "jsMs": 1.8,
+      "syncMs": 287.8,
+      "blockMs": [
+        289.6,
+        285,
+        287.5
+      ],
+      "spreadPct": 1.6,
+      "calls": 239,
+      "shadowCalls": 234,
+      "triangles": 129647,
+      "shadowTriangles": 92734,
+      "points": 0,
+      "programs": 312,
+      "geometries": 267,
+      "textures": 22,
+      "width": 644,
+      "height": 1395,
+      "pixelRatio": 1.653551508738841,
+      "pixels": 898380,
+      "lights": {
+        "dir": 3,
+        "point": 4,
+        "spot": 0,
+        "hemi": 1
+      },
+      "lowResMs": 151.3,
+      "perMpxMs": 205.1,
+      "fixedMs": 105.3,
+      "speed": 0,
+      "night": 0
+    },
+    "map-day": {
+      "frameMs": 239.6,
+      "p90Ms": 253.2,
+      "jsMs": 2.3,
+      "syncMs": 238.3,
+      "blockMs": [
+        241.2,
+        235.5,
+        237.1
+      ],
+      "spreadPct": 2.4,
+      "calls": 387,
+      "shadowCalls": 204,
+      "triangles": 63960,
+      "shadowTriangles": 35280,
+      "points": 0,
+      "programs": 318,
+      "geometries": 305,
+      "textures": 25,
+      "width": 644,
+      "height": 1395,
+      "pixelRatio": 1.653551508738841,
+      "pixels": 898380,
+      "lights": {
+        "dir": 3,
+        "point": 4,
+        "spot": 0,
+        "hemi": 1
+      },
+      "lowResMs": 111.6,
+      "perMpxMs": 189.9,
+      "fixedMs": 69,
+      "speed": 0,
+      "night": 0
+    },
+    "vista-grass": {
+      "frameMs": 547.7,
+      "p90Ms": 556.2,
+      "jsMs": 3.2,
+      "syncMs": 546.2,
+      "blockMs": [
+        544.2,
+        549.2,
+        549.9
+      ],
+      "spreadPct": 1,
+      "calls": 605,
+      "shadowCalls": 240,
+      "triangles": 290632,
+      "shadowTriangles": 98952,
+      "points": 0,
+      "programs": 453,
+      "geometries": 367,
+      "textures": 32,
+      "width": 644,
+      "height": 1395,
+      "pixelRatio": 1.653551508738841,
+      "pixels": 898380,
+      "lights": {
+        "dir": 3,
+        "point": 4,
+        "spot": 0,
+        "hemi": 1
+      },
+      "lowResMs": 300.4,
+      "perMpxMs": 366.9,
+      "fixedMs": 218,
+      "speed": 0,
+      "night": 0
+    }
+  },
+  "ablation": {
+    "travel-day": {
+      "baselineMs": 284.75,
+      "lowResMs": 177.1,
+      "driftMs": 2.5,
+      "variants": {
+        "pixel ratio 1.0": {
+          "frameMs": 194.4,
+          "savedMs": 90.35,
+          "savedPct": 31.7,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 329160
+        },
+        "pixel ratio 0.5": {
+          "frameMs": 153.7,
+          "savedMs": 131.05,
+          "savedPct": 46,
+          "jsMs": 2.2,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 82290
+        },
+        "shadows": {
+          "frameMs": 236.4,
+          "savedMs": 48.35,
+          "savedPct": 17,
+          "lowResMs": 150,
+          "savedLowResMs": 27.1,
+          "jsMs": 1.9,
+          "calls": 454,
+          "shadowCalls": 0,
+          "triangles": 188387,
+          "shadowTriangles": 0,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce light": {
+          "frameMs": 281.1,
+          "savedMs": 3.65,
+          "savedPct": 1.3,
+          "lowResMs": 177.4,
+          "savedLowResMs": -0.3,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "room fill light": {
+          "frameMs": 283.3,
+          "savedMs": 1.45,
+          "savedPct": 0.5,
+          "lowResMs": 177.7,
+          "savedLowResMs": -0.6,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "point lights": {
+          "frameMs": 264.5,
+          "savedMs": 20.25,
+          "savedPct": 7.1,
+          "lowResMs": 173.7,
+          "savedLowResMs": 3.4,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce+fill+points": {
+          "frameMs": 262.3,
+          "savedMs": 22.45,
+          "savedPct": 7.9,
+          "lowResMs": 168.5,
+          "savedLowResMs": 8.6,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 1,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "hemisphere light": {
+          "frameMs": 285.2,
+          "savedMs": -0.45,
+          "savedPct": -0.2,
+          "lowResMs": 178.4,
+          "savedLowResMs": -1.3,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 0
+          },
+          "pixels": 898380
+        },
+        "environment map": {
+          "frameMs": 233,
+          "savedMs": 51.75,
+          "savedPct": 18.2,
+          "lowResMs": 161.2,
+          "savedLowResMs": 15.9,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interiors": {
+          "frameMs": 233.3,
+          "savedMs": 51.45,
+          "savedPct": 18.1,
+          "lowResMs": 137.8,
+          "savedLowResMs": 39.3,
+          "jsMs": 2.1,
+          "calls": 365,
+          "shadowCalls": 171,
+          "triangles": 122313,
+          "shadowTriangles": 31420,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interior shadows": {
+          "frameMs": 276.7,
+          "savedMs": 8.05,
+          "savedPct": 2.8,
+          "lowResMs": 171.7,
+          "savedLowResMs": 5.4,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 171,
+          "triangles": 188387,
+          "shadowTriangles": 31420,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "train shadows": {
+          "frameMs": 266.7,
+          "savedMs": 18.05,
+          "savedPct": 6.3,
+          "lowResMs": 160.7,
+          "savedLowResMs": 16.4,
+          "jsMs": 2.1,
+          "calls": 454,
+          "shadowCalls": 2,
+          "triangles": 188387,
+          "shadowTriangles": 360,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all shading (flat)": {
+          "frameMs": 141.8,
+          "savedMs": 142.95,
+          "savedPct": 50.2,
+          "lowResMs": 133.1,
+          "savedLowResMs": 44,
+          "jsMs": 2.1,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "whole train": {
+          "frameMs": 138.9,
+          "savedMs": 145.85,
+          "savedPct": 51.2,
+          "lowResMs": 79,
+          "savedLowResMs": 98.1,
+          "jsMs": 1.1,
+          "calls": 109,
+          "shadowCalls": 2,
+          "triangles": 86915,
+          "shadowTriangles": 360,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "figure": {
+          "frameMs": 283.3,
+          "savedMs": 1.45,
+          "savedPct": 0.5,
+          "lowResMs": 177.6,
+          "savedLowResMs": -0.5,
+          "jsMs": 2.3,
+          "calls": 454,
+          "shadowCalls": 211,
+          "triangles": 188387,
+          "shadowTriangles": 87054,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground cover": {
+          "frameMs": 228.5,
+          "savedMs": 56.25,
+          "savedPct": 19.8,
+          "lowResMs": 129.9,
+          "savedLowResMs": 47.2,
+          "jsMs": 2.2,
+          "calls": 384,
+          "shadowCalls": 232,
+          "triangles": 108792,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "scenery": {
+          "frameMs": 266.3,
+          "savedMs": 18.45,
+          "savedPct": 6.5,
+          "lowResMs": 173,
+          "savedLowResMs": 4.1,
+          "jsMs": 2.2,
+          "calls": 419,
+          "shadowCalls": 230,
+          "triangles": 182807,
+          "shadowTriangles": 92314,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground": {
+          "frameMs": 230.2,
+          "savedMs": 54.55,
+          "savedPct": 19.2,
+          "lowResMs": 166.7,
+          "savedLowResMs": 10.4,
+          "jsMs": 2.4,
+          "calls": 451,
+          "shadowCalls": 232,
+          "triangles": 188381,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "water": {
+          "frameMs": 283.3,
+          "savedMs": 1.45,
+          "savedPct": 0.5,
+          "lowResMs": 178.5,
+          "savedLowResMs": -1.4,
+          "jsMs": 2.4,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "smoke": {
+          "frameMs": 275,
+          "savedMs": 9.75,
+          "savedPct": 3.4,
+          "lowResMs": 175.4,
+          "savedLowResMs": 1.7,
+          "jsMs": 2.4,
+          "calls": 453,
+          "shadowCalls": 232,
+          "triangles": 187867,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "sky dome+stars": {
+          "frameMs": 268.5,
+          "savedMs": 16.25,
+          "savedPct": 5.7,
+          "lowResMs": 175.3,
+          "savedLowResMs": 1.8,
+          "jsMs": 2.4,
+          "calls": 453,
+          "shadowCalls": 232,
+          "triangles": 187171,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "map shroud": {
+          "frameMs": 283.3,
+          "savedMs": 1.45,
+          "savedPct": 0.5,
+          "lowResMs": 177.3,
+          "savedLowResMs": -0.2,
+          "jsMs": 2.4,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all transparent": {
+          "frameMs": 250,
+          "savedMs": 34.75,
+          "savedPct": 12.2,
+          "lowResMs": 159.7,
+          "savedLowResMs": 17.4,
+          "jsMs": 1.9,
+          "calls": 369,
+          "shadowCalls": 200,
+          "triangles": 179931,
+          "shadowTriangles": 90382,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "css overlays": {
+          "frameMs": 279.4,
+          "savedMs": 5.35,
+          "savedPct": 1.9,
+          "lowResMs": 176.8,
+          "savedLowResMs": 0.3,
+          "jsMs": 2.4,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "tone mapping": {
+          "frameMs": 279.9,
+          "savedMs": 4.85,
+          "savedPct": 1.7,
+          "lowResMs": 178,
+          "savedLowResMs": -0.9,
+          "jsMs": 2.4,
+          "calls": 454,
+          "shadowCalls": 232,
+          "triangles": 188387,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        }
+      }
+    },
+    "travel-night": {
+      "baselineMs": 315,
+      "lowResMs": 185.5,
+      "driftMs": -2.4,
+      "variants": {
+        "pixel ratio 1.0": {
+          "frameMs": 203.7,
+          "savedMs": 111.3,
+          "savedPct": 35.3,
+          "jsMs": 2.4,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 329160
+        },
+        "pixel ratio 0.5": {
+          "frameMs": 159.7,
+          "savedMs": 155.3,
+          "savedPct": 49.3,
+          "jsMs": 2.4,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 82290
+        },
+        "shadows": {
+          "frameMs": 265.7,
+          "savedMs": 49.3,
+          "savedPct": 15.7,
+          "lowResMs": 158.3,
+          "savedLowResMs": 27.2,
+          "jsMs": 2,
+          "calls": 518,
+          "shadowCalls": 0,
+          "triangles": 191112,
+          "shadowTriangles": 0,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce light": {
+          "frameMs": 309.7,
+          "savedMs": 5.3,
+          "savedPct": 1.7,
+          "lowResMs": 181.8,
+          "savedLowResMs": 3.7,
+          "jsMs": 2.5,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "room fill light": {
+          "frameMs": 311.5,
+          "savedMs": 3.5,
+          "savedPct": 1.1,
+          "lowResMs": 185.7,
+          "savedLowResMs": -0.2,
+          "jsMs": 2.6,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "point lights": {
+          "frameMs": 299.3,
+          "savedMs": 15.7,
+          "savedPct": 5,
+          "lowResMs": 177.5,
+          "savedLowResMs": 8,
+          "jsMs": 2.5,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce+fill+points": {
+          "frameMs": 289.4,
+          "savedMs": 25.6,
+          "savedPct": 8.1,
+          "lowResMs": 180,
+          "savedLowResMs": 5.5,
+          "jsMs": 2.5,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 1,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "hemisphere light": {
+          "frameMs": 315.2,
+          "savedMs": -0.2,
+          "savedPct": -0.1,
+          "lowResMs": 184.2,
+          "savedLowResMs": 1.3,
+          "jsMs": 2.5,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 0
+          },
+          "pixels": 898380
+        },
+        "environment map": {
+          "frameMs": 255.7,
+          "savedMs": 59.3,
+          "savedPct": 18.8,
+          "lowResMs": 171.2,
+          "savedLowResMs": 14.3,
+          "jsMs": 2.5,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interiors": {
+          "frameMs": 251,
+          "savedMs": 64,
+          "savedPct": 20.3,
+          "lowResMs": 140.5,
+          "savedLowResMs": 45,
+          "jsMs": 2.2,
+          "calls": 424,
+          "shadowCalls": 171,
+          "triangles": 124746,
+          "shadowTriangles": 31420,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interior shadows": {
+          "frameMs": 305.5,
+          "savedMs": 9.5,
+          "savedPct": 3,
+          "lowResMs": 181.4,
+          "savedLowResMs": 4.1,
+          "jsMs": 2.4,
+          "calls": 518,
+          "shadowCalls": 171,
+          "triangles": 191112,
+          "shadowTriangles": 31420,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "train shadows": {
+          "frameMs": 300.2,
+          "savedMs": 14.8,
+          "savedPct": 4.7,
+          "lowResMs": 170.1,
+          "savedLowResMs": 15.4,
+          "jsMs": 2.3,
+          "calls": 518,
+          "shadowCalls": 2,
+          "triangles": 191112,
+          "shadowTriangles": 360,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all shading (flat)": {
+          "frameMs": 148.7,
+          "savedMs": 166.3,
+          "savedPct": 52.8,
+          "lowResMs": 140.6,
+          "savedLowResMs": 44.9,
+          "jsMs": 2.3,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "whole train": {
+          "frameMs": 130.5,
+          "savedMs": 184.5,
+          "savedPct": 58.6,
+          "lowResMs": 68.9,
+          "savedLowResMs": 116.6,
+          "jsMs": 1,
+          "calls": 85,
+          "shadowCalls": 2,
+          "triangles": 76500,
+          "shadowTriangles": 360,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "figure": {
+          "frameMs": 307.2,
+          "savedMs": 7.8,
+          "savedPct": 2.5,
+          "lowResMs": 182.4,
+          "savedLowResMs": 3.1,
+          "jsMs": 2.5,
+          "calls": 470,
+          "shadowCalls": 211,
+          "triangles": 181610,
+          "shadowTriangles": 87054,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground cover": {
+          "frameMs": 275.2,
+          "savedMs": 39.8,
+          "savedPct": 12.6,
+          "lowResMs": 148.7,
+          "savedLowResMs": 36.8,
+          "jsMs": 2.3,
+          "calls": 458,
+          "shadowCalls": 232,
+          "triangles": 121594,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "scenery": {
+          "frameMs": 303.3,
+          "savedMs": 11.7,
+          "savedPct": 3.7,
+          "lowResMs": 182.4,
+          "savedLowResMs": 3.1,
+          "jsMs": 2.4,
+          "calls": 500,
+          "shadowCalls": 230,
+          "triangles": 185870,
+          "shadowTriangles": 92314,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground": {
+          "frameMs": 249.9,
+          "savedMs": 65.1,
+          "savedPct": 20.7,
+          "lowResMs": 174.3,
+          "savedLowResMs": 11.2,
+          "jsMs": 2.4,
+          "calls": 515,
+          "shadowCalls": 232,
+          "triangles": 191106,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "water": {
+          "frameMs": 316.5,
+          "savedMs": -1.5,
+          "savedPct": -0.5,
+          "lowResMs": 187,
+          "savedLowResMs": -1.5,
+          "jsMs": 2.5,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "smoke": {
+          "frameMs": 307.1,
+          "savedMs": 7.9,
+          "savedPct": 2.5,
+          "lowResMs": 181,
+          "savedLowResMs": 4.5,
+          "jsMs": 2.6,
+          "calls": 517,
+          "shadowCalls": 232,
+          "triangles": 190592,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "sky dome+stars": {
+          "frameMs": 300,
+          "savedMs": 15,
+          "savedPct": 4.8,
+          "lowResMs": 180.7,
+          "savedLowResMs": 4.8,
+          "jsMs": 2.5,
+          "calls": 514,
+          "shadowCalls": 232,
+          "triangles": 189896,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "map shroud": {
+          "frameMs": 310,
+          "savedMs": 5,
+          "savedPct": 1.6,
+          "lowResMs": 184.9,
+          "savedLowResMs": 0.6,
+          "jsMs": 2.5,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all transparent": {
+          "frameMs": 268.9,
+          "savedMs": 46.1,
+          "savedPct": 14.6,
+          "lowResMs": 166.6,
+          "savedLowResMs": 18.9,
+          "jsMs": 2.1,
+          "calls": 438,
+          "shadowCalls": 200,
+          "triangles": 185124,
+          "shadowTriangles": 90382,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "css overlays": {
+          "frameMs": 308.3,
+          "savedMs": 6.7,
+          "savedPct": 2.1,
+          "lowResMs": 185.5,
+          "savedLowResMs": 0,
+          "jsMs": 2.5,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "tone mapping": {
+          "frameMs": 302,
+          "savedMs": 13,
+          "savedPct": 4.1,
+          "lowResMs": 183.4,
+          "savedLowResMs": 2.1,
+          "jsMs": 2.4,
+          "calls": 518,
+          "shadowCalls": 232,
+          "triangles": 191112,
+          "shadowTriangles": 92674,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        }
+      }
+    },
+    "carriage-dusk": {
+      "baselineMs": 270,
+      "lowResMs": 146,
+      "driftMs": -6.4,
+      "variants": {
+        "pixel ratio 1.0": {
+          "frameMs": 164.7,
+          "savedMs": 105.3,
+          "savedPct": 39,
+          "jsMs": 1.7,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 329160
+        },
+        "pixel ratio 0.5": {
+          "frameMs": 116.9,
+          "savedMs": 153.1,
+          "savedPct": 56.7,
+          "jsMs": 1.6,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 82290
+        },
+        "shadows": {
+          "frameMs": 225.6,
+          "savedMs": 44.4,
+          "savedPct": 16.4,
+          "lowResMs": 118.5,
+          "savedLowResMs": 27.5,
+          "jsMs": 1.4,
+          "calls": 207,
+          "shadowCalls": 0,
+          "triangles": 121937,
+          "shadowTriangles": 0,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce light": {
+          "frameMs": 270.4,
+          "savedMs": -0.4,
+          "savedPct": -0.1,
+          "lowResMs": 146.5,
+          "savedLowResMs": -0.5,
+          "jsMs": 1.8,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "room fill light": {
+          "frameMs": 271.5,
+          "savedMs": -1.5,
+          "savedPct": -0.6,
+          "lowResMs": 144.9,
+          "savedLowResMs": 1.1,
+          "jsMs": 1.8,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "point lights": {
+          "frameMs": 251,
+          "savedMs": 19,
+          "savedPct": 7,
+          "lowResMs": 139.8,
+          "savedLowResMs": 6.2,
+          "jsMs": 1.8,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce+fill+points": {
+          "frameMs": 247.8,
+          "savedMs": 22.2,
+          "savedPct": 8.2,
+          "lowResMs": 139.1,
+          "savedLowResMs": 6.9,
+          "jsMs": 1.8,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 1,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "hemisphere light": {
+          "frameMs": 275.9,
+          "savedMs": -5.9,
+          "savedPct": -2.2,
+          "lowResMs": 147.1,
+          "savedLowResMs": -1.1,
+          "jsMs": 1.8,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 0
+          },
+          "pixels": 898380
+        },
+        "environment map": {
+          "frameMs": 217.9,
+          "savedMs": 52.1,
+          "savedPct": 19.3,
+          "lowResMs": 131.4,
+          "savedLowResMs": 14.6,
+          "jsMs": 1.7,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interiors": {
+          "frameMs": 233,
+          "savedMs": 37,
+          "savedPct": 13.7,
+          "lowResMs": 124.8,
+          "savedLowResMs": 21.2,
+          "jsMs": 1.5,
+          "calls": 185,
+          "shadowCalls": 172,
+          "triangles": 103019,
+          "shadowTriangles": 31400,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interior shadows": {
+          "frameMs": 266.3,
+          "savedMs": 3.7,
+          "savedPct": 1.4,
+          "lowResMs": 140.2,
+          "savedLowResMs": 5.8,
+          "jsMs": 1.7,
+          "calls": 207,
+          "shadowCalls": 172,
+          "triangles": 121937,
+          "shadowTriangles": 31400,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "train shadows": {
+          "frameMs": 250.8,
+          "savedMs": 19.2,
+          "savedPct": 7.1,
+          "lowResMs": 125.6,
+          "savedLowResMs": 20.4,
+          "jsMs": 1.4,
+          "calls": 207,
+          "shadowCalls": 1,
+          "triangles": 121937,
+          "shadowTriangles": 280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all shading (flat)": {
+          "frameMs": 94.2,
+          "savedMs": 175.8,
+          "savedPct": 65.1,
+          "lowResMs": 80.8,
+          "savedLowResMs": 65.2,
+          "jsMs": 1.5,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "whole train": {
+          "frameMs": 134.3,
+          "savedMs": 135.7,
+          "savedPct": 50.3,
+          "lowResMs": 84.2,
+          "savedLowResMs": 61.8,
+          "jsMs": 1.1,
+          "calls": 138,
+          "shadowCalls": 24,
+          "triangles": 97361,
+          "shadowTriangles": 5960,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "figure": {
+          "frameMs": 266.7,
+          "savedMs": 3.3,
+          "savedPct": 1.2,
+          "lowResMs": 137.9,
+          "savedLowResMs": 8.1,
+          "jsMs": 1.6,
+          "calls": 157,
+          "shadowCalls": 210,
+          "triangles": 112295,
+          "shadowTriangles": 86974,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground cover": {
+          "frameMs": 216.6,
+          "savedMs": 53.4,
+          "savedPct": 19.8,
+          "lowResMs": 91.9,
+          "savedLowResMs": 54.1,
+          "jsMs": 1.6,
+          "calls": 137,
+          "shadowCalls": 233,
+          "triangles": 38204,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "scenery": {
+          "frameMs": 264.3,
+          "savedMs": 5.7,
+          "savedPct": 2.1,
+          "lowResMs": 141,
+          "savedLowResMs": 5,
+          "jsMs": 1.6,
+          "calls": 196,
+          "shadowCalls": 232,
+          "triangles": 119691,
+          "shadowTriangles": 92374,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground": {
+          "frameMs": 233.7,
+          "savedMs": 36.3,
+          "savedPct": 13.4,
+          "lowResMs": 137.2,
+          "savedLowResMs": 8.8,
+          "jsMs": 1.7,
+          "calls": 206,
+          "shadowCalls": 233,
+          "triangles": 121935,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "water": {
+          "frameMs": 269.3,
+          "savedMs": 0.7,
+          "savedPct": 0.3,
+          "lowResMs": 145.8,
+          "savedLowResMs": 0.2,
+          "jsMs": 1.8,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "smoke": {
+          "frameMs": 266.8,
+          "savedMs": 3.2,
+          "savedPct": 1.2,
+          "lowResMs": 142.5,
+          "savedLowResMs": 3.5,
+          "jsMs": 1.7,
+          "calls": 206,
+          "shadowCalls": 233,
+          "triangles": 121417,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "sky dome+stars": {
+          "frameMs": 250.1,
+          "savedMs": 19.9,
+          "savedPct": 7.4,
+          "lowResMs": 140.2,
+          "savedLowResMs": 5.8,
+          "jsMs": 1.7,
+          "calls": 203,
+          "shadowCalls": 233,
+          "triangles": 120721,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "map shroud": {
+          "frameMs": 271.5,
+          "savedMs": -1.5,
+          "savedPct": -0.6,
+          "lowResMs": 144.5,
+          "savedLowResMs": 1.5,
+          "jsMs": 1.7,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all transparent": {
+          "frameMs": 233.8,
+          "savedMs": 36.2,
+          "savedPct": 13.4,
+          "lowResMs": 129.6,
+          "savedLowResMs": 16.4,
+          "jsMs": 1.5,
+          "calls": 179,
+          "shadowCalls": 202,
+          "triangles": 118791,
+          "shadowTriangles": 90442,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "css overlays": {
+          "frameMs": 272.7,
+          "savedMs": -2.7,
+          "savedPct": -1,
+          "lowResMs": 146.2,
+          "savedLowResMs": -0.2,
+          "jsMs": 1.6,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "tone mapping": {
+          "frameMs": 270,
+          "savedMs": 0,
+          "savedPct": 0,
+          "lowResMs": 145.1,
+          "savedLowResMs": 0.9,
+          "jsMs": 1.7,
+          "calls": 207,
+          "shadowCalls": 233,
+          "triangles": 121937,
+          "shadowTriangles": 92654,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        }
+      }
+    },
+    "engine-day": {
+      "baselineMs": 288.85,
+      "lowResMs": 151.3,
+      "driftMs": -1.3,
+      "variants": {
+        "pixel ratio 1.0": {
+          "frameMs": 173.3,
+          "savedMs": 115.55,
+          "savedPct": 40,
+          "jsMs": 1.7,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 329160
+        },
+        "pixel ratio 0.5": {
+          "frameMs": 121.4,
+          "savedMs": 167.45,
+          "savedPct": 58,
+          "jsMs": 1.7,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 82290
+        },
+        "shadows": {
+          "frameMs": 238,
+          "savedMs": 50.85,
+          "savedPct": 17.6,
+          "lowResMs": 124.9,
+          "savedLowResMs": 26.4,
+          "jsMs": 1.4,
+          "calls": 239,
+          "shadowCalls": 0,
+          "triangles": 129647,
+          "shadowTriangles": 0,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce light": {
+          "frameMs": 283.4,
+          "savedMs": 5.45,
+          "savedPct": 1.9,
+          "lowResMs": 150,
+          "savedLowResMs": 1.3,
+          "jsMs": 1.8,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "room fill light": {
+          "frameMs": 286.3,
+          "savedMs": 2.55,
+          "savedPct": 0.9,
+          "lowResMs": 150.4,
+          "savedLowResMs": 0.9,
+          "jsMs": 1.8,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "point lights": {
+          "frameMs": 266.5,
+          "savedMs": 22.35,
+          "savedPct": 7.7,
+          "lowResMs": 144.3,
+          "savedLowResMs": 7,
+          "jsMs": 1.8,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce+fill+points": {
+          "frameMs": 260.8,
+          "savedMs": 28.05,
+          "savedPct": 9.7,
+          "lowResMs": 143.2,
+          "savedLowResMs": 8.1,
+          "jsMs": 1.7,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 1,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "hemisphere light": {
+          "frameMs": 293,
+          "savedMs": -4.15,
+          "savedPct": -1.4,
+          "lowResMs": 150.3,
+          "savedLowResMs": 1,
+          "jsMs": 1.8,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 0
+          },
+          "pixels": 898380
+        },
+        "environment map": {
+          "frameMs": 231.8,
+          "savedMs": 57.05,
+          "savedPct": 19.8,
+          "lowResMs": 136.8,
+          "savedLowResMs": 14.5,
+          "jsMs": 1.9,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interiors": {
+          "frameMs": 241.6,
+          "savedMs": 47.25,
+          "savedPct": 16.4,
+          "lowResMs": 124.9,
+          "savedLowResMs": 26.4,
+          "jsMs": 1.6,
+          "calls": 204,
+          "shadowCalls": 173,
+          "triangles": 105457,
+          "shadowTriangles": 31480,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interior shadows": {
+          "frameMs": 283.3,
+          "savedMs": 5.55,
+          "savedPct": 1.9,
+          "lowResMs": 144,
+          "savedLowResMs": 7.3,
+          "jsMs": 1.7,
+          "calls": 239,
+          "shadowCalls": 173,
+          "triangles": 129647,
+          "shadowTriangles": 31480,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "train shadows": {
+          "frameMs": 266.6,
+          "savedMs": 22.25,
+          "savedPct": 7.7,
+          "lowResMs": 133.4,
+          "savedLowResMs": 17.9,
+          "jsMs": 1.5,
+          "calls": 239,
+          "shadowCalls": 2,
+          "triangles": 129647,
+          "shadowTriangles": 360,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all shading (flat)": {
+          "frameMs": 143.5,
+          "savedMs": 145.35,
+          "savedPct": 50.3,
+          "lowResMs": 100.9,
+          "savedLowResMs": 50.4,
+          "jsMs": 1.6,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "whole train": {
+          "frameMs": 135.1,
+          "savedMs": 153.75,
+          "savedPct": 53.2,
+          "lowResMs": 83.3,
+          "savedLowResMs": 68,
+          "jsMs": 1.1,
+          "calls": 135,
+          "shadowCalls": 25,
+          "triangles": 96675,
+          "shadowTriangles": 6040,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "figure": {
+          "frameMs": 278,
+          "savedMs": 10.85,
+          "savedPct": 3.8,
+          "lowResMs": 145.6,
+          "savedLowResMs": 5.7,
+          "jsMs": 1.7,
+          "calls": 189,
+          "shadowCalls": 211,
+          "triangles": 120005,
+          "shadowTriangles": 87054,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground cover": {
+          "frameMs": 224.5,
+          "savedMs": 64.35,
+          "savedPct": 22.3,
+          "lowResMs": 96,
+          "savedLowResMs": 55.3,
+          "jsMs": 1.7,
+          "calls": 169,
+          "shadowCalls": 234,
+          "triangles": 46240,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "scenery": {
+          "frameMs": 283.1,
+          "savedMs": 5.75,
+          "savedPct": 2,
+          "lowResMs": 147.8,
+          "savedLowResMs": 3.5,
+          "jsMs": 1.7,
+          "calls": 228,
+          "shadowCalls": 232,
+          "triangles": 127761,
+          "shadowTriangles": 92374,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground": {
+          "frameMs": 248.5,
+          "savedMs": 40.35,
+          "savedPct": 14,
+          "lowResMs": 140.5,
+          "savedLowResMs": 10.8,
+          "jsMs": 1.8,
+          "calls": 238,
+          "shadowCalls": 234,
+          "triangles": 129645,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "water": {
+          "frameMs": 285.2,
+          "savedMs": 3.65,
+          "savedPct": 1.3,
+          "lowResMs": 149.9,
+          "savedLowResMs": 1.4,
+          "jsMs": 1.8,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "smoke": {
+          "frameMs": 283.3,
+          "savedMs": 5.55,
+          "savedPct": 1.9,
+          "lowResMs": 150,
+          "savedLowResMs": 1.3,
+          "jsMs": 1.8,
+          "calls": 238,
+          "shadowCalls": 234,
+          "triangles": 129127,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "sky dome+stars": {
+          "frameMs": 276.3,
+          "savedMs": 12.55,
+          "savedPct": 4.3,
+          "lowResMs": 149.7,
+          "savedLowResMs": 1.6,
+          "jsMs": 1.7,
+          "calls": 238,
+          "shadowCalls": 234,
+          "triangles": 128431,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "map shroud": {
+          "frameMs": 289.2,
+          "savedMs": -0.35,
+          "savedPct": -0.1,
+          "lowResMs": 150,
+          "savedLowResMs": 1.3,
+          "jsMs": 1.7,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all transparent": {
+          "frameMs": 241.6,
+          "savedMs": 47.25,
+          "savedPct": 16.4,
+          "lowResMs": 133.4,
+          "savedLowResMs": 17.9,
+          "jsMs": 1.5,
+          "calls": 210,
+          "shadowCalls": 202,
+          "triangles": 126163,
+          "shadowTriangles": 90442,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "css overlays": {
+          "frameMs": 283.3,
+          "savedMs": 5.55,
+          "savedPct": 1.9,
+          "lowResMs": 149.9,
+          "savedLowResMs": 1.4,
+          "jsMs": 1.8,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "tone mapping": {
+          "frameMs": 282.7,
+          "savedMs": 6.15,
+          "savedPct": 2.1,
+          "lowResMs": 149.9,
+          "savedLowResMs": 1.4,
+          "jsMs": 1.8,
+          "calls": 239,
+          "shadowCalls": 234,
+          "triangles": 129647,
+          "shadowTriangles": 92734,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        }
+      }
+    },
+    "map-day": {
+      "baselineMs": 238.3,
+      "lowResMs": 111.6,
+      "driftMs": -2.6,
+      "variants": {
+        "pixel ratio 1.0": {
+          "frameMs": 133.3,
+          "savedMs": 105,
+          "savedPct": 44.1,
+          "jsMs": 2.2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 329160
+        },
+        "pixel ratio 0.5": {
+          "frameMs": 83.3,
+          "savedMs": 155,
+          "savedPct": 65,
+          "jsMs": 2.2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 82290
+        },
+        "shadows": {
+          "frameMs": 214.5,
+          "savedMs": 23.8,
+          "savedPct": 10,
+          "lowResMs": 95.2,
+          "savedLowResMs": 16.4,
+          "jsMs": 1.9,
+          "calls": 387,
+          "shadowCalls": 0,
+          "triangles": 63960,
+          "shadowTriangles": 0,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce light": {
+          "frameMs": 243.6,
+          "savedMs": -5.3,
+          "savedPct": -2.2,
+          "lowResMs": 112.9,
+          "savedLowResMs": -1.3,
+          "jsMs": 2.2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "room fill light": {
+          "frameMs": 245.5,
+          "savedMs": -7.2,
+          "savedPct": -3,
+          "lowResMs": 107.9,
+          "savedLowResMs": 3.7,
+          "jsMs": 2.2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "point lights": {
+          "frameMs": 231,
+          "savedMs": 7.3,
+          "savedPct": 3.1,
+          "lowResMs": 108.2,
+          "savedLowResMs": 3.4,
+          "jsMs": 2.2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce+fill+points": {
+          "frameMs": 229.4,
+          "savedMs": 8.9,
+          "savedPct": 3.7,
+          "lowResMs": 107.8,
+          "savedLowResMs": 3.8,
+          "jsMs": 2.2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 1,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "hemisphere light": {
+          "frameMs": 243.3,
+          "savedMs": -5,
+          "savedPct": -2.1,
+          "lowResMs": 111.8,
+          "savedLowResMs": -0.2,
+          "jsMs": 2.2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 0
+          },
+          "pixels": 898380
+        },
+        "environment map": {
+          "frameMs": 217.3,
+          "savedMs": 21,
+          "savedPct": 8.8,
+          "lowResMs": 102.6,
+          "savedLowResMs": 9,
+          "jsMs": 2.3,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interiors": {
+          "frameMs": 238.8,
+          "savedMs": -0.5,
+          "savedPct": -0.2,
+          "lowResMs": 111.7,
+          "savedLowResMs": -0.1,
+          "jsMs": 2.2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interior shadows": {
+          "frameMs": 238.3,
+          "savedMs": 0,
+          "savedPct": 0,
+          "lowResMs": 109.9,
+          "savedLowResMs": 1.7,
+          "jsMs": 2.3,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "train shadows": {
+          "frameMs": 232.3,
+          "savedMs": 6,
+          "savedPct": 2.5,
+          "lowResMs": 101.2,
+          "savedLowResMs": 10.4,
+          "jsMs": 2,
+          "calls": 387,
+          "shadowCalls": 33,
+          "triangles": 63960,
+          "shadowTriangles": 4160,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all shading (flat)": {
+          "frameMs": 122.1,
+          "savedMs": 116.2,
+          "savedPct": 48.8,
+          "lowResMs": 80,
+          "savedLowResMs": 31.6,
+          "jsMs": 2,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "whole train": {
+          "frameMs": 176.1,
+          "savedMs": 62.2,
+          "savedPct": 26.1,
+          "lowResMs": 60.1,
+          "savedLowResMs": 51.5,
+          "jsMs": 1.1,
+          "calls": 93,
+          "shadowCalls": 56,
+          "triangles": 25210,
+          "shadowTriangles": 9840,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "figure": {
+          "frameMs": 233.9,
+          "savedMs": 4.4,
+          "savedPct": 1.8,
+          "lowResMs": 104.5,
+          "savedLowResMs": 7.1,
+          "jsMs": 2.1,
+          "calls": 337,
+          "shadowCalls": 181,
+          "triangles": 54318,
+          "shadowTriangles": 29600,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground cover": {
+          "frameMs": 234.7,
+          "savedMs": 3.6,
+          "savedPct": 1.5,
+          "lowResMs": 105.2,
+          "savedLowResMs": 6.4,
+          "jsMs": 2.2,
+          "calls": 363,
+          "shadowCalls": 204,
+          "triangles": 51312,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "scenery": {
+          "frameMs": 239.3,
+          "savedMs": -1,
+          "savedPct": -0.4,
+          "lowResMs": 110.3,
+          "savedLowResMs": 1.3,
+          "jsMs": 2.2,
+          "calls": 384,
+          "shadowCalls": 171,
+          "triangles": 63200,
+          "shadowTriangles": 31120,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground": {
+          "frameMs": 175.5,
+          "savedMs": 62.8,
+          "savedPct": 26.4,
+          "lowResMs": 94,
+          "savedLowResMs": 17.6,
+          "jsMs": 2.2,
+          "calls": 386,
+          "shadowCalls": 204,
+          "triangles": 63958,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "water": {
+          "frameMs": 241.5,
+          "savedMs": -3.2,
+          "savedPct": -1.3,
+          "lowResMs": 111.9,
+          "savedLowResMs": -0.3,
+          "jsMs": 2.3,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "smoke": {
+          "frameMs": 235.6,
+          "savedMs": 2.7,
+          "savedPct": 1.1,
+          "lowResMs": 107.6,
+          "savedLowResMs": 4,
+          "jsMs": 2.3,
+          "calls": 386,
+          "shadowCalls": 204,
+          "triangles": 63440,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "sky dome+stars": {
+          "frameMs": 224.7,
+          "savedMs": 13.6,
+          "savedPct": 5.7,
+          "lowResMs": 107.4,
+          "savedLowResMs": 4.2,
+          "jsMs": 2.3,
+          "calls": 386,
+          "shadowCalls": 204,
+          "triangles": 62744,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "map shroud": {
+          "frameMs": 209.5,
+          "savedMs": 28.8,
+          "savedPct": 12.1,
+          "lowResMs": 104.4,
+          "savedLowResMs": 7.2,
+          "jsMs": 2.2,
+          "calls": 386,
+          "shadowCalls": 204,
+          "triangles": 63958,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all transparent": {
+          "frameMs": 193.2,
+          "savedMs": 45.1,
+          "savedPct": 18.9,
+          "lowResMs": 88.6,
+          "savedLowResMs": 23,
+          "jsMs": 1.8,
+          "calls": 300,
+          "shadowCalls": 148,
+          "triangles": 57750,
+          "shadowTriangles": 29808,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "css overlays": {
+          "frameMs": 237,
+          "savedMs": 1.3,
+          "savedPct": 0.5,
+          "lowResMs": 111.7,
+          "savedLowResMs": -0.1,
+          "jsMs": 2.3,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "tone mapping": {
+          "frameMs": 238.7,
+          "savedMs": -0.4,
+          "savedPct": -0.2,
+          "lowResMs": 110.7,
+          "savedLowResMs": 0.9,
+          "jsMs": 2.3,
+          "calls": 387,
+          "shadowCalls": 204,
+          "triangles": 63960,
+          "shadowTriangles": 35280,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        }
+      }
+    },
+    "vista-grass": {
+      "baselineMs": 548.9,
+      "lowResMs": 300.4,
+      "driftMs": 2.4,
+      "variants": {
+        "pixel ratio 1.0": {
+          "frameMs": 334.2,
+          "savedMs": 214.7,
+          "savedPct": 39.1,
+          "jsMs": 3.3,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 329160
+        },
+        "pixel ratio 0.5": {
+          "frameMs": 241.2,
+          "savedMs": 307.7,
+          "savedPct": 56.1,
+          "jsMs": 3.2,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 82290
+        },
+        "shadows": {
+          "frameMs": 474.5,
+          "savedMs": 74.4,
+          "savedPct": 13.6,
+          "lowResMs": 254.7,
+          "savedLowResMs": 45.7,
+          "jsMs": 2.7,
+          "calls": 605,
+          "shadowCalls": 0,
+          "triangles": 290632,
+          "shadowTriangles": 0,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce light": {
+          "frameMs": 540.1,
+          "savedMs": 8.8,
+          "savedPct": 1.6,
+          "lowResMs": 297.1,
+          "savedLowResMs": 3.3,
+          "jsMs": 3.3,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "room fill light": {
+          "frameMs": 544.8,
+          "savedMs": 4.1,
+          "savedPct": 0.7,
+          "lowResMs": 294.2,
+          "savedLowResMs": 6.2,
+          "jsMs": 3.3,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 2,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "point lights": {
+          "frameMs": 510.6,
+          "savedMs": 38.3,
+          "savedPct": 7,
+          "lowResMs": 285.3,
+          "savedLowResMs": 15.1,
+          "jsMs": 3.1,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "bounce+fill+points": {
+          "frameMs": 501.4,
+          "savedMs": 47.5,
+          "savedPct": 8.7,
+          "lowResMs": 279.1,
+          "savedLowResMs": 21.3,
+          "jsMs": 3.2,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 1,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "hemisphere light": {
+          "frameMs": 550.8,
+          "savedMs": -1.9,
+          "savedPct": -0.3,
+          "lowResMs": 296.5,
+          "savedLowResMs": 3.9,
+          "jsMs": 3.2,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 0
+          },
+          "pixels": 898380
+        },
+        "environment map": {
+          "frameMs": 400,
+          "savedMs": 148.9,
+          "savedPct": 27.1,
+          "lowResMs": 256.1,
+          "savedLowResMs": 44.3,
+          "jsMs": 3.1,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interiors": {
+          "frameMs": 486.2,
+          "savedMs": 62.7,
+          "savedPct": 11.4,
+          "lowResMs": 248.6,
+          "savedLowResMs": 51.8,
+          "jsMs": 3,
+          "calls": 511,
+          "shadowCalls": 179,
+          "triangles": 224266,
+          "shadowTriangles": 37698,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "interior shadows": {
+          "frameMs": 534.6,
+          "savedMs": 14.3,
+          "savedPct": 2.6,
+          "lowResMs": 289.4,
+          "savedLowResMs": 11,
+          "jsMs": 3.1,
+          "calls": 605,
+          "shadowCalls": 179,
+          "triangles": 290632,
+          "shadowTriangles": 37698,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "train shadows": {
+          "frameMs": 566.7,
+          "savedMs": -17.8,
+          "savedPct": -3.2,
+          "lowResMs": 293.3,
+          "savedLowResMs": 7.1,
+          "jsMs": 3,
+          "calls": 605,
+          "shadowCalls": 10,
+          "triangles": 290632,
+          "shadowTriangles": 6638,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all shading (flat)": {
+          "frameMs": 211.1,
+          "savedMs": 337.8,
+          "savedPct": 61.5,
+          "lowResMs": 191.9,
+          "savedLowResMs": 108.5,
+          "jsMs": 2.8,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "whole train": {
+          "frameMs": 350.1,
+          "savedMs": 198.8,
+          "savedPct": 36.2,
+          "lowResMs": 173.2,
+          "savedLowResMs": 127.2,
+          "jsMs": 1.6,
+          "calls": 172,
+          "shadowCalls": 10,
+          "triangles": 176020,
+          "shadowTriangles": 6638,
+          "lights": {
+            "dir": 3,
+            "point": 0,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "figure": {
+          "frameMs": 567.6,
+          "savedMs": -18.7,
+          "savedPct": -3.4,
+          "lowResMs": 300.8,
+          "savedLowResMs": -0.4,
+          "jsMs": 3.1,
+          "calls": 557,
+          "shadowCalls": 219,
+          "triangles": 281130,
+          "shadowTriangles": 93332,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground cover": {
+          "frameMs": 529.8,
+          "savedMs": 19.1,
+          "savedPct": 3.5,
+          "lowResMs": 247,
+          "savedLowResMs": 53.4,
+          "jsMs": 3.1,
+          "calls": 547,
+          "shadowCalls": 240,
+          "triangles": 214043,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "scenery": {
+          "frameMs": 359,
+          "savedMs": 189.9,
+          "savedPct": 34.6,
+          "lowResMs": 220.3,
+          "savedLowResMs": 80.1,
+          "jsMs": 2.8,
+          "calls": 519,
+          "shadowCalls": 230,
+          "triangles": 244744,
+          "shadowTriangles": 92314,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "ground": {
+          "frameMs": 433.6,
+          "savedMs": 115.3,
+          "savedPct": 21,
+          "lowResMs": 278.8,
+          "savedLowResMs": 21.6,
+          "jsMs": 3.3,
+          "calls": 595,
+          "shadowCalls": 240,
+          "triangles": 275705,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "water": {
+          "frameMs": 549.6,
+          "savedMs": -0.7,
+          "savedPct": -0.1,
+          "lowResMs": 299.9,
+          "savedLowResMs": 0.5,
+          "jsMs": 3.2,
+          "calls": 602,
+          "shadowCalls": 240,
+          "triangles": 283144,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "smoke": {
+          "frameMs": 582.1,
+          "savedMs": -33.2,
+          "savedPct": -6,
+          "lowResMs": 305.7,
+          "savedLowResMs": -5.3,
+          "jsMs": 3.2,
+          "calls": 604,
+          "shadowCalls": 240,
+          "triangles": 290112,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "sky dome+stars": {
+          "frameMs": 566.6,
+          "savedMs": -17.7,
+          "savedPct": -3.2,
+          "lowResMs": 297.6,
+          "savedLowResMs": 2.8,
+          "jsMs": 3.1,
+          "calls": 604,
+          "shadowCalls": 240,
+          "triangles": 289416,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "map shroud": {
+          "frameMs": 583.3,
+          "savedMs": -34.4,
+          "savedPct": -6.3,
+          "lowResMs": 304.8,
+          "savedLowResMs": -4.4,
+          "jsMs": 3.2,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "all transparent": {
+          "frameMs": 492.9,
+          "savedMs": 56,
+          "savedPct": 10.2,
+          "lowResMs": 272.1,
+          "savedLowResMs": 28.3,
+          "jsMs": 2.5,
+          "calls": 471,
+          "shadowCalls": 208,
+          "triangles": 273204,
+          "shadowTriangles": 96830,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "css overlays": {
+          "frameMs": 548.6,
+          "savedMs": 0.3,
+          "savedPct": 0.1,
+          "lowResMs": 306.4,
+          "savedLowResMs": -6,
+          "jsMs": 3.3,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        },
+        "tone mapping": {
+          "frameMs": 544.3,
+          "savedMs": 4.6,
+          "savedPct": 0.8,
+          "lowResMs": 293.5,
+          "savedLowResMs": 6.9,
+          "jsMs": 3.3,
+          "calls": 605,
+          "shadowCalls": 240,
+          "triangles": 290632,
+          "shadowTriangles": 98952,
+          "lights": {
+            "dir": 3,
+            "point": 4,
+            "spot": 0,
+            "hemi": 1
+          },
+          "pixels": 898380
+        }
+      }
+    }
+  },
+  "errors": []
+}
