@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { TUNING, clamp, damp, smootherstep } from './constants.js';
-import { QUALITY_TIERS, createQualityMonitor, selectInitialQuality } from './quality.js';
+import { QUALITY_TIERS, createQualityMonitor, createResolutionGovernor, selectInitialQuality } from './quality.js';
 import { CHART, setChart, setLookTier, setPaintLight, setPlainGrade } from './look.js';
 import { setCoverViewport } from './groundcover.js';
 import { registerServiceWorker } from './sw-register.js';
 import { installDebugHandle, bindSecretWarp } from './debug.js';
 import { createPerf } from './perf.js';
-import { createRenderer, applyRenderQuality, syncRendererSize } from './atmosphere/renderer.js';
+import { createRenderer, applyRenderQuality, syncRendererSize, setResolutionScale } from './atmosphere/renderer.js';
 import {
   createHaze, updateHaze, createSunLight, followShadowBox, createBounceLight, followBounceLight, applyChartLight,
 } from './atmosphere/lighting.js';
@@ -39,16 +39,34 @@ let qualityTier = selectInitialQuality({
   forcedTier: forcedQuality,
   deviceMemory: navigator.deviceMemory,
   hardwareConcurrency: navigator.hardwareConcurrency,
-  devicePixelRatio: window.devicePixelRatio,
-  viewportWidth: window.innerWidth,
-  viewportHeight: window.innerHeight,
+  userAgent: navigator.userAgent,
+  platform: navigator.userAgentData?.platform ?? navigator.platform,
+  maxTouchPoints: navigator.maxTouchPoints,
+  gpu: QUALITY_TIERS[forcedQuality] ? '' : gpuName(),
 });
 const initialTier = qualityTier;
 let qualityPolicy = QUALITY_TIERS[qualityTier];
 let journey = null;
 const qualityMonitor = createQualityMonitor(qualityTier);
+const adaptive = params.get('drs') === '1' || (params.get('drs') !== '0' && !QUALITY_TIERS[forcedQuality] && !params.has('pr'));
+const resolution = createResolutionGovernor();
 setLookTier(qualityTier);
-const renderer = createRenderer(canvas, qualityPolicy, qualityPolicy.antialias && params.get('aa') !== '0');
+// post-processing renders into its own multisampled target, so the canvas itself needs none
+const renderer = createRenderer(
+  canvas, qualityPolicy, qualityPolicy.antialias && !qualityPolicy.finishing.postProcessing && params.get('aa') !== '0'
+);
+
+function gpuName() {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    const ext = gl?.getExtension('WEBGL_debug_renderer_info');
+    const name = gl ? String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : '';
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return name;
+  } catch {
+    return '';
+  }
+}
 
 const scene = new THREE.Scene();
 const camera = createCamera();
@@ -84,6 +102,8 @@ function applyQualityTier(tier) {
   world.cover.setDensity(Math.min(1, density));
   if (journey?.grassland) journey.grassland.cover.setDensity(Math.min(1, density));
   qualityMonitor.setTier(tier);
+  resolution.reset();
+  setResolutionScale(1);
   return true;
 }
 
@@ -137,8 +157,11 @@ function tick(frameTime) {
   animationFrame = requestAnimationFrame(tick);
   perf?.begin();
   syncSize();
-  if (previousFrameTime && !QUALITY_TIERS[forcedQuality]) {
-    const nextTier = qualityMonitor.sample(frameTime - previousFrameTime);
+  if (previousFrameTime && adaptive) {
+    const frameMs = frameTime - previousFrameTime;
+    const scale = resolution.sample(frameMs);
+    if (scale !== null) setResolutionScale(scale);
+    const nextTier = qualityMonitor.sample(frameMs, resolution.exhausted);
     if (nextTier) applyQualityTier(nextTier);
   }
   previousFrameTime = frameTime;
@@ -243,6 +266,7 @@ document.addEventListener('visibilitychange', () => {
     previousFrameTime = 0;
     clock.stop();
     qualityMonitor.resetTiming();
+    resolution.resetTiming();
     audio.suspendForVisibility();
     return;
   }
@@ -263,6 +287,8 @@ installDebugHandle({
     get metrics() {
       return {
         ...qualityMonitor.metrics,
+        resolution: resolution.metrics,
+        pixelRatio: renderer.getPixelRatio(),
         frame: renderer.info.render.frame,
         calls: renderer.info.render.calls,
         triangles: renderer.info.render.triangles,

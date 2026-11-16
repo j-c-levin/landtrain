@@ -2,12 +2,17 @@ import * as THREE from 'three';
 import { renderScale } from '../quality.js';
 
 let pixelRatioOverride = null;
+let resolutionScale = 1;
 
 export function setPixelRatioOverride(value) {
   pixelRatioOverride = value > 0 ? value : null;
 }
 
-const scaleFor = (policy, w, h) => pixelRatioOverride ?? renderScale(policy, window.devicePixelRatio, w, h);
+export function setResolutionScale(value) {
+  resolutionScale = value > 0 ? value : 1;
+}
+
+const scaleFor = (policy, w, h) => pixelRatioOverride ?? renderScale(policy, window.devicePixelRatio, w, h, resolutionScale);
 
 export function createRenderer(canvas, policy, antialias = policy.antialias) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias });
