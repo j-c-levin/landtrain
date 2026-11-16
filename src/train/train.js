@@ -81,6 +81,15 @@ export class Train {
       buildCarFittings(this, g, ci);
       buildPracticals(this, g, ci);
     }
+    this.roomCasters = this.cars.map(({ group }) => {
+      const casters = [];
+      for (const name of ['living-interior', 'bunk-interior', 'vestibule', 'engine-workspace']) {
+        group.getObjectByName(name)?.traverse((o) => { if (o.isMesh && o.castShadow) casters.push(o); });
+      }
+      for (const pot of this.plantPots ?? []) if (pot.group.parent === group) pot.group.traverse((o) => { if (o.isMesh && o.castShadow) casters.push(o); });
+      return casters;
+    });
+    this.roomShadowsIn = -2;
     this.twins = twinInstanced(this.cars.map((car) => car.group));
     for (const car of this.cars) ownInstancedDepth(car.group);
     this.carVisuals = this.cars.flatMap(({ group }) => group.children);
@@ -343,6 +352,12 @@ export class Train {
       else entry.mat.color.copy(entry.glow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.1 : 0.2));
     }
     setPracticalsFocus(this);
+    // a room's furniture shadows only show from inside it
+    const lit = allOpaque ? -1 : zone === 'cab' ? 0 : Number(zone.slice(3));
+    if (lit !== this.roomShadowsIn) {
+      this.roomShadowsIn = lit;
+      this.roomCasters.forEach((casters, ci) => { for (const o of casters) o.castShadow = ci === lit; });
+    }
   }
 
   setNight(night, dusk = 0) {
