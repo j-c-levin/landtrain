@@ -128,7 +128,8 @@ export function interiorKit(parent, name, skin = painted, coarse = getLookTier()
     const halves = [{}, {}];
     for (const object of statics) {
       object.updateMatrix();
-      const geometry = object.geometry.index ? object.geometry.toNonIndexed() : object.geometry.clone();
+      const geometry = object.geometry.clone();
+      if (!geometry.index) geometry.setIndex([...Array(geometry.attributes.position.count).keys()]);
       geometry.applyMatrix4(object.matrix);
       let material = object.material;
       const plain = shared && material.isPaintMaterial && !material.transparent && !material.shade

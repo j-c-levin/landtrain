@@ -156,8 +156,12 @@ function flowerGeometry(rand) {
   parts.push(flat);
   const merged = mergeGeometries(parts);
   for (const g of parts) g.dispose();
-  merged.computeVertexNormals();
-  return merged;
+  merged.deleteAttribute('normal');
+  merged.deleteAttribute('uv');
+  const welded = mergeVertices(merged, 1e-5);
+  merged.dispose();
+  welded.computeVertexNormals();
+  return welded;
 }
 
 const WRAP_PARS = /* glsl */ `
@@ -391,7 +395,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
     o.scale.set(s, s * (0.7 + rand() * 0.7), s);
     jitterHSL(c, rand, look.tuft);
   }, kinds.tuft);
-  add(fine, tier.fineCells - 2, flowerGeometry(rand), floraMaterials.cover(), tier.flowers, 0.12, false, (o, c) => {
+  add(fine, tier.fineCells - 2, flowerGeometry(rand), floraMaterials.cover({ flatShading: true }), tier.flowers, 0.12, false, (o, c) => {
     o.scale.setScalar(0.9 + rand() * 1.1);
     const F = look.flower;
     jitterHSL(c, rand, { ...F, h: F.hues[Math.floor(rand() * F.hues.length)] });
@@ -442,6 +446,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
     const half = entry.tile / 2;
     const radius = size * 0.7072 + pad;
     const reach = half + radius;
+    const fade = 0.98 * half;
     const cx = entry.centre.value.x;
     const cz = entry.centre.value.y;
     for (let cell = 0; cell < n * n; cell++) {
@@ -456,6 +461,9 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
         const ix = image & 1 ? rx - Math.sign(rx || 1) * entry.tile : rx;
         const iz = image & 2 ? rz - Math.sign(rz || 1) * entry.tile : rz;
         if (ix * ix + iz * iz > reach * reach) continue;
+        const gx = Math.max(0, Math.abs(ix) - size / 2);
+        const gz = Math.max(0, Math.abs(iz) - size / 2);
+        if (gx * gx + gz * gz > fade * fade) continue;
         const wx = cx + ix;
         const wz = cz + iz;
         if (wx + radius < clipLo || wx - radius > clipHi) continue;

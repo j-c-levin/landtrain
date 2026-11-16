@@ -430,6 +430,16 @@ async function main() {
     await page.keyboard.press('Enter');
     await until(page, () => __game.state.started);
 
+    if (args.inspect) {
+      const fn = await readFile(args.inspect, 'utf8');
+      for (const scene of scenes) {
+        await stage(page, scene);
+        await page.evaluate(({ pr }) => { __perf.setPixelRatio(pr); __perf.off([]); }, { pr: basePr });
+        await step(page, 3, 0);
+        console.log(`\n${scene.name}\n${await page.evaluate(`(${fn})()`)}`);
+      }
+      return;
+    }
     const variants = JSON.parse(await readFile(args.variants, 'utf8'));
     const rounds = Number(args.rounds) || 4;
     result.ab = {};
