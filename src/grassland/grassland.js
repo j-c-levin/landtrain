@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GRASSLAND, clamp } from '../constants.js';
-import { CHART, GRASSLAND_LOOK, grasslandMaterials, ownInstancedDepth } from '../look.js';
+import { CHART, GRASSLAND_LOOK, grasslandMaterials, ownInstancedDepth, settleFade } from '../look.js';
 import { createGroundCover, coverMask } from '../groundcover.js';
 import { mulberry } from '../prng.js';
 import { disposeSubtree } from '../dispose.js';
@@ -103,7 +103,7 @@ export function createGrassland(scene) {
       for (const t of trees) {
         const d = Math.sqrt((t.group.position.x - cameraPos.x) ** 2 + (t.group.position.z - cameraPos.z) ** 2);
         const o = clamp((d - 12) / 16, 0.08, 1);
-        for (const m of t.mats) m.opacity = o;
+        for (const m of t.mats) settleFade(m, o);
       }
     },
   };

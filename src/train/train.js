@@ -3,7 +3,7 @@ import {
   CAR_CENTERS, CAB_FROM_X, TRAIN_HALF, WORLD, TUNING,
   effMult, treadMult, clamp, lerp, damp,
 } from '../constants.js';
-import { TRAIN_LOOK, createTrainMaterials, twinInstanced, syncTwins, ownInstancedDepth } from '../look.js';
+import { TRAIN_LOOK, createTrainMaterials, twinInstanced, syncTwins, ownInstancedDepth, settleFade } from '../look.js';
 import { blockedAt } from '../collision.js';
 import { createRouteDisplay, updateRouteDisplay } from '../map/route-display.js';
 import { createSmoke, updateSmoke } from '../atmosphere/smoke.js';
@@ -328,19 +328,24 @@ export class Train {
     for (const key in this.zoneMats) {
       const mat = this.zoneMats[key];
       const target = allOpaque ? 1 : key === zone ? 0.03 : 1;
-      mat.opacity = damp(mat.opacity, target, 7, dt);
+      settleFade(mat, damp(mat.opacity, target, 7, dt));
       mat.depthWrite = mat.opacity > 0.5;
     }
     for (const { zone: key, mat } of this.fadeMats) {
       const target = allOpaque ? 1 : key === zone ? 0 : 1;
-      mat.opacity = damp(mat.opacity, target, 7, dt);
+      settleFade(mat, damp(mat.opacity, target, 7, dt));
       mat.depthWrite = mat.opacity > 0.5;
     }
     for (let i = 0; i < this.glassMats.length; i++) {
       const entry = this.glassMats[i];
       entry.fade = damp(entry.fade, allOpaque || entry.zone !== zone ? 1 : 0, 7, dt);
-      if (entry.glint) entry.mat.opacity = this.materials.paneGlint.opacity * entry.fade * Math.max(0, 1 - 2.2 * this.glassGlow);
-      else entry.mat.color.copy(entry.glow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.1 : 0.2));
+      if (entry.glint) {
+        entry.mat.opacity = this.materials.paneGlint.opacity * entry.fade * Math.max(0, 1 - 2.2 * this.glassGlow);
+        entry.mat.visible = entry.mat.opacity > 0.002;
+      } else {
+        entry.mat.color.copy(entry.glow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.1 : 0.2));
+        entry.mat.visible = entry.mat.color.r + entry.mat.color.g + entry.mat.color.b > 0.002;
+      }
     }
     setPracticalsFocus(this);
   }
