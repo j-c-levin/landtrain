@@ -63,6 +63,7 @@ export function buildGround(root) {
       mesh.position.set((x0 + x1) / 2, 0, 0);
     }
     mesh.receiveShadow = true;
+    mesh.renderOrder = 1;
     root.add(mesh);
   }
   // the island disc under the knoll fills the hole's centre
@@ -71,6 +72,7 @@ export function buildGround(root) {
     island.rotation.x = -Math.PI / 2;
     island.position.set(GRASS_LANDMARK.x, 0, GRASS_LANDMARK.z);
     island.receiveShadow = true;
+    island.renderOrder = 1;
     root.add(island);
   }
 }

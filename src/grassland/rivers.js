@@ -74,6 +74,7 @@ export function buildRivers({ root, rand, obstacles }, bridgeGlowMat) {
       geo.computeVertexNormals();
       const chan = new THREE.Mesh(geo, shoreMat);
       chan.receiveShadow = true;
+      chan.renderOrder = 1;
       root.add(chan);
     }
 

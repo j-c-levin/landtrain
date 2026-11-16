@@ -43,6 +43,7 @@ export function createPrairie(scene) {
   groundWest.rotation.x = -Math.PI / 2;
   groundWest.position.set((PRAIRIE.minX - groundMargin + SPLIT_X) / 2, GROUND_Y, 0);
   groundWest.receiveShadow = true;
+  groundWest.renderOrder = 1;
   chunkBefore.add(groundWest);
 
   const eastW = PRAIRIE.maxX - SPLIT_X + 1;
@@ -50,12 +51,14 @@ export function createPrairie(scene) {
   groundEast.rotation.x = -Math.PI / 2;
   groundEast.position.set((SPLIT_X + PRAIRIE.maxX + 1) / 2, GROUND_Y, 0);
   groundEast.receiveShadow = true;
+  groundEast.renderOrder = 1;
   chunkAfter.add(groundEast);
 
   // Until the grassland is built the land must not stop dead at the seam: a sunk apron runs on under where it will lie.
   const apron = new THREE.Mesh(new THREE.PlaneGeometry(groundMargin, groundDepth), prairieMaterials.ground(region));
   apron.rotation.x = -Math.PI / 2;
   apron.position.set(PRAIRIE.maxX + groundMargin / 2 - 1, -10, 0);
+  apron.renderOrder = 1;
   chunkAfter.add(apron);
 
   // ground cover wraps around the camera, so it lives outside the chunks

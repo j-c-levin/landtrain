@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { painted } from '../look.js';
+import { painted, getLookTier } from '../look.js';
 
 // coarse: props small enough on screen to take half the tessellation
-export function interiorKit(parent, name, skin = painted, coarse = false) {
+export function interiorKit(parent, name, skin = painted, coarse = getLookTier() !== 'high') {
   const root = new THREE.Group();
   root.name = name;
   parent.add(root);
@@ -71,7 +71,8 @@ export function interiorKit(parent, name, skin = painted, coarse = false) {
   }
 
   function cloth(width, path, material, x, folds = 0.035) {
-    const geometry = new THREE.PlaneGeometry(width, 1, 16, 24);
+    const columns = Math.min(16, Math.max(3, Math.ceil(width * 30)));
+    const geometry = new THREE.PlaneGeometry(width, 1, columns, (path.length - 1) * (coarse ? 2 : 4));
     const p = geometry.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const u = p.getX(i);
@@ -172,7 +173,7 @@ const asIs = (material) => material;
 export const exteriorKit = (parent, name) => interiorKit(parent, name, asIs, true);
 
 export function plantLeafGeometry() {
-  const geometry = new THREE.PlaneGeometry(1, 1, 6, 10);
+  const geometry = getLookTier() === 'high' ? new THREE.PlaneGeometry(1, 1, 6, 10) : new THREE.PlaneGeometry(1, 1, 4, 8);
   const p = geometry.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const u = p.getX(i), t = p.getY(i) + 0.5;
