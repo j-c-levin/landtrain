@@ -50,7 +50,7 @@ export function createChartPen(renderer) {
       const u = material.uniforms;
       u.uNear.value = camera.near;
       u.uFar.value = camera.far;
-      u.uReach.value = renderer.getPixelRatio() >= 1.5 ? 1.5 : 1;
+      u.uReach.value = Math.min(1.5, Math.max(1, renderer.getPixelRatio()));
       u.uPxAngle.value = (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) / height;
       renderer.setRenderTarget(target);
       renderer.render(scene, camera);

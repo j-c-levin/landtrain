@@ -8,6 +8,7 @@ import { MOAT_CROSSINGS } from './moat.js';
 import { bankKit, instanced } from './banks.js';
 import { mossy } from './boulders.js';
 import { nearFade, nearFadePoints } from './fade.js';
+import { renderPixelRatio } from '../atmosphere/renderer.js';
 
 const TAU = Math.PI * 2;
 const nearCrossing = (a, margin) =>
@@ -261,7 +262,7 @@ export function buildPetals(root, scene) {
   return {
     update(time, camera) {
       uniforms.uTime.value = still ? 0 : time;
-      uniforms.uScale.value = camera.projectionMatrix.elements[5] * 0.5 * window.innerHeight * Math.min(window.devicePixelRatio, 2);
+      uniforms.uScale.value = camera.projectionMatrix.elements[5] * 0.5 * window.innerHeight * renderPixelRatio();
       if (key) uniforms.uLight.value = Math.min(1, Math.max(0.5, key.intensity / SKY_LOOK.sunIntensity));
     },
   };

@@ -2,10 +2,8 @@ export const QUALITY_ORDER = Object.freeze(['low', 'medium', 'high']);
 
 export const QUALITY_TIERS = Object.freeze({
   low: Object.freeze({
-    dpr: 1,
-    dprCeiling: 2,
-    pixelBudget: 900_000,
-    antialias: true,
+    pixelRatio: 1.3,
+    pixelBudget: 1_000_000,
     shadowMapSize: 1024,
     shadowType: 'pcf',
     particleDensity: 0.45,
@@ -13,8 +11,8 @@ export const QUALITY_TIERS = Object.freeze({
     finishing: Object.freeze({ postProcessing: false, enhancedAtmosphere: false }),
   }),
   medium: Object.freeze({
-    dpr: 1.5,
-    antialias: true,
+    pixelRatio: 1.5,
+    pixelBudget: 2_400_000,
     shadowMapSize: 1536,
     shadowType: 'pcf',
     particleDensity: 0.7,
@@ -22,8 +20,8 @@ export const QUALITY_TIERS = Object.freeze({
     finishing: Object.freeze({ postProcessing: false, enhancedAtmosphere: false }),
   }),
   high: Object.freeze({
-    dpr: 2,
-    antialias: true,
+    pixelRatio: 1.5,
+    pixelBudget: 3_200_000,
     shadowMapSize: 2048,
     shadowType: 'pcf-soft',
     particleDensity: 1,
@@ -32,29 +30,42 @@ export const QUALITY_TIERS = Object.freeze({
   }),
 });
 
-export function renderScale(policy, devicePixelRatio, width, height) {
+export function renderScale(policy, devicePixelRatio, width, height, scale = 1) {
   const device = devicePixelRatio || 1;
-  if (!policy.pixelBudget || !(width * height > 0)) return Math.min(device, policy.dpr);
-  const fit = Math.sqrt(policy.pixelBudget / (width * height));
-  return Math.min(device, Math.max(policy.dpr, Math.min(policy.dprCeiling, fit)));
+  let ratio = Math.min(device, policy.pixelRatio);
+  if (policy.pixelBudget && width * height > 0) {
+    ratio = Math.min(ratio, Math.max(Math.min(device, 1), Math.sqrt(policy.pixelBudget / (width * height))));
+  }
+  return ratio * scale;
+}
+
+const MOBILE_UA = /iPhone|iPad|iPod|Android|Mobile/i;
+const SOFTWARE_GPU = /SwiftShader|llvmpipe|softpipe|Software|Microsoft Basic Render/i;
+const WEAK_GPU = /Intel|Mali-[GT][0-9]{1,2}\b|Adreno \(TM\) [1-5][0-9]{2}\b|PowerVR/i;
+
+export function isMobileDevice({ userAgent = '', platform = '', maxTouchPoints = 0 } = {}) {
+  return MOBILE_UA.test(userAgent) || (/Mac/.test(platform) && maxTouchPoints > 1);
 }
 
 export function selectInitialQuality({
   forcedTier,
   deviceMemory,
   hardwareConcurrency,
-  devicePixelRatio = 1,
-  viewportWidth = 0,
-  viewportHeight = 0,
+  userAgent = '',
+  platform = '',
+  maxTouchPoints = 0,
+  gpu = '',
 } = {}) {
   if (QUALITY_TIERS[forcedTier]) return forcedTier;
 
   const memory = Number(deviceMemory) || 0;
   const cores = Number(hardwareConcurrency) || 0;
-  const pixels = viewportWidth * viewportHeight * Math.max(1, devicePixelRatio) ** 2;
 
-  if ((memory && memory <= 4) || (cores && cores <= 4) || pixels > 5_000_000) return 'low';
-  if (memory >= 8 && cores >= 8 && pixels > 0 && pixels <= 3_000_000) return 'high';
+  if (SOFTWARE_GPU.test(gpu)) return 'low';
+  if (isMobileDevice({ userAgent, platform, maxTouchPoints })) return 'low';
+  if ((memory && memory <= 4) || (cores && cores < 4)) return 'low';
+  if (WEAK_GPU.test(gpu)) return 'medium';
+  if ((!memory || memory >= 8) && cores >= 8) return 'high';
   return 'medium';
 }
 
@@ -77,7 +88,7 @@ export function createQualityMonitor(initialTier, {
   let cooldownRemainingMs = 0;
   let emaFrameMs = 0;
 
-  function sample(frameMs) {
+  function sample(frameMs, pressured = true) {
     if (!(frameMs > 0) || frameMs > 250) return null;
 
     ageMs += frameMs;
@@ -86,7 +97,7 @@ export function createQualityMonitor(initialTier, {
 
     const poorThreshold = tier === 'high' ? 22 : 30;
     const recoveryThreshold = tier === 'high' ? 18 : 24;
-    if (emaFrameMs >= poorThreshold) {
+    if (emaFrameMs >= poorThreshold && pressured) {
       poorMs += frameMs;
       goodMs = 0;
     } else if (emaFrameMs <= recoveryThreshold) {
@@ -129,6 +140,121 @@ export function createQualityMonitor(initialTier, {
     setTier,
     get metrics() {
       return { tier, emaFrameMs, poorMs, goodMs, ageMs, cooldownRemainingMs };
+    },
+  };
+}
+
+export function createResolutionGovernor({
+  minScale = 0.75,
+  targetMs = 1000 / 60,
+  slackMs = 2.5,
+  warmupMs = 2500,
+  settleMs = 600,
+  downHoldMs = 800,
+  upHoldMs = 6000,
+  maxUpHoldMs = 90000,
+  probeMs = 4000,
+  giveUpMs = 60000,
+  maxGiveUpMs = 600000,
+  smoothing = 0.1,
+} = {}) {
+  let scale = 1;
+  let emaFrameMs = 0;
+  let poorMs = 0;
+  let goodMs = 0;
+  let settleRemainingMs = warmupMs;
+  let upHold = upHoldMs;
+  let sinceUpMs = Infinity;
+  let descentFromMs = 0;
+  let pausedMs = 0;
+  let giveUp = giveUpMs;
+
+  const quantise = (value) => Math.round(Math.min(1, Math.max(minScale, value)) * 100) / 100;
+
+  function change(next) {
+    if (next === scale) return null;
+    scale = next;
+    emaFrameMs = 0;
+    poorMs = 0;
+    goodMs = 0;
+    settleRemainingMs = settleMs;
+    return scale;
+  }
+
+  function sample(frameMs) {
+    if (!(frameMs > 0) || frameMs > 250) return null;
+    sinceUpMs += frameMs;
+    if (pausedMs > 0) {
+      pausedMs -= frameMs;
+      return null;
+    }
+    if (settleRemainingMs > 0) {
+      settleRemainingMs -= frameMs;
+      return null;
+    }
+    emaFrameMs += (frameMs - emaFrameMs) * (emaFrameMs ? smoothing : 1);
+
+    if (emaFrameMs > targetMs + slackMs) {
+      poorMs += frameMs;
+      goodMs = 0;
+    } else if (emaFrameMs < targetMs + 1) {
+      goodMs += frameMs;
+      poorMs = 0;
+    } else {
+      poorMs = Math.max(0, poorMs - frameMs);
+      goodMs = 0;
+    }
+
+    if (poorMs >= downHoldMs) {
+      if (scale <= minScale) {
+        if (descentFromMs && emaFrameMs >= descentFromMs * 0.93) {
+          descentFromMs = 0;
+          pausedMs = giveUp;
+          giveUp = Math.min(maxGiveUpMs, giveUp * 2);
+          return change(1);
+        }
+        poorMs = 0;
+        return null;
+      }
+      if (scale === 1) descentFromMs = emaFrameMs;
+      if (sinceUpMs < probeMs) upHold = Math.min(maxUpHoldMs, upHold * 2);
+      const factor = Math.min(0.94, Math.max(0.85, Math.sqrt(targetMs / emaFrameMs)));
+      return change(quantise(scale * factor));
+    }
+
+    if (goodMs >= upHold && scale < 1) {
+      if (sinceUpMs >= probeMs + upHold) upHold = Math.max(upHoldMs, upHold / 2);
+      sinceUpMs = 0;
+      const next = quantise(scale * 1.06);
+      if (next === 1) descentFromMs = 0;
+      return change(next);
+    }
+    return null;
+  }
+
+  function resetTiming() {
+    emaFrameMs = 0;
+    poorMs = 0;
+    goodMs = 0;
+    settleRemainingMs = settleMs;
+  }
+
+  function reset() {
+    descentFromMs = 0;
+    pausedMs = 0;
+    upHold = upHoldMs;
+    change(1);
+    settleRemainingMs = warmupMs;
+  }
+
+  return {
+    sample,
+    resetTiming,
+    reset,
+    get scale() { return scale; },
+    get exhausted() { return scale <= minScale || pausedMs > 0; },
+    get metrics() {
+      return { scale, emaFrameMs, poorMs, goodMs, upHold, pausedMs };
     },
   };
 }
