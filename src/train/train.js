@@ -53,6 +53,7 @@ export class Train {
     this._dir = new THREE.Vector3();
 
     this.wheels = [];
+    this.wheelSets = [];
     this.zoneMats = {}; // see-through walls, one fading material per zone
     this.fadeMats = [];
     this.tucked = [];
@@ -257,6 +258,7 @@ export class Train {
 
     const spin = (this.speed / 0.92) * dt;
     for (const w of this.wheels) w.rotation.z -= spin;
+    if (spin) for (const set of this.wheelSets) set.sync();
     this.#placeRods();
     const motion = this.motionQuery?.matches ? 0 : 1;
     const speed01 = clamp(this.speed / TUNING.baseSpeed, 0, 1);

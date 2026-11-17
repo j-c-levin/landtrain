@@ -162,22 +162,19 @@ export function buildCarShell(train, g, ci) {
   }
 
   // wheels: two bogies of two, both sides
+  const wheels = [];
   for (const bx of [-4.3, 4.3]) {
     for (const wx of [-1.1, 1.1]) {
       for (const wz of [-2.48, 2.48]) {
-        const wheel = new THREE.Mesh(train.geometry.wheel, M.wheel);
+        const wheel = new THREE.Group();
         wheel.position.set(bx + wx, 0.92, wz);
-        wheel.castShadow = true;
         g.add(wheel);
         train.wheels.push(wheel);
-        const hub = new THREE.Mesh(train.geometry.wheelHub, M.gearBrass);
-        wheel.add(hub);
-        const spokes = [];
-        for (let a = 0; a < Math.PI - 0.01; a += Math.PI / 4) spokes.push([0, 0, Math.sign(wz) * 0.24, 1.5, 0.09, 0.06, 0, 0, a]);
-        instancedDetails(spokes, train.geometry.detail, M.cream, wheel);
+        wheels.push(wheel);
       }
     }
   }
+  train.wheelSets.push(wheelSet(train, g, wheels));
   for (const side of [-1, 1]) {
     const rods = new THREE.Group();
     rods.userData.phase = side > 0 ? 0 : Math.PI / 2;
@@ -282,4 +279,37 @@ export function buildCarFittings(train, g, ci) {
     box(ci === 0 ? 1.8 : 1.7, 0.14, 1.9, M.iron, ci === 0 ? -8.2 : 8.25, 4.98, 0, g);
     box(2.2, 0.4, 0.4, M.iron, gapRel, 1.1, 0, g);
   }
+}
+
+// Every wheel of a car is one instance per part; sync() copies the spinning wheel transforms in.
+function wheelSet(train, g, wheels) {
+  const M = train.materials;
+  const rims = new THREE.InstancedMesh(train.geometry.wheel, M.wheel, wheels.length);
+  rims.castShadow = true;
+  const hubs = new THREE.InstancedMesh(train.geometry.wheelHub, M.gearBrass, wheels.length);
+  const spokes = new THREE.InstancedMesh(train.geometry.detail, M.cream, wheels.length * 4);
+  const local = wheels.flatMap((wheel) => [0, 1, 2, 3].map((k) => new THREE.Matrix4().compose(
+    new THREE.Vector3(0, 0, Math.sign(wheel.position.z) * 0.24),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, (k * Math.PI) / 4)),
+    new THREE.Vector3(1.5, 0.09, 0.06),
+  )));
+  const matrix = new THREE.Matrix4();
+  const sync = () => {
+    wheels.forEach((wheel, i) => {
+      wheel.updateMatrix();
+      rims.setMatrixAt(i, wheel.matrix);
+      hubs.setMatrixAt(i, wheel.matrix);
+      for (let k = 0; k < 4; k++) spokes.setMatrixAt(i * 4 + k, matrix.multiplyMatrices(wheel.matrix, local[i * 4 + k]));
+    });
+    rims.instanceMatrix.needsUpdate = true;
+    hubs.instanceMatrix.needsUpdate = true;
+    spokes.instanceMatrix.needsUpdate = true;
+  };
+  sync();
+  for (const mesh of [rims, hubs, spokes]) {
+    mesh.computeBoundingSphere();
+    mesh.boundingSphere.radius += 0.5;
+    g.add(mesh);
+  }
+  return { sync };
 }
