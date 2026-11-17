@@ -1124,7 +1124,6 @@ export function settleFade(mat, opacity = mat.opacity) {
   const solid = opacity >= 0.999;
   mat.userData.fades = true;
   mat.opacity = solid ? 1 : opacity;
-  mat.visible = opacity > 0.002;
   if (mat.transparent === solid) {
     mat.transparent = !solid;
     mat.needsUpdate = true;
