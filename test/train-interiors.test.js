@@ -279,7 +279,7 @@ test('focus fades only the occupied zone and book transitions restore opacity an
     for (const entry of entries) {
       near(entry.mat.opacity, entry.zone === zone ? ghost(entry) : 1, `${zone}/${entry.zone} opacity`);
       assert.equal(entry.mat.depthWrite, entry.zone !== zone);
-      assert.equal(entry.mat.transparent, true);
+      assert.equal(entry.mat.transparent, entry.zone === zone);
     }
   }
   assert.equal(rig.enterBook(), true);

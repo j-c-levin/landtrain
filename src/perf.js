@@ -28,7 +28,7 @@ function buildToggles({ renderer, scene, sunLight, bounceLight, sky, train, play
     },
     interiors: (off) => { for (const mesh of train.tucked) mesh.layers.set(off ? HIDDEN_LAYER : 0); },
     interiorShadows: (off) => {
-      saved.casters ??= train.tucked.filter((mesh) => mesh.castShadow);
+      saved.casters ??= train.roomCasters.flat();
       for (const mesh of saved.casters) mesh.castShadow = !off;
     },
     trainShadows: (off) => {

@@ -88,7 +88,7 @@ export class SkyCycle {
       fog: false,
     });
     const dome = new THREE.Mesh(new THREE.SphereGeometry(4200, 32, 20), this.domeMat);
-    dome.renderOrder = -10;
+    dome.renderOrder = 10;
     dome.frustumCulled = false;
     this.rig.add(dome);
     this.sunDir = new THREE.Vector3(0, 1, 0);

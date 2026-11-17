@@ -53,6 +53,7 @@ export class Train {
     this._dir = new THREE.Vector3();
 
     this.wheels = [];
+    this.wheelSets = [];
     this.zoneMats = {}; // see-through walls, one fading material per zone
     this.fadeMats = [];
     this.tucked = [];
@@ -81,6 +82,15 @@ export class Train {
       buildCarFittings(this, g, ci);
       buildPracticals(this, g, ci);
     }
+    this.roomCasters = this.cars.map(({ group }) => {
+      const casters = [];
+      for (const name of ['living-interior', 'bunk-interior', 'vestibule', 'engine-workspace']) {
+        group.getObjectByName(name)?.traverse((o) => { if (o.isMesh && o.castShadow) casters.push(o); });
+      }
+      for (const pot of this.plantPots ?? []) if (pot.group.parent === group) pot.group.traverse((o) => { if (o.isMesh && o.castShadow) casters.push(o); });
+      return casters;
+    });
+    this.roomShadowsIn = -2;
     this.twins = twinInstanced(this.cars.map((car) => car.group));
     for (const car of this.cars) ownInstancedDepth(car.group);
     this.carVisuals = this.cars.flatMap(({ group }) => group.children);
@@ -248,6 +258,7 @@ export class Train {
 
     const spin = (this.speed / 0.92) * dt;
     for (const w of this.wheels) w.rotation.z -= spin;
+    if (spin) for (const set of this.wheelSets) set.sync();
     this.#placeRods();
     const motion = this.motionQuery?.matches ? 0 : 1;
     const speed01 = clamp(this.speed / TUNING.baseSpeed, 0, 1);
@@ -328,13 +339,11 @@ export class Train {
     for (const key in this.zoneMats) {
       const mat = this.zoneMats[key];
       const target = allOpaque ? 1 : key === zone ? 0.03 : 1;
-      mat.opacity = damp(mat.opacity, target, 7, dt);
-      mat.depthWrite = mat.opacity > 0.5;
+      this.#fade(mat, damp(mat.opacity, target, 7, dt));
     }
     for (const { zone: key, mat } of this.fadeMats) {
       const target = allOpaque ? 1 : key === zone ? 0 : 1;
-      mat.opacity = damp(mat.opacity, target, 7, dt);
-      mat.depthWrite = mat.opacity > 0.5;
+      this.#fade(mat, damp(mat.opacity, target, 7, dt));
     }
     for (let i = 0; i < this.glassMats.length; i++) {
       const entry = this.glassMats[i];
@@ -343,6 +352,27 @@ export class Train {
       else entry.mat.color.copy(entry.glow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.1 : 0.2));
     }
     setPracticalsFocus(this);
+    // a room's furniture shadows only show from inside it
+    const lit = allOpaque ? -1 : zone === 'cab' ? 0 : Number(zone.slice(3));
+    if (lit !== this.roomShadowsIn) {
+      this.roomShadowsIn = lit;
+      this.roomCasters.forEach((casters, ci) => { for (const o of casters) o.castShadow = ci === lit; });
+    }
+  }
+
+  // A wall at full opacity draws with the opaques, so whatever it hides behind it is never shaded.
+  #fade(mat, opacity) {
+    const solid = opacity > 0.995;
+    mat.opacity = solid ? 1 : opacity;
+    mat.depthWrite = opacity > 0.5;
+    if (mat.transparent === !solid) return;
+    mat.transparent = !solid;
+    mat.needsUpdate = true;
+    for (const { source, twin } of this.twins) {
+      if (source !== mat) continue;
+      twin.transparent = !solid;
+      twin.needsUpdate = true;
+    }
   }
 
   setNight(night, dusk = 0) {
