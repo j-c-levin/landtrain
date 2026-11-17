@@ -179,6 +179,14 @@ vec3 pLit = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse * uPai
 vec3 outgoingLight = pLit + totalEmissiveRadiance;
 `;
 
+// The ramp texture's curve evaluated in place, saving a lookup per light.
+const RAMP = /* glsl */ `
+vec3 getGradientIrradiance( vec3 normal, vec3 lightDirection ) {
+  float d = dot( normal, lightDirection );
+  return vec3( 0.6 * smoothstep( -0.04, 0.08, d ) + 0.4 * smoothstep( 0.42, 0.54, d ) );
+}
+`;
+
 export class PaintMaterial extends THREE.MeshToonMaterial {
   constructor(params) {
     super();
@@ -225,6 +233,7 @@ export class PaintMaterial extends THREE.MeshToonMaterial {
         'getDirectionalLightInfo( directionalLight, directLight );', NO_BOUNCE
       ))
       .replace('#include <common>', '#include <common>' + FRAG_HEAD)
+      .replace('#include <gradientmap_pars_fragment>', RAMP)
       .replace('#include <color_fragment>', '#include <color_fragment>' + FRAG_ALBEDO)
       .replace(
         'vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;',

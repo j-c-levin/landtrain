@@ -3,7 +3,7 @@ import {
   CAR_CENTERS, CAB_FROM_X, TRAIN_HALF, WORLD, TUNING,
   effMult, treadMult, clamp, lerp, damp,
 } from '../constants.js';
-import { TRAIN_LOOK, createTrainMaterials, twinInstanced, syncTwins, ownInstancedDepth } from '../look.js';
+import { TRAIN_LOOK, createTrainMaterials, twinInstanced, syncTwins, ownInstancedDepth, settleFade, cheapen } from '../look.js';
 import { blockedAt } from '../collision.js';
 import { createRouteDisplay, updateRouteDisplay } from '../map/route-display.js';
 import { createSmoke, updateSmoke } from '../atmosphere/smoke.js';
@@ -123,7 +123,7 @@ export class Train {
 
   nearWallMat(zone, source = this.materials.innerWall) {
     if (!this.zoneMats[zone]) {
-      this.zoneMats[zone] = source.clone();
+      this.zoneMats[zone] = cheapen(source.clone());
       this.zoneMats[zone].transparent = true;
     }
     return this.zoneMats[zone];
@@ -132,7 +132,7 @@ export class Train {
   fadingMat(zone, source) {
     const existing = this.fadeMats.find((entry) => entry.zone === zone && entry.source === source);
     if (existing) return existing.mat;
-    const mat = source.clone();
+    const mat = cheapen(source.clone());
     mat.transparent = true;
     mat.opacity = 1;
     this.fadeMats.push({ zone, source, mat });
@@ -161,6 +161,7 @@ export class Train {
       mat = source.clone();
       mat.vertexColors = true;
       if (mat.metalness > 0.5) [mat.roughness, mat.metalness] = TRAIN_LOOK.weatheredMetal;
+      cheapen(mat);
       this.weatheredMats.set(source, mat);
       this.materials[`weathered${this.weatheredMats.size}`] = mat;
     }
@@ -339,39 +340,31 @@ export class Train {
     for (const key in this.zoneMats) {
       const mat = this.zoneMats[key];
       const target = allOpaque ? 1 : key === zone ? 0.03 : 1;
-      this.#fade(mat, damp(mat.opacity, target, 7, dt));
+      settleFade(mat, damp(mat.opacity, target, 7, dt));
+      mat.depthWrite = mat.opacity > 0.5;
     }
     for (const { zone: key, mat } of this.fadeMats) {
       const target = allOpaque ? 1 : key === zone ? 0 : 1;
-      this.#fade(mat, damp(mat.opacity, target, 7, dt));
+      settleFade(mat, damp(mat.opacity, target, 7, dt));
+      mat.depthWrite = mat.opacity > 0.5;
     }
     for (let i = 0; i < this.glassMats.length; i++) {
       const entry = this.glassMats[i];
       entry.fade = damp(entry.fade, allOpaque || entry.zone !== zone ? 1 : 0, 7, dt);
-      if (entry.glint) entry.mat.opacity = this.materials.paneGlint.opacity * entry.fade * Math.max(0, 1 - 2.2 * this.glassGlow);
-      else entry.mat.color.copy(entry.glow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.1 : 0.2));
+      if (entry.glint) {
+        entry.mat.opacity = this.materials.paneGlint.opacity * entry.fade * Math.max(0, 1 - 2.2 * this.glassGlow);
+        entry.mat.visible = entry.mat.opacity > 0.002;
+      } else {
+        entry.mat.color.copy(entry.glow).multiplyScalar(this.glassGlow * entry.fade * (entry.far ? 0.1 : 0.2));
+        entry.mat.visible = entry.mat.color.r + entry.mat.color.g + entry.mat.color.b > 0.002;
+      }
     }
     setPracticalsFocus(this);
     // a room's furniture shadows only show from inside it
     const lit = allOpaque ? -1 : zone === 'cab' ? 0 : Number(zone.slice(3));
     if (lit !== this.roomShadowsIn) {
       this.roomShadowsIn = lit;
-      this.roomCasters.forEach((casters, ci) => { for (const o of casters) o.castShadow = ci === lit; });
-    }
-  }
-
-  // A wall at full opacity draws with the opaques, so whatever it hides behind it is never shaded.
-  #fade(mat, opacity) {
-    const solid = opacity > 0.995;
-    mat.opacity = solid ? 1 : opacity;
-    mat.depthWrite = opacity > 0.5;
-    if (mat.transparent === !solid) return;
-    mat.transparent = !solid;
-    mat.needsUpdate = true;
-    for (const { source, twin } of this.twins) {
-      if (source !== mat) continue;
-      twin.transparent = !solid;
-      twin.needsUpdate = true;
+      this.roomCasters.forEach((casters, ci) => { for (const o of casters) o.castShadow = ci === lit && !o.userData.tinyCaster; });
     }
   }
 

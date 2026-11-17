@@ -131,6 +131,7 @@ const CHART_OUT = /* glsl */ `
     diffuseColor.a = max(diffuseColor.a, wFres);
   #endif
   // chart: a muted wash pooling darker at the bank, with dry pen strokes along the current
+  if (uChart > 0.0) {
   float cWash = wNoise(vFlow * 0.028 + 3.0) * 0.6 + wNoise(vFlow * 0.085 + 11.0) * 0.4;
   vec3 wChart = uChartWater * (0.9 + 0.2 * cWash);
   wChart *= 0.84 + 0.16 * smoothstep(0.0, 1.6, vShore);
@@ -146,6 +147,7 @@ const CHART_OUT = /* glsl */ `
   cMark *= step(0.5, cr) * smoothstep(1.5, 4.0, vShore);
   wChart = mix(wChart, uChartInk, cMark * 0.4 * (1.0 - 0.6 * uChartNight));
   outgoingLight = mix(outgoingLight, wChart, uChart);
+  }
 `;
 
 // Geometry must carry aFlow (pattern coordinates) and aShore (distance in from the waterline), in world units.
@@ -170,7 +172,7 @@ export function waterMaterial({ flow = [0, 1.5], stroke = [0.5, 0.05], glint = G
     uChartIndigo: CHART.uChartIndigo,
     uChartInk: CHART.uChartInk,
   };
-  mat.defines = {};
+  mat.defines = { MATTE_IBL: '' };
   if (!low) {
     mat.defines.WATER_RIPPLE = '';
     uniforms.uRipple = { value: rippleTexture() };

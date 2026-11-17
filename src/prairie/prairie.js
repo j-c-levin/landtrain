@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PRAIRIE, SPLIT_X, LANDMARK, ARRIVE_RADIUS, TRAIN_HALF, clamp } from '../constants.js';
-import { PRAIRIE_LOOK, prairieMaterials, ownInstancedDepth } from '../look.js';
+import { PRAIRIE_LOOK, prairieMaterials, ownInstancedDepth, settleFade } from '../look.js';
 import { mulberry } from '../prng.js';
 import { disposeSubtree } from '../dispose.js';
 import { createGroundCover } from '../groundcover.js';
@@ -168,7 +168,7 @@ export function createPrairie(scene) {
         const d = Math.sqrt((t.group.position.x - cameraPos.x) ** 2 + (t.group.position.z - cameraPos.z) ** 2);
         const o = clamp((d - 14) / 16, 0, 1);
         t.group.visible = o > 0.02;
-        for (const m of t.mats) m.opacity = o;
+        for (const m of t.mats) settleFade(m, o);
       }
     },
   };

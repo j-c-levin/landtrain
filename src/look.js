@@ -2,7 +2,18 @@ import * as THREE from 'three';
 import { PAINT, PaintMaterial } from './paint.js';
 import { SHEET_VERT, SHEET_FRAG, SHEET_DEPTH_FRAG, TRAIL_VERT, TRAIL_FRAG } from './map/chart-glsl.js';
 
-const std = (params) => new THREE.MeshStandardMaterial(params);
+// The env is a soft gradient, so radiance read along the normal looks the same and saves a cube-UV lookup.
+THREE.ShaderChunk.lights_fragment_maps = THREE.ShaderChunk.lights_fragment_maps.replace(
+  'radiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );',
+  '#ifdef MATTE_IBL\n\t\tradiance += iblIrradiance * RECIPROCAL_PI;\n\t#else\n\t\tradiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );\n\t#endif'
+);
+
+// High keeps true reflections on metal.
+export function cheapen(mat) {
+  if (mat.isMeshStandardMaterial && (mat.metalness === 0 || lookTier !== 'high')) mat.defines = { ...mat.defines, MATTE_IBL: '' };
+  return mat;
+}
+const std = (params = {}) => cheapen(new THREE.MeshStandardMaterial(params));
 
 let lookTier = 'high';
 export function setLookTier(tier) {
@@ -13,7 +24,7 @@ export const getLookTier = () => lookTier;
 // Enamel: a glossy clear coat over paint on the high tier, plain gloss below it.
 const enamel = (params, coat = 0.55) =>
   lookTier === 'high'
-    ? new THREE.MeshPhysicalMaterial({ ...params, clearcoat: coat, clearcoatRoughness: 0.28 })
+    ? cheapen(new THREE.MeshPhysicalMaterial({ ...params, clearcoat: coat, clearcoatRoughness: 0.28 }))
     : std(params);
 
 // uChart takes the model over to flat washes and ink; uChartNight lays the night's indigo over them.
@@ -110,7 +121,7 @@ const FLOCK_FRAG = /* glsl */ `
     fc = mix(fc, uFlockC, smoothstep(0.48, 0.72, fMid) * 0.7);
     fc = mix(fc, uFlockD, smoothstep(0.58, 0.76, fBare) * 0.8);
     float fNear = 1.0 - smoothstep(30.0, 140.0, length(vViewPosition));
-    float fGrain = fNoise(fp * 5.3) * 0.6 + fNoise(fp * 13.0) * 0.4;
+    float fGrain = fNear > 0.0 ? fNoise(fp * 5.3) * 0.6 + fNoise(fp * 13.0) * 0.4 : 0.5;
     fc *= 1.0 + (fGrain - 0.5) * 0.34 * fNear + (fNoise(fp * 0.7) - 0.5) * 0.14;
     #ifdef FLOCK_SHORE
       float fEdge = (fNoise(fp * 0.19) - 0.5) * 0.6 + (fNoise(fp * 0.83) - 0.5) * 0.22;
@@ -144,17 +155,22 @@ const FLOCK_FRAG = /* glsl */ `
       // painted tufts and scrub stand in for the cover beyond the instanced tiles
       {
         float fGrow = clamp(0.2 + 0.9 * fRegion.g, 0.0, 0.85) * (1.0 - fBareness * 0.9) * (1.0 - smoothstep(0.1, 0.4, fSand)) * fRegion.r;
-        vec2 fT = fp * 0.42;
-        vec2 fTi = floor(fT);
-        float fTuft = 1.0 - smoothstep(0.06, 0.16 + 0.2 * fHash(fTi + 9.4), length(fract(fT) - 0.5 - (vec2(fHash(fTi + 3.1), fHash(fTi + 5.9)) - 0.5) * 0.7));
-        fTuft *= step(fHash(fTi + 7.7), fGrow) * (1.0 - smoothstep(0.3, 0.8, max(fwidth(fT.x), fwidth(fT.y))));
-        vec2 fS = fp * 0.085 + 11.0;
-        vec2 fSi = floor(fS);
-        float fSr = fHash(fSi + 1.3);
-        float fShrub = 1.0 - smoothstep(0.06 + 0.1 * fSr, 0.12 + 0.2 * fSr, length(fract(fS) - 0.5 - (vec2(fHash(fSi + 4.2), fHash(fSi + 8.6)) - 0.5) * 0.6));
-        fShrub *= step(fHash(fSi + 2.9), fGrow * 0.6) * (1.0 - smoothstep(0.3, 0.8, max(fwidth(fS.x), fwidth(fS.y))));
-        fc = mix(fc, fc * vec3(0.74, 0.8, 0.58), fTuft * 0.75 * smoothstep(45.0, 110.0, fDist));
-        fc = mix(fc, uFlockLush * 0.5, fShrub * 0.85 * smoothstep(170.0, 330.0, fDist));
+        float fPx = max(fwidth(fp.x), fwidth(fp.y));
+        float fTuftFade = smoothstep(45.0, 110.0, fDist) * (1.0 - smoothstep(0.3, 0.8, fPx * 0.42));
+        if (fTuftFade > 0.0 && fGrow > 0.0) {
+          vec2 fT = fp * 0.42;
+          vec2 fTi = floor(fT);
+          float fTuft = 1.0 - smoothstep(0.06, 0.16 + 0.2 * fHash(fTi + 9.4), length(fract(fT) - 0.5 - (vec2(fHash(fTi + 3.1), fHash(fTi + 5.9)) - 0.5) * 0.7));
+          fc = mix(fc, fc * vec3(0.74, 0.8, 0.58), fTuft * step(fHash(fTi + 7.7), fGrow) * 0.75 * fTuftFade);
+        }
+        float fShrubFade = smoothstep(170.0, 330.0, fDist) * (1.0 - smoothstep(0.3, 0.8, fPx * 0.085));
+        if (fShrubFade > 0.0 && fGrow > 0.0) {
+          vec2 fS = fp * 0.085 + 11.0;
+          vec2 fSi = floor(fS);
+          float fSr = fHash(fSi + 1.3);
+          float fShrub = 1.0 - smoothstep(0.06 + 0.1 * fSr, 0.12 + 0.2 * fSr, length(fract(fS) - 0.5 - (vec2(fHash(fSi + 4.2), fHash(fSi + 8.6)) - 0.5) * 0.6));
+          fc = mix(fc, uFlockLush * 0.5, fShrub * step(fHash(fSi + 2.9), fGrow * 0.6) * 0.85 * fShrubFade);
+        }
       }
       // dried mud: a net of fine cracks across pans and scalds, close to the lens
       float fClose = 1.0 - smoothstep(50.0, 240.0, fDist);
@@ -191,7 +207,8 @@ const FLOCK_FRAG = /* glsl */ `
       #endif
     #endif
     diffuseColor.rgb *= fc;
-
+    fChart = vec3(0.0);
+    if (uChart > 0.0) {
     // chart: three flat washes glazed over each other, pooling darker at their edges
     float cA = fFbm(fp * 0.0046 + 11.0);
     float cB = fFbm(fp * 0.0063 + 57.0);
@@ -239,6 +256,7 @@ const FLOCK_FRAG = /* glsl */ `
     float dash = (1.0 - smoothstep(0.16, 0.16 + sw, abs(sq.y))) * (1.0 - smoothstep(1.5, 1.5 + sw, abs(sq.x)));
     wash = mix(wash, uChartInk, dash * step(0.72, sr) * 0.8 * (1.0 - 0.6 * uChartNight));
     fChart = wash;
+    }
   }
 `;
 
@@ -268,7 +286,7 @@ export function flockMaterial({ tints, mud = 0x4f5a34, sand = 0xcbb98a, shore = 
     ...CHART,
     ...PLAIN,
   };
-  mat.defines = { FLOCK_OCTAVES: lookTier === 'low' ? 2 : 4 };
+  mat.defines = { ...mat.defines, FLOCK_OCTAVES: lookTier === 'low' ? 2 : 4 };
   if (shore) mat.defines.FLOCK_SHORE = '';
   if (swell) mat.defines.FLOCK_SWELL = swell.toFixed(3);
   if (region) {
@@ -1093,9 +1111,44 @@ export function ownInstancedDepth(root) {
   });
 }
 
+// Blending and the draw itself are paid only while a fade is partway.
+export function settleFade(mat, opacity = mat.opacity) {
+  const solid = opacity >= 0.999;
+  mat.userData.fades = true;
+  mat.opacity = solid ? 1 : opacity;
+  if (mat.transparent === solid) {
+    mat.transparent = !solid;
+    mat.needsUpdate = true;
+  }
+}
+
+// Compiles the blended variants of settled fades up front, so the first fade does not stall on a shader compile.
+export function warmFades(renderer, scene, camera) {
+  const flipped = [];
+  scene.traverse((o) => {
+    for (const m of [].concat(o.material || [])) {
+      if (m.userData.fades && !m.transparent) {
+        m.transparent = true;
+        m.needsUpdate = true;
+        flipped.push(m);
+      }
+    }
+  });
+  if (flipped.length) renderer.compile(scene, camera);
+  for (const m of flipped) {
+    m.transparent = false;
+    m.needsUpdate = true;
+  }
+}
+
 export function syncTwins(twins) {
   for (let i = 0; i < twins.length; i++) {
     const { source, twin } = twins[i];
+    twin.visible = source.visible;
+    if (twin.transparent !== source.transparent) {
+      twin.transparent = source.transparent;
+      twin.needsUpdate = true;
+    }
     twin.opacity = source.opacity;
     twin.depthWrite = source.depthWrite;
     twin.color.copy(source.color);

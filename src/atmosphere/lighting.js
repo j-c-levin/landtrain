@@ -58,7 +58,8 @@ export function pruneSmallCasters(roots, mapSize, keep) {
       if (!o.userData.shadowCaster) return;
       if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
       o.matrixWorld.decompose(_v, _q, _scale);
-      o.castShadow = o.geometry.boundingSphere.radius * Math.max(_scale.x, _scale.y, _scale.z) >= minRadius;
+      o.userData.tinyCaster = o.geometry.boundingSphere.radius * Math.max(_scale.x, _scale.y, _scale.z) < minRadius;
+      o.castShadow = !o.userData.tinyCaster;
     });
   }
 }

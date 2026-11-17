@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TUNING, clamp, damp, smootherstep } from './constants.js';
 import { QUALITY_TIERS, createQualityMonitor, createResolutionGovernor, selectInitialQuality } from './quality.js';
-import { CHART, setChart, setLookTier, setPaintLight, setPlainGrade } from './look.js';
+import { CHART, setChart, setLookTier, setPaintLight, setPlainGrade, warmFades } from './look.js';
 import { setCoverViewport } from './groundcover.js';
 import { registerServiceWorker } from './sw-register.js';
 import { installDebugHandle, bindSecretWarp } from './debug.js';
@@ -88,6 +88,7 @@ function applyQualityTier(tier) {
   qualityPolicy = QUALITY_TIERS[tier];
   applyRenderQuality(renderer, scene, qualityPolicy);
   pruneSmallCasters(train.cars.map((car) => car.group), qualityPolicy.shadowMapSize, player.group);
+  train.roomShadowsIn = -2;
   if (qualityPolicy.finishing.postProcessing && !post) post = createPost(renderer);
   if (!qualityPolicy.finishing.postProcessing && post) {
     post.dispose();
@@ -147,6 +148,7 @@ let animationFrame = null;
 let previousFrameTime = 0;
 let slowUpdateElapsed = Infinity;
 let chartWarmedFor;
+let fadesWarmedFor = {};
 
 function tick(frameTime) {
   animationFrame = requestAnimationFrame(tick);
@@ -249,6 +251,12 @@ function tick(frameTime) {
       chartWarmedFor = journey.grassland;
       chart.prewarm(scene, camera);
     }
+  }
+  if (fadesWarmedFor !== journey.grassland) {
+    fadesWarmedFor = journey.grassland;
+    renderer.setRenderTarget(post ? post.target : null);
+    warmFades(renderer, scene, camera);
+    renderer.setRenderTarget(null);
   }
   perf?.end(frameTime);
 }

@@ -182,5 +182,7 @@ export function setPracticalsFocus(train) {
   for (let i = 0; i < P.glows.length; i++) {
     const { material, zone } = P.glows[i];
     material.opacity = 0.22 * P.reach * Math.max(P.night, 0) * train.zoneMats[zone].opacity;
+    material.visible = material.opacity > 0.002;
   }
+  for (const m of [P.contactMat, P.nightContactMat, P.poolMat, ...P.spillMats]) m.visible = m.opacity > 0.002;
 }

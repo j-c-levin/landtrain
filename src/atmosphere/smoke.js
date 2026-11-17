@@ -62,6 +62,7 @@ const FRAG = /* glsl */ `
     float seed = vMisc.z;
     vec2 p = vP;
     if (kind > 1.5) p.y = p.y * 1.5 + 0.2;
+    if (dot(p, p) > 0.85) discard;
     float best = -1.0;
     vec3 n = vec3(0.0, 0.0, 1.0);
     for (int i = 0; i < 4; i++) {
