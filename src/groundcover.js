@@ -7,9 +7,9 @@ import { mulberry } from './prng.js';
 
 // *Cells: each layer is cut n-by-n so whole cells can be skipped outside the lens or the key light's box.
 const TIERS = {
-  high: { microTile: 56, micro: 7000, microCells: 5, fineTile: 170, tufts: 10000, flowers: 1500, pebbles: 1500, fineCells: 8, midTile: 880, tussocks: 4200, shrubs: 1700, stones: 700, midCells: 9, shadows: true },
-  medium: { microTile: 48, micro: 3600, microCells: 4, fineTile: 130, tufts: 5200, flowers: 800, pebbles: 700, fineCells: 5, midTile: 700, tussocks: 2400, shrubs: 1100, stones: 400, midCells: 7, shadows: false },
-  low: { microTile: 40, micro: 1800, microCells: 3, fineTile: 96, tufts: 2200, flowers: 360, pebbles: 300, fineCells: 4, midTile: 520, tussocks: 1000, shrubs: 520, stones: 200, midCells: 6, shadows: false },
+  high: { microTile: 56, micro: 7000, microCells: 5, fineTile: 170, tufts: 10000, flowers: 1500, pebbles: 1500, fineCells: 8, midTile: 880, tussocks: 4200, shrubs: 1700, stones: 700, midCells: 9, shadows: true, tipsFrom: 240 },
+  medium: { microTile: 48, micro: 3600, microCells: 4, fineTile: 130, tufts: 5200, flowers: 800, pebbles: 700, fineCells: 5, midTile: 700, tussocks: 2400, shrubs: 1100, stones: 400, midCells: 7, shadows: false, tipsFrom: 140 },
+  low: { microTile: 40, micro: 1800, microCells: 3, fineTile: 96, tufts: 2200, flowers: 360, pebbles: 300, fineCells: 4, midTile: 520, tussocks: 1000, shrubs: 520, stones: 200, midCells: 6, shadows: false, tipsFrom: 120 },
 };
 
 // lens height above which a layer is too small to resolve (the overhead map)
@@ -63,6 +63,34 @@ function bladeFan(rand, blades, height, spread, width) {
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.setIndex(idx);
+  return geo;
+}
+
+// The far shape of a blade fan: each blade one triangle from a root as wide as the blade's quad to its tip.
+function bladeTips(fan) {
+  const p = fan.attributes.position;
+  const n = fan.attributes.normal;
+  const c = fan.attributes.color;
+  const pos = [];
+  const nor = [];
+  const col = [];
+  for (let b = 0; b < p.count / 5; b++) {
+    const v = b * 5;
+    const mx = (p.getX(v) + p.getX(v + 1)) / 2;
+    const mz = (p.getZ(v) + p.getZ(v + 1)) / 2;
+    for (const i of [v, v + 1]) {
+      pos.push(mx + (p.getX(i) - mx) * 1.25, p.getY(i), mz + (p.getZ(i) - mz) * 1.25);
+    }
+    pos.push(p.getX(v + 4), p.getY(v + 4), p.getZ(v + 4));
+    for (const i of [v, v + 1, v + 4]) {
+      nor.push(n.getX(i), n.getY(i), n.getZ(i));
+      col.push(c.getX(i), c.getY(i), c.getZ(i));
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
 
@@ -322,7 +350,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
 
   // live: { bias: [base, lush, bare, sand] chance an instance grows, grow, tint } under a region map
   function add(entry, n, shapes, material, count, sway, cast, place, live = null) {
-    const [geometry, coarse = null] = [shapes].flat();
+    const [geometry, coarse = null, coarseFrom = COARSE_FROM] = [shapes].flat();
     const uniforms = {
       ...shared,
       ...PLAIN,
@@ -347,7 +375,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
     const size = entry.tile / n;
     geometry.computeBoundingSphere();
     const meshes = new Array(n * n).fill(null);
-    entry.grids.push({ n, meshes, geometry, coarse, pad: geometry.boundingSphere.radius * 3.2 });
+    entry.grids.push({ n, meshes, geometry, coarse, coarseFrom, pad: geometry.boundingSphere.radius * 3.2 });
     const matrices = new Float32Array(count * 16);
     const colors = new Float32Array(count * 3);
     const cellOf = new Uint16Array(count);
@@ -411,7 +439,8 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
   }, kinds.pebble);
 
   const mid = layer(tier.midTile, 0.36, [7.5, 16, 0]);
-  add(mid, tier.midCells, bladeFan(rand, 9, 1.3, 0.6, 0.07), floraMaterials.cover({ side: THREE.DoubleSide }), tier.tussocks, 0.03, false, (o, c) => {
+  const tussock = bladeFan(rand, 9, 1.3, 0.6, 0.07);
+  add(mid, tier.midCells, [tussock, bladeTips(tussock), tier.tipsFrom], floraMaterials.cover({ side: THREE.DoubleSide }), tier.tussocks, 0.03, false, (o, c) => {
     const s = 0.6 + rand() * 1.2;
     o.scale.set(s, s * (0.7 + rand() * 0.8), s);
     jitterHSL(c, rand, look.tussock);
@@ -445,7 +474,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
   for (const mat of bladeMats) litBothSides(mat);
 
   // A cell wraps round the layer centre, so it is drawn if any of its wrapped images is wanted.
-  function cull(entry, { n, meshes, geometry, coarse, pad }, clipLo, clipHi, trainPos, eye, shadowReach) {
+  function cull(entry, { n, meshes, geometry, coarse, coarseFrom, pad }, clipLo, clipHi, trainPos, eye, shadowReach) {
     const size = entry.tile / n;
     const half = entry.tile / 2;
     const radius = size * 0.7072 + pad;
@@ -480,7 +509,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
       }
       mesh.visible = seen;
       mesh.castShadow = shades && mesh.userData.casts;
-      if (coarse && seen) mesh.geometry = nearest > COARSE_FROM ? coarse : geometry;
+      if (coarse && seen) mesh.geometry = nearest > coarseFrom ? coarse : geometry;
     }
   }
 
