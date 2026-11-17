@@ -289,6 +289,7 @@ export function createPost(renderer) {
   };
 
   return {
+    target,
     // focus: view distance held sharp. strength: 0 disables the blur. back: share of the blur kept behind the focus.
     render(scene, camera, focus, strength, back = 1) {
       renderer.getDrawingBufferSize(size);

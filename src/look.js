@@ -2,22 +2,26 @@ import * as THREE from 'three';
 import { PAINT, PaintMaterial } from './paint.js';
 import { SHEET_VERT, SHEET_FRAG, SHEET_DEPTH_FRAG, TRAIL_VERT, TRAIL_FRAG } from './map/chart-glsl.js';
 
-// At roughness near 1 the prefiltered radiance is the irradiance and the sun's specular lobe is negligible.
+// MATTE: near roughness 1 the prefiltered radiance is the irradiance and the sun's lobe is negligible.
+// MATTE_IBL: the env is a soft gradient, so radiance read along the normal is indistinguishable and saves a cube-UV lookup.
 const SC = THREE.ShaderChunk;
 SC.lights_fragment_maps = SC.lights_fragment_maps.replace(
   'radiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );',
-  '#ifdef MATTE\n\t\tradiance += iblIrradiance * RECIPROCAL_PI;\n\t#else\n\t\tradiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );\n\t#endif'
+  '#if defined( MATTE ) || defined( MATTE_IBL )\n\t\tradiance += iblIrradiance * RECIPROCAL_PI;\n\t#else\n\t\tradiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );\n\t#endif'
 );
 SC.lights_physical_pars_fragment = SC.lights_physical_pars_fragment.replace(
   'reflectedLight.directSpecular += irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );',
   '#ifndef MATTE\n\treflectedLight.directSpecular += irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );\n\t#endif'
 );
 
-const std = (params = {}) => {
-  const mat = new THREE.MeshStandardMaterial(params);
-  if (mat.roughness >= 0.9 && mat.metalness === 0) mat.defines = { MATTE: '' };
+// High keeps true reflections on metal; everything else reads its env radiance along the normal.
+export function cheapen(mat) {
+  if (!mat.isMeshStandardMaterial) return mat;
+  if (mat.metalness === 0 && mat.roughness >= 0.9) mat.defines = { ...mat.defines, MATTE: '' };
+  else if (mat.metalness === 0 || lookTier !== 'high') mat.defines = { ...mat.defines, MATTE_IBL: '' };
   return mat;
-};
+}
+const std = (params = {}) => cheapen(new THREE.MeshStandardMaterial(params));
 
 let lookTier = 'high';
 export function setLookTier(tier) {
@@ -28,7 +32,7 @@ export const getLookTier = () => lookTier;
 // Enamel: a glossy clear coat over paint on the high tier, plain gloss below it.
 const enamel = (params, coat = 0.55) =>
   lookTier === 'high'
-    ? new THREE.MeshPhysicalMaterial({ ...params, clearcoat: coat, clearcoatRoughness: 0.28 })
+    ? cheapen(new THREE.MeshPhysicalMaterial({ ...params, clearcoat: coat, clearcoatRoughness: 0.28 }))
     : std(params);
 
 // uChart takes the model over to flat washes and ink; uChartNight lays the night's indigo over them.
@@ -1118,11 +1122,31 @@ export function ownInstancedDepth(root) {
 // Blending and the draw itself are paid only while a fade is partway.
 export function settleFade(mat, opacity = mat.opacity) {
   const solid = opacity >= 0.999;
+  mat.userData.fades = true;
   mat.opacity = solid ? 1 : opacity;
   mat.visible = opacity > 0.002;
   if (mat.transparent === solid) {
     mat.transparent = !solid;
     mat.needsUpdate = true;
+  }
+}
+
+// Compiles the blended variants of settled fades up front, so the first fade does not stall on a shader compile.
+export function warmFades(renderer, scene, camera) {
+  const flipped = [];
+  scene.traverse((o) => {
+    for (const m of [].concat(o.material || [])) {
+      if (m.userData.fades && !m.transparent) {
+        m.transparent = true;
+        m.needsUpdate = true;
+        flipped.push(m);
+      }
+    }
+  });
+  if (flipped.length) renderer.compile(scene, camera);
+  for (const m of flipped) {
+    m.transparent = false;
+    m.needsUpdate = true;
   }
 }
 

@@ -3,7 +3,7 @@ import {
   CAR_CENTERS, CAB_FROM_X, TRAIN_HALF, WORLD, TUNING,
   effMult, treadMult, clamp, lerp, damp,
 } from '../constants.js';
-import { TRAIN_LOOK, createTrainMaterials, twinInstanced, syncTwins, ownInstancedDepth, settleFade } from '../look.js';
+import { TRAIN_LOOK, createTrainMaterials, twinInstanced, syncTwins, ownInstancedDepth, settleFade, cheapen } from '../look.js';
 import { blockedAt } from '../collision.js';
 import { createRouteDisplay, updateRouteDisplay } from '../map/route-display.js';
 import { createSmoke, updateSmoke } from '../atmosphere/smoke.js';
@@ -113,7 +113,7 @@ export class Train {
 
   nearWallMat(zone, source = this.materials.innerWall) {
     if (!this.zoneMats[zone]) {
-      this.zoneMats[zone] = source.clone();
+      this.zoneMats[zone] = cheapen(source.clone());
       this.zoneMats[zone].transparent = true;
     }
     return this.zoneMats[zone];
@@ -122,7 +122,7 @@ export class Train {
   fadingMat(zone, source) {
     const existing = this.fadeMats.find((entry) => entry.zone === zone && entry.source === source);
     if (existing) return existing.mat;
-    const mat = source.clone();
+    const mat = cheapen(source.clone());
     mat.transparent = true;
     mat.opacity = 1;
     this.fadeMats.push({ zone, source, mat });
@@ -151,6 +151,7 @@ export class Train {
       mat = source.clone();
       mat.vertexColors = true;
       if (mat.metalness > 0.5) [mat.roughness, mat.metalness] = TRAIN_LOOK.weatheredMetal;
+      cheapen(mat);
       this.weatheredMats.set(source, mat);
       this.materials[`weathered${this.weatheredMats.size}`] = mat;
     }
