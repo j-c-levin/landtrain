@@ -32,6 +32,7 @@ export function createRenderer(canvas, antialias = true) {
 
 export function applyRenderQuality(renderer, scene, policy) {
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.needsUpdate = true;
   scene.traverse((object) => {
     if (!object.isLight || !object.castShadow || !object.shadow) return;
     object.shadow.mapSize.setScalar(policy.shadowMapSize);

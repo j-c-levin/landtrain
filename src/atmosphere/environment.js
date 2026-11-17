@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { SKY_LOOK } from '../look.js';
+import { installLightChunks, SOFTBOX_DIR } from './light-chunks.js';
+
+installLightChunks();
 
 // A studio sky for reflections; SkyCycle scales its intensity through the day.
 export function createEnvironment(renderer, scene) {
@@ -7,7 +10,7 @@ export function createEnvironment(renderer, scene) {
   const pos = geo.attributes.position;
   const col = new Float32Array(pos.count * 3);
   const dir = new THREE.Vector3();
-  const softbox = new THREE.Vector3(-0.45, 0.62, 0.55).normalize();
+  const softbox = SOFTBOX_DIR;
   const { envZenith: Z, envHorizon: H, envGround: G, envSoftbox: S } = SKY_LOOK;
   for (let i = 0; i < pos.count; i++) {
     dir.fromBufferAttribute(pos, i).normalize();

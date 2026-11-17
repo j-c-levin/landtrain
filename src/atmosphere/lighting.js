@@ -41,6 +41,40 @@ export function createSunLight(scene) {
   return light;
 }
 
+const _v = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _scale = new THREE.Vector3();
+
+// A caster under two shadow texels across leaves no shadow the filter would not smear away.
+export function pruneSmallCasters(roots, mapSize, keep) {
+  const minRadius = (4 * SHADOW_HALF) / mapSize;
+  const kept = new Set();
+  keep?.traverse((o) => kept.add(o));
+  for (const root of roots) {
+    root.updateMatrixWorld(true);
+    root.traverse((o) => {
+      if (!o.isMesh || o.isInstancedMesh || kept.has(o)) return;
+      o.userData.shadowCaster ??= o.castShadow;
+      if (!o.userData.shadowCaster) return;
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      o.matrixWorld.decompose(_v, _q, _scale);
+      o.castShadow = o.geometry.boundingSphere.radius * Math.max(_scale.x, _scale.y, _scale.z) >= minRadius;
+    });
+  }
+}
+
+let shadowAge = Infinity;
+
+// While the train stands and the player is still, only the sun's crawl and a leaf's sway move a shadow.
+export function paceShadows(renderer, light, still, dt, hz) {
+  const map = renderer.shadowMap;
+  map.autoUpdate = false;
+  shadowAge += dt;
+  if (light.shadow.intensity <= 0 || (still && shadowAge < 1 / hz)) return;
+  shadowAge = 0;
+  map.needsUpdate = true;
+}
+
 // keyDir points toward the key light. In the map view the box widens so rocks and trees still cast.
 export function followShadowBox(light, trainPos, keyDir, mapBlend) {
   if (keyDir) {
