@@ -4,7 +4,6 @@ export const QUALITY_TIERS = Object.freeze({
   low: Object.freeze({
     pixelRatio: 1.3,
     pixelBudget: 1_000_000,
-    antialias: true,
     shadowMapSize: 1024,
     shadowType: 'pcf',
     particleDensity: 0.45,
@@ -14,7 +13,6 @@ export const QUALITY_TIERS = Object.freeze({
   medium: Object.freeze({
     pixelRatio: 1.5,
     pixelBudget: 2_400_000,
-    antialias: true,
     shadowMapSize: 1536,
     shadowType: 'pcf',
     particleDensity: 0.7,
@@ -23,8 +21,7 @@ export const QUALITY_TIERS = Object.freeze({
   }),
   high: Object.freeze({
     pixelRatio: 1.5,
-    pixelBudget: 3_600_000,
-    antialias: true,
+    pixelBudget: 3_200_000,
     shadowMapSize: 2048,
     shadowType: 'pcf-soft',
     particleDensity: 1,

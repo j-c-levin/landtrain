@@ -35,6 +35,7 @@ const input = createInput();
 const canvas = document.getElementById('scene');
 const params = new URLSearchParams(location.search);
 const forcedQuality = params.get('tier') ?? params.get('quality');
+const renderer = createRenderer(canvas, params.get('aa') !== '0');
 let qualityTier = selectInitialQuality({
   forcedTier: forcedQuality,
   deviceMemory: navigator.deviceMemory,
@@ -42,7 +43,7 @@ let qualityTier = selectInitialQuality({
   userAgent: navigator.userAgent,
   platform: navigator.userAgentData?.platform ?? navigator.platform,
   maxTouchPoints: navigator.maxTouchPoints,
-  gpu: QUALITY_TIERS[forcedQuality] ? '' : gpuName(),
+  gpu: gpuName(renderer.getContext()),
 });
 const initialTier = qualityTier;
 let qualityPolicy = QUALITY_TIERS[qualityTier];
@@ -51,18 +52,11 @@ const qualityMonitor = createQualityMonitor(qualityTier);
 const adaptive = params.get('drs') === '1' || (params.get('drs') !== '0' && !QUALITY_TIERS[forcedQuality] && !params.has('pr'));
 const resolution = createResolutionGovernor();
 setLookTier(qualityTier);
-// post-processing renders into its own multisampled target, so the canvas itself needs none
-const renderer = createRenderer(
-  canvas, qualityPolicy, qualityPolicy.antialias && !qualityPolicy.finishing.postProcessing && params.get('aa') !== '0'
-);
 
-function gpuName() {
+function gpuName(gl) {
   try {
-    const gl = document.createElement('canvas').getContext('webgl2');
-    const ext = gl?.getExtension('WEBGL_debug_renderer_info');
-    const name = gl ? String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : '';
-    gl?.getExtension('WEBGL_lose_context')?.loseContext();
-    return name;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    return String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
   } catch {
     return '';
   }

@@ -3,6 +3,7 @@ import { renderScale } from '../quality.js';
 
 let pixelRatioOverride = null;
 let resolutionScale = 1;
+let pixelRatio = 1;
 
 export function setPixelRatioOverride(value) {
   pixelRatioOverride = value > 0 ? value : null;
@@ -12,9 +13,16 @@ export function setResolutionScale(value) {
   resolutionScale = value > 0 ? value : 1;
 }
 
+export const renderPixelRatio = () => pixelRatio;
+
 const scaleFor = (policy, w, h) => pixelRatioOverride ?? renderScale(policy, window.devicePixelRatio, w, h, resolutionScale);
 
-export function createRenderer(canvas, policy, antialias = policy.antialias) {
+function setRatio(renderer, value) {
+  pixelRatio = value;
+  renderer.setPixelRatio(value);
+}
+
+export function createRenderer(canvas, antialias = true) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias });
   renderer.shadowMap.enabled = true;
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -34,7 +42,7 @@ export function applyRenderQuality(renderer, scene, policy) {
     }
   });
   const canvas = renderer.domElement;
-  renderer.setPixelRatio(scaleFor(policy, canvas.clientWidth, canvas.clientHeight));
+  setRatio(renderer, scaleFor(policy, canvas.clientWidth, canvas.clientHeight));
 }
 
 // Reconciled every frame, not on 'resize': survives fullscreen, zoom and display changes.
@@ -46,7 +54,7 @@ export function syncRendererSize(renderer, canvas, policy) {
   const bw = Math.floor(w * dpr);
   const bh = Math.floor(h * dpr);
   if (canvas.width === bw && canvas.height === bh) return null;
-  renderer.setPixelRatio(dpr);
+  setRatio(renderer, dpr);
   renderer.setSize(w, h, false);
   return w / h;
 }
