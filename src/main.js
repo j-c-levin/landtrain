@@ -8,7 +8,7 @@ import { installDebugHandle, bindSecretWarp } from './debug.js';
 import { createPerf } from './perf.js';
 import { createRenderer, applyRenderQuality, syncRendererSize } from './atmosphere/renderer.js';
 import {
-  createHaze, updateHaze, createSunLight, followShadowBox, createBounceLight, followBounceLight, applyChartLight,
+  createHaze, updateHaze, createSunLight, followShadowBox, pruneSmallCasters, paceShadows, createBounceLight, followBounceLight, applyChartLight,
 } from './atmosphere/lighting.js';
 import { createEnvironment } from './atmosphere/environment.js';
 import { createPost } from './atmosphere/post.js';
@@ -75,6 +75,7 @@ function applyQualityTier(tier) {
   qualityTier = tier;
   qualityPolicy = QUALITY_TIERS[tier];
   applyRenderQuality(renderer, scene, qualityPolicy);
+  pruneSmallCasters(train.cars.map((car) => car.group), qualityPolicy.shadowMapSize, player.group);
   if (qualityPolicy.finishing.postProcessing && !post) post = createPost(renderer);
   if (!qualityPolicy.finishing.postProcessing && post) {
     post.dispose();
@@ -203,6 +204,7 @@ function tick(frameTime) {
   setChart(rig.mapBlend, sky.nightness, sky.duskness);
   applyChartLight(sunLight, sky.hemi, scene, CHART.uChart.value);
   followShadowBox(sunLight, train.pos, sky.keyDir, rig.mapBlend);
+  paceShadows(renderer, sunLight, Math.abs(train.speed) < 0.01 && !player.moving && !player.climbing && !rig.busy, rawDt, qualityPolicy.slowUpdateHz);
   followBounceLight(bounceLight, train.pos, train.cars[1].group.rotation.y, sky.bounceIntensity * (1 - CHART.uChart.value), sunLight.color, sky.duskness, CHART.uChart.value);
   setPaintLight(sky.nightness, sky.duskness);
   setPlainGrade(sky.nightness, sky.duskness, !post);
