@@ -337,13 +337,11 @@ export class Train {
     for (const key in this.zoneMats) {
       const mat = this.zoneMats[key];
       const target = allOpaque ? 1 : key === zone ? 0.03 : 1;
-      mat.opacity = damp(mat.opacity, target, 7, dt);
-      mat.depthWrite = mat.opacity > 0.5;
+      this.#fade(mat, damp(mat.opacity, target, 7, dt));
     }
     for (const { zone: key, mat } of this.fadeMats) {
       const target = allOpaque ? 1 : key === zone ? 0 : 1;
-      mat.opacity = damp(mat.opacity, target, 7, dt);
-      mat.depthWrite = mat.opacity > 0.5;
+      this.#fade(mat, damp(mat.opacity, target, 7, dt));
     }
     for (let i = 0; i < this.glassMats.length; i++) {
       const entry = this.glassMats[i];
@@ -357,6 +355,21 @@ export class Train {
     if (lit !== this.roomShadowsIn) {
       this.roomShadowsIn = lit;
       this.roomCasters.forEach((casters, ci) => { for (const o of casters) o.castShadow = ci === lit; });
+    }
+  }
+
+  // A wall at full opacity draws with the opaques, so whatever it hides behind it is never shaded.
+  #fade(mat, opacity) {
+    const solid = opacity > 0.995;
+    mat.opacity = solid ? 1 : opacity;
+    mat.depthWrite = opacity > 0.5;
+    if (mat.transparent === !solid) return;
+    mat.transparent = !solid;
+    mat.needsUpdate = true;
+    for (const { source, twin } of this.twins) {
+      if (source !== mat) continue;
+      twin.transparent = !solid;
+      twin.needsUpdate = true;
     }
   }
 
