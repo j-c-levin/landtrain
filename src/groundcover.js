@@ -66,7 +66,7 @@ function bladeFan(rand, blades, height, spread, width) {
   return geo;
 }
 
-// The far shape of a blade fan: each blade one triangle from a root as wide as the blade's quad to its tip.
+// The far shape of a blade fan, for side-on views only: each blade one triangle from a root as wide as the blade's quad to its tip.
 function bladeTips(fan) {
   const p = fan.attributes.position;
   const n = fan.attributes.normal;
@@ -350,7 +350,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
 
   // live: { bias: [base, lush, bare, sand] chance an instance grows, grow, tint } under a region map
   function add(entry, n, shapes, material, count, sway, cast, place, live = null) {
-    const [geometry, coarse = null, coarseFrom = COARSE_FROM] = [shapes].flat();
+    const [geometry, coarse = null, coarseFrom = COARSE_FROM, sideOn = false] = [shapes].flat();
     const uniforms = {
       ...shared,
       ...PLAIN,
@@ -375,7 +375,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
     const size = entry.tile / n;
     geometry.computeBoundingSphere();
     const meshes = new Array(n * n).fill(null);
-    entry.grids.push({ n, meshes, geometry, coarse, coarseFrom, pad: geometry.boundingSphere.radius * 3.2 });
+    entry.grids.push({ n, meshes, geometry, coarse, coarseFrom, sideOn, pad: geometry.boundingSphere.radius * 3.2 });
     const matrices = new Float32Array(count * 16);
     const colors = new Float32Array(count * 3);
     const cellOf = new Uint16Array(count);
@@ -440,7 +440,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
 
   const mid = layer(tier.midTile, 0.36, [7.5, 16, 0]);
   const tussock = bladeFan(rand, 9, 1.3, 0.6, 0.07);
-  add(mid, tier.midCells, [tussock, bladeTips(tussock), tier.tipsFrom], floraMaterials.cover({ side: THREE.DoubleSide }), tier.tussocks, 0.03, false, (o, c) => {
+  add(mid, tier.midCells, [tussock, bladeTips(tussock), tier.tipsFrom, true], floraMaterials.cover({ side: THREE.DoubleSide }), tier.tussocks, 0.03, false, (o, c) => {
     const s = 0.6 + rand() * 1.2;
     o.scale.set(s, s * (0.7 + rand() * 0.8), s);
     jitterHSL(c, rand, look.tussock);
@@ -474,7 +474,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
   for (const mat of bladeMats) litBothSides(mat);
 
   // A cell wraps round the layer centre, so it is drawn if any of its wrapped images is wanted.
-  function cull(entry, { n, meshes, geometry, coarse, coarseFrom, pad }, clipLo, clipHi, trainPos, eye, shadowReach) {
+  function cull(entry, { n, meshes, geometry, coarse, coarseFrom, sideOn, pad }, clipLo, clipHi, trainPos, eye, shadowReach) {
     const size = entry.tile / n;
     const half = entry.tile / 2;
     const radius = size * 0.7072 + pad;
@@ -509,7 +509,7 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
       }
       mesh.visible = seen;
       mesh.castShadow = shades && mesh.userData.casts;
-      if (coarse && seen) mesh.geometry = nearest > coarseFrom ? coarse : geometry;
+      if (coarse && seen) mesh.geometry = nearest > coarseFrom && !(sideOn && eye.y > 60) ? coarse : geometry;
     }
   }
 
