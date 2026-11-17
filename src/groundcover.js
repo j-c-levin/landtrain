@@ -200,6 +200,9 @@ const WRAP_PROJECT = /* glsl */ `
     float pick = fract(sin(dot(origin, vec2(12.9898, 78.233))) * 43758.5453);
     float want = uCoverBias.x + uCoverBias.y * (region.g * 2.0 - 1.0) + uCoverBias.z * region.b - uCoverBias.w * region.a;
     keep *= mix(1.0, step(pick, want), uCoverRegion);
+    #ifdef COVER_SKIP
+      if (keep <= 0.0) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
+    #endif
     float grow = 1.0 + uCoverRegion * uCoverLive.x * (region.g * 2.0 - 1.0);
     // nothing grows through the train, and nothing looms against the lens
     vec2 ta = uCoverTrain.xy;
@@ -330,12 +333,13 @@ export function createGroundCover({ look, seed, clipX, mask = null, regions = nu
       uCoverBias: { value: new THREE.Vector4(...(live?.bias ?? [1, 0, 0, 0])) },
       uCoverLive: { value: new THREE.Vector2(live?.grow ?? 0, live?.tint ?? 0) },
     };
-    material.defines = { ...material.defines, COVER_TINT: '' };
+    material.defines = { ...material.defines, COVER_TINT: '', COVER_SKIP: '' };
     material.onBeforeCompile = (shader) => wrapShader(shader, uniforms);
     material.customProgramCacheKey = () => 'cover';
     let depth = null;
     if (cast && tier.shadows) {
       depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+      depth.defines = { COVER_SKIP: '' };
       depth.onBeforeCompile = (shader) => wrapShader(shader, uniforms);
       depth.customProgramCacheKey = () => 'cover-depth';
       depthMaterials.push(depth);

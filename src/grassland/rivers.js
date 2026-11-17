@@ -175,32 +175,40 @@ export function buildRivers({ root, rand, obstacles }, bridgeGlowMat) {
   });
 
   const stalkGeo = new THREE.CylinderGeometry(0.06, 0.11, 1, 5, 1, true);
-  const stalks = new THREE.InstancedMesh(stalkGeo, grasslandMaterials.cattailStalk(), cattailStalkMatrices.length);
-  for (let i = 0; i < cattailStalkMatrices.length; i++) {
-    stalks.setMatrixAt(i, cattailStalkMatrices[i]);
-    stalks.setColorAt(i, cattailStalkColors[i]);
-  }
-  root.add(stalks);
+  patched(root, stalkGeo, grasslandMaterials.cattailStalk(), cattailStalkMatrices, cattailStalkColors);
 
   const headGeo = new THREE.CapsuleGeometry(0.12, 0.5, 2, 6);
-  const heads = new THREE.InstancedMesh(headGeo, grasslandMaterials.cattailHead(), cattailHeadMatrices.length);
-  for (let i = 0; i < cattailHeadMatrices.length; i++) heads.setMatrixAt(i, cattailHeadMatrices[i]);
-  root.add(heads);
+  patched(root, headGeo, grasslandMaterials.cattailHead(), cattailHeadMatrices, null);
 
   // a notched leaf, lying flat
   const padGeo = new THREE.CircleGeometry(1, 11, 0.28, Math.PI * 2 - 0.56);
   padGeo.rotateX(-Math.PI / 2);
-  const pads = new THREE.InstancedMesh(padGeo, grasslandMaterials.lilyPads(), padMatrices.length);
   dummy.rotation.order = 'XYZ';
-  for (let i = 0; i < padMatrices.length; i++) {
-    const [x, z, s] = padMatrices[i];
+  const padPlaced = padMatrices.map(([x, z, s], i) => {
     dummy.position.set(x, WATER_Y + 0.05, z);
     dummy.rotation.set(0, i * 2.4, 0);
     dummy.scale.set(s, 1, s);
     dummy.updateMatrix();
-    pads.setMatrixAt(i, dummy.matrix);
-    pads.setColorAt(i, padColors[i]);
+    return dummy.matrix.clone();
+  });
+  patched(root, padGeo, grasslandMaterials.lilyPads(), padPlaced, padColors, true);
+}
+
+const PATCH = 200;
+function patched(root, geometry, material, matrices, colors, receiveShadow = false) {
+  const patches = new Map();
+  matrices.forEach((m, i) => {
+    const key = `${Math.floor(m.elements[12] / PATCH)},${Math.floor(m.elements[14] / PATCH)}`;
+    if (!patches.has(key)) patches.set(key, []);
+    patches.get(key).push(i);
+  });
+  for (const list of patches.values()) {
+    const mesh = new THREE.InstancedMesh(geometry, material, list.length);
+    list.forEach((index, i) => {
+      mesh.setMatrixAt(i, matrices[index]);
+      if (colors) mesh.setColorAt(i, colors[index]);
+    });
+    mesh.receiveShadow = receiveShadow;
+    root.add(mesh);
   }
-  pads.receiveShadow = true;
-  root.add(pads);
 }

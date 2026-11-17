@@ -85,26 +85,38 @@ export function bankKit() {
 }
 
 const dummy = new THREE.Object3D();
+const PATCH = 200;
 const at = new THREE.Vector2();
 const tint = new THREE.Color();
 const flowerTint = new THREE.Color();
 
-export function instanced(parent, geometry, material, items, shadow = false) {
+// Items spread along a whole river are cut into patches of `patch` metres so each patch culls on its own.
+export function instanced(parent, geometry, material, items, shadow = false, patch = 0) {
   if (!items.length) return null;
-  const mesh = new THREE.InstancedMesh(geometry, material, items.length);
-  for (let i = 0; i < items.length; i++) {
-    const [x, y, z, sx, sy, sz, ry, color, rx = 0] = items[i];
-    dummy.position.set(x, y, z);
-    dummy.rotation.set(rx, ry, 0);
-    dummy.scale.set(sx, sy, sz);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
-    mesh.setColorAt(i, color);
+  const patches = new Map();
+  for (const item of items) {
+    const key = patch ? `${Math.floor(item[0] / patch)},${Math.floor(item[2] / patch)}` : '';
+    if (!patches.has(key)) patches.set(key, []);
+    patches.get(key).push(item);
   }
-  mesh.castShadow = shadow;
-  mesh.receiveShadow = true;
-  parent.add(mesh);
-  return mesh;
+  let first = null;
+  for (const list of patches.values()) {
+    const mesh = new THREE.InstancedMesh(geometry, material, list.length);
+    for (let i = 0; i < list.length; i++) {
+      const [x, y, z, sx, sy, sz, ry, color, rx = 0] = list[i];
+      dummy.position.set(x, y, z);
+      dummy.rotation.set(rx, ry, 0);
+      dummy.scale.set(sx, sy, sz);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      mesh.setColorAt(i, color);
+    }
+    mesh.castShadow = shadow;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    first ??= mesh;
+  }
+  return first;
 }
 
 // body.at(s, d, out) maps distance along (s) and signed distance from the centre line (d) to world x/z.
@@ -177,11 +189,11 @@ export function dressBanks(root, body) {
   }
 
   const group = new THREE.Group();
-  instanced(group, k.reed, grasslandMaterials.reed(), reeds);
-  instanced(group, k.flower, grasslandMaterials.bloom(body.glow || 0), flowers);
-  instanced(group, k.bloom, grasslandMaterials.bloom(0), blooms);
+  instanced(group, k.reed, grasslandMaterials.reed(), reeds, false, PATCH);
+  instanced(group, k.flower, grasslandMaterials.bloom(body.glow || 0), flowers, false, PATCH);
+  instanced(group, k.bloom, grasslandMaterials.bloom(0), blooms, false, PATCH);
   group.userData.closeUp = true;
   root.add(group);
-  instanced(root, k.stone, grasslandMaterials.bankStone(), stones, true);
+  instanced(root, k.stone, grasslandMaterials.bankStone(), stones, true, PATCH);
   return group;
 }
