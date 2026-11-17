@@ -2,23 +2,15 @@ import * as THREE from 'three';
 import { PAINT, PaintMaterial } from './paint.js';
 import { SHEET_VERT, SHEET_FRAG, SHEET_DEPTH_FRAG, TRAIL_VERT, TRAIL_FRAG } from './map/chart-glsl.js';
 
-// MATTE: near roughness 1 the prefiltered radiance is the irradiance and the sun's lobe is negligible.
-// MATTE_IBL: the env is a soft gradient, so radiance read along the normal is indistinguishable and saves a cube-UV lookup.
-const SC = THREE.ShaderChunk;
-SC.lights_fragment_maps = SC.lights_fragment_maps.replace(
+// The env is a soft gradient, so radiance read along the normal looks the same and saves a cube-UV lookup.
+THREE.ShaderChunk.lights_fragment_maps = THREE.ShaderChunk.lights_fragment_maps.replace(
   'radiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );',
-  '#if defined( MATTE ) || defined( MATTE_IBL )\n\t\tradiance += iblIrradiance * RECIPROCAL_PI;\n\t#else\n\t\tradiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );\n\t#endif'
-);
-SC.lights_physical_pars_fragment = SC.lights_physical_pars_fragment.replace(
-  'reflectedLight.directSpecular += irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );',
-  '#ifndef MATTE\n\treflectedLight.directSpecular += irradiance * BRDF_GGX( directLight.direction, geometryViewDir, geometryNormal, material );\n\t#endif'
+  '#ifdef MATTE_IBL\n\t\tradiance += iblIrradiance * RECIPROCAL_PI;\n\t#else\n\t\tradiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );\n\t#endif'
 );
 
-// High keeps true reflections on metal; everything else reads its env radiance along the normal.
+// High keeps true reflections on metal.
 export function cheapen(mat) {
-  if (!mat.isMeshStandardMaterial) return mat;
-  if (mat.metalness === 0 && mat.roughness >= 0.9) mat.defines = { ...mat.defines, MATTE: '' };
-  else if (mat.metalness === 0 || lookTier !== 'high') mat.defines = { ...mat.defines, MATTE_IBL: '' };
+  if (mat.isMeshStandardMaterial && (mat.metalness === 0 || lookTier !== 'high')) mat.defines = { ...mat.defines, MATTE_IBL: '' };
   return mat;
 }
 const std = (params = {}) => cheapen(new THREE.MeshStandardMaterial(params));
